@@ -94,19 +94,19 @@ TYPES:BEGIN OF lv_out2.
 
 
 SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001."定义屏幕
-SELECT-OPTIONS:pvbeln FOR likp-vbeln,"条件输入框，一个for对应一个
-pvkorg FOR likp-vkorg,"for前面的是字段显示的名称，可以修改，但是注意不要超过8个字符，否则会报错
-pvbeln2 FOR vbak-vbeln,
-pwerks FOR lips-werks OBLIGATORY,
-puser FOR adrp-name_text,
-pkunnr FOR vbpa-kunnr,
-pcustom FOR vbpa-kunnr,
-psortl FOR kna1-sortl NO-EXTENSION NO INTERVALS,
-perdat FOR  likp-erdat,
-pzfhrq FOR  likp-lfdat,
-pwadat FOR  likp-wadat_ist,
-pmatnr FOR  lips-matnr,
-pwbsta FOR lips-wbsta NO-EXTENSION NO INTERVALS.
+SELECT-OPTIONS:pvbeln FOR likp-vbeln,"条件输入框，一个for对应一个，交货单
+pvkorg FOR likp-vkorg,"销售组织，for前面的是字段显示的名称，可以修改，但是注意不要超过8个字符，否则会报错
+pvbeln2 FOR vbak-vbeln,"销售订单
+pwerks FOR lips-werks OBLIGATORY,"工厂
+puser FOR adrp-name_text,"制单人
+pkunnr FOR vbpa-kunnr,"业务员
+pcustom FOR vbpa-kunnr,"客户
+psortl FOR kna1-sortl NO-EXTENSION NO INTERVALS,"检索项
+perdat FOR  likp-erdat,"创建日期
+pzfhrq FOR  likp-lfdat,"发货日期 
+pwadat FOR  likp-wadat_ist,"过账日期
+pmatnr FOR  lips-matnr,"产品代号
+pwbsta FOR lips-wbsta NO-EXTENSION NO INTERVALS."交货状态
 SELECTION-SCREEN BEGIN OF LINE.
 SELECTION-SCREEN COMMENT 1(20) TEXT-002.
 SELECTION-SCREEN POSITION 23.

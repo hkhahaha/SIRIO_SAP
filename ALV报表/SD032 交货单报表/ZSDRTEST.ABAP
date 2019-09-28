@@ -7,7 +7,7 @@ REPORT zsdrtest.
 *&---------------------------------------------------------------------*
 *& 包含               ZSD0009_TOP
 *&---------------------------------------------------------------------*
-TABLES: likp,vbak,lips,kna1,adrp,vbpa.
+TABLES: likp,vbak,lips,kna1,adrp,vbpa,usr21.
 TYPE-POOLS:slis."调用系统存在的类型池
 *在调用ALV之前，需要先定义Layout和Fieldcat，他们属于slis类型池
 DATA:fieldcat TYPE slis_t_fieldcat_alv WITH HEADER LINE,
@@ -75,7 +75,7 @@ TYPES:BEGIN OF lv_out,
         zhsdat          TYPE    likp-wadat_ist , "  生产日期
 *待定    TYPE    C ,"  保质期
 *待定    TYPE    C ,"  失效日期
-        svbeln          TYPE    vbak-vbeln  , "  销售订单号
+*        svbeln          TYPE    vbak-vbeln  , "  销售订单号
         bstkd           TYPE    vbkd-bstkd  , "  客户合同单号
         kpsum           TYPE    vbfa-rfmng , "  开票数量
         ddpprice        TYPE    prcd_elements-kbetr , "  DDP价格
@@ -96,7 +96,7 @@ TYPES:BEGIN OF lv_out2.
         zsum(20) TYPE c,
       END OF lv_out2.
 TYPES:BEGIN OF lv_main.
-        INCLUDE TYPE lips.
+
         TYPES: vkorg     TYPE likp-vkorg, "销售组织
         zfhrq     TYPE likp-zfhrq, "发货日期
         wadat_ist TYPE likp-wadat_ist, "过账日期
@@ -107,15 +107,17 @@ TYPES:BEGIN OF lv_main.
         zypsl     TYPE  vbap-zypsl, "样品数量
         mwsbp     TYPE vbap-mwsbp, "销项税额
         netwr2    TYPE  vbap-netwr, " 不含税金额
-*        mwsbp     TYPE vbap-mwsbp,
-*        netwr     TYPE vbap-netwr,
         sortl     TYPE kna1-sortl, "检索项
         kukla     TYPE kna1-kukla, "实际客户等级
 *        vkorg     TYPE vbak-vkorg,   " 销售机构VKORG
 *        vtweg     TYPE vbak-vtweg,    " 分销渠道VTWEG
 *        spart     TYPE vbak-spart,  " 产品组SPART
+        ernam2    TYPE vbak-ernam, " 创建者
         kunnr     TYPE vbak-kunnr,  " 售达方KUNNR
-      END OF lv_main.
+        waerk     TYPE vbak-waerk, "订单币别
+        knumv     TYPE vbak-knumv. "凭证条件编号
+      INCLUDE TYPE lips.
+types:END OF lv_main.
 
 
 
@@ -210,6 +212,7 @@ DATA: g_total  TYPE i,
       ls_lines LIKE tline,
       lv_name  LIKE  thead-tdname,
       lt_main  TYPE TABLE OF lv_main,
+      lt_main2 TYPE TABLE OF lv_main,
       ls_main  TYPE lv_main.
 *当筛选界面客户为空时，检索项不为空时，根据检索项获取KNA1对应的客户号KNA1-KUNNR
 
@@ -235,21 +238,32 @@ FORM getdata.
   AND likp~erdat IN perdat
   AND likp~vkorg IN pvkorg
   AND likp~vbeln IN pvbeln
-  AND vbap~vbeln IN pvbeln2.
+  AND vbap~vbeln IN pvbeln2
+  AND LIPS~vbeln = '800000498'.
   IF lt_main IS NOT INITIAL.
+
     "下面对原始数据进行处理，根据前台的筛选条件
     "根据已知的条件查询VBAK里面的数据
+
+
     SELECT
       vbak~kunnr
       kna1~sortl
       kna1~kukla
+      vbak~waerk
+      vbak~ernam AS ernam2
+      vbak~knumv
     INTO CORRESPONDING FIELDS OF TABLE lt_main
     FROM vbak
     INNER JOIN kna1
     ON kna1~kunnr = vbak~kunnr
     FOR ALL ENTRIES IN lt_main
-    WHERE vbak~vbeln = lt_main-kdauf
+    WHERE vbak~vbeln = lt_main-vgbel
       AND kna1~sortl IN psortl.
+
+
+
+
 *    DELETE TABLE lt_main WITH TABLE KEY kunnr = ''.
     "过滤掉数据
     LOOP AT lt_main INTO ls_main.
@@ -261,9 +275,253 @@ FORM getdata.
 
 
 
+
+
+
     "上面对内表中的数据进行筛选
     "往自定义的内表中插入数据，将来做数据导出
     LOOP AT lt_main INTO ls_main.
+      " ZUSER 业务员
+      SELECT SINGLE
+        name_org1
+      INTO ls_out-zuser
+      FROM but000
+      INNER JOIN vbpa
+      ON but000~partner = vbpa~kunnr
+      WHERE vbpa~vbeln = ls_main-vgbel
+        AND vbpa~posnr = ls_main-vgpos
+        AND vbpa~parvw = 'Z3'
+        AND vbpa~kunnr IN puser.
+      "客户
+      SELECT SINGLE
+      name_org1
+      INTO ls_out-zcustom
+      FROM but000
+      INNER JOIN vbpa
+      ON but000~partner = vbpa~kunnr
+      WHERE vbpa~vbeln = ls_main-vgbel
+        AND vbpa~posnr = ls_main-vgpos
+        AND vbpa~parvw = 'AG'
+        AND vbpa~kunnr IN pcustom.
+
+      "实际客户
+      SELECT SINGLE
+      name_org1
+      INTO ls_out-zruser
+      FROM but000
+      INNER JOIN vbpa
+      ON but000~partner = vbpa~kunnr
+      WHERE vbpa~vbeln = ls_main-vgbel
+        AND vbpa~posnr = ls_main-vgpos
+        AND vbpa~parvw = 'Z1'.
+      "制单人
+      SELECT SINGLE
+        name_text
+      INTO ls_out-zmakeuser
+      FROM adrp
+      INNER JOIN usr21
+      ON adrp~persnumber = usr21~persnumber
+      WHERE adrp~persnumber IN puser
+        AND usr21~bname = ls_main-ernam2.
+      "销售渠道/客户类型
+      SELECT SINGLE
+        bezei
+      INTO ls_out-bezei
+      FROM tvv1t
+      INNER JOIN knvv
+      ON knvv~kvgr1 = tvv1t~kvgr1
+      WHERE knvv~kunnr = ls_main-kunnr
+      AND knvv~vkorg = ls_main-vkorg
+      AND knvv~vtweg = ls_main-vtweg
+      AND knvv~spart = ls_main-spart.
+      "定价参考物料和定价参考物料描述
+      SELECT SINGLE
+      mvke~pmatn AS pmatn
+      makt~maktx AS maktx
+      INTO CORRESPONDING FIELDS OF ls_out
+      FROM mvke
+      INNER JOIN makt
+      ON makt~matnr = mvke~pmatn
+      WHERE mvke~matnr = ls_main-matnr
+        AND mvke~vkorg = ls_main-vkorg
+        AND mvke~vtweg = ls_main-vtweg
+        AND makt~spras = '1'.
+
+      "标准名称
+      CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
+        EXPORTING
+          matnr  = ls_main-matnr
+          atnam  = 'ZSTDNAME'
+        TABLES
+          output = lt_material.
+      READ TABLE lt_material INTO ls_material INDEX 1.
+      ls_out-zstdname = ls_material-atwrt.
+      CLEAR ls_material.
+      "包装规格
+      CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
+        EXPORTING
+          matnr  = ls_main-matnr
+          atnam  = 'ZPSPE'
+        TABLES
+          output = lt_material.
+      READ TABLE lt_material INTO ls_material INDEX 1.
+      ls_out-zpspe = ls_material-atwrt.
+      CLEAR ls_material.
+      "生产日期
+      CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
+        EXPORTING
+          matnr  = ls_main-matnr
+          atnam  = 'ZHSDAT'
+        TABLES
+          output = lt_material.
+      READ TABLE lt_material INTO ls_material INDEX 1.
+      ls_out-zhsdat = ls_material-date_from.
+      CLEAR ls_material.
+      " 打印批号
+      CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
+        EXPORTING
+          matnr  = ls_main-matnr
+          atnam  = 'ZPACK_CHARG'
+        TABLES
+          output = lt_material.
+      READ TABLE lt_material INTO ls_material INDEX 1.
+      ls_out-zpack_charg = ls_material-atwrt.
+      CLEAR ls_material.
+
+      "规格型号、物料小类编号、物料小类描述
+      SELECT SINGLE
+        groes
+        matkl
+        matkl
+      INTO CORRESPONDING FIELDS OF ls_mara
+      FROM mara
+      WHERE mara~matnr = ls_main-matnr.
+      MOVE-CORRESPONDING ls_mara TO ls_out.
+      IF ls_mara IS NOT INITIAL.
+        SELECT SINGLE
+          wgbez
+        INTO ls_out-wgbez
+        FROM t023t
+        WHERE t023t~matkl = ls_mara-matkl.
+      ENDIF.
+      "客户合同单号
+      SELECT SINGLE
+        bstkd
+      INTO ls_out-bstkd
+      FROM vbkd
+      WHERE vbkd~vbeln = ls_main-vgbel
+        AND vbkd~posnr = ls_main-vgpos.
+
+      "开票数量和DDP价格
+      SELECT SINGLE
+      kwert
+      INTO CORRESPONDING FIELDS OF ls_prcd_elements
+      FROM  prcd_elements
+      WHERE prcd_elements~knumv = ls_vbak-knumv
+      AND prcd_elements~kappl = 'Z100'
+      AND prcd_elements~kposn = ls_main-vgpos.
+      ls_out-ddpprice = ls_prcd_elements-kwert.
+      DATA count TYPE i.
+      " 开票数量
+      SELECT
+      vbelv
+      posnv
+      INTO CORRESPONDING FIELDS OF TABLE lt_vbfa
+      FROM vbfa
+      WHERE vbfa~vbtyp_v = 'M'
+      AND vbfa~vbeln = ls_main-vgbel
+      AND vbfa~posnn = ls_main-vgpos.
+      IF lt_vbfa IS NOT INITIAL.
+        LOOP AT lt_vbfa INTO ls_vbfa.
+          SELECT SINGLE
+          vbeln
+          fksto
+          INTO CORRESPONDING FIELDS OF ls_vbrk
+          FROM vbrk
+          WHERE vbrk~vbeln = ls_vbfa-vbelv.
+          IF ls_vbrk-fksto IS NOT INITIAL.
+            DELETE lt_vbfa FROM ls_vbfa-vbelv.
+          ENDIF.
+        ENDLOOP.
+        CLEAR ls_vbfa.
+        LOOP AT lt_vbfa INTO ls_vbfa.
+          IF ls_vbfa-rfmng IS NOT INITIAL.
+            count = count + 1.
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
+      ls_out-kpsum = count.
+
+      " 折扣率和折扣金额
+      SELECT SINGLE
+      kwert
+      INTO CORRESPONDING FIELDS OF ls_prcd_elements
+      FROM  prcd_elements
+      WHERE prcd_elements~knumv = ls_main-knumv
+      AND prcd_elements~kappl = 'ZP00'
+      OR prcd_elements~kappl = 'ZP02'
+      AND prcd_elements~kposn = ls_main-vgpos.
+      ls_out-discnum = ls_prcd_elements-kwert - ls_main-mwsbp - ls_main-netwr.
+      ls_out-discnum = zcl_bc_public=>decimal_to_string( ls_out-discnum )."负号前置
+      IF ls_prcd_elements-kwert IS NOT INITIAL.
+        ls_out-disclv = ( 1 - ( ls_vbap-mwsbp + ls_vbap-netwr / ls_prcd_elements-kwert ) ) * 100.
+      ENDIF.
+      IF ls_out-disclv IS NOT INITIAL.
+        ls_out-disclv = ls_out-disclv && '%'.
+      ENDIF.
+
+      " 税率
+      SELECT SINGLE
+      kbetr
+      INTO CORRESPONDING FIELDS OF ls_prcd_elements
+      FROM  prcd_elements
+      WHERE prcd_elements~knumv = ls_main-knumv
+      AND prcd_elements~kappl = 'MWSI'
+      AND prcd_elements~kposn = ls_main-vgpos.
+      ls_out-kbetr = ls_prcd_elements-kbetr.
+
+      lv_name = ls_main-vgbel.
+      "备注
+      IF ls_likp IS NOT INITIAL.
+        CALL FUNCTION 'READ_TEXT'
+          EXPORTING
+*           CLIENT                  = SY-MANDT
+            id                      = 'Z004'
+            language                = sy-langu
+            name                    = lv_name
+            object                  = 'VBBK'
+*           ARCHIVE_HANDLE          = 0
+*           LOCAL_CAT               = ' '
+*     IMPORTING
+*           HEADER                  =
+*           OLD_LINE_COUNTER        =
+          TABLES
+            lines                   = lines
+          EXCEPTIONS
+            id                      = 1
+            language                = 2
+            name                    = 3
+            not_found               = 4
+            object                  = 5
+            reference_check         = 6
+            wrong_access_to_archive = 7
+            OTHERS                  = 8.
+        IF sy-subrc <> 0.
+* Implement suitable error handling here
+        ENDIF.
+        READ TABLE lines INTO ls_lines INDEX 1.
+        ls_out-z004 = ls_lines-tdline.
+      ENDIF.
+
+
+      "上面是对尚未完善的数据进行添加操作
+      "下面是已经处理好的数据进行添加操作
+      ls_out-baxssl = ( ls_main-umvkz / ls_main-umvkn ) * ls_main-lfimg." 基本计量数量
+      ls_out-waerk = ls_main-waerk."订单币别
+      ls_out-netwr = ls_main-mwsbp + ls_main-netwr2."价税总计
+      ls_out-perprice = ( ls_main-mwsbp + ls_main-netwr2 ) / ls_main-lfimg." 含税单价
+      ls_out-sortl = ls_main-sortl."检索项
+      ls_out-kukla = ls_main-kukla."实际客户等级
       ls_out-baxssl = ( ( ls_main-umvkz / ls_main-umvkn ) * ls_main-lfimg ). "基本计量数量
       ls_out-vbeln = ls_main-vbeln ."  交货单
       ls_out-posnr = ls_main-posnr ."  行项目
@@ -293,12 +551,146 @@ FORM getdata.
       ls_out-zypsl = ls_main-zypsl ."  样品数量
       ls_out-mwsbp = ls_main-mwsbp."销项税额
       ls_out-netwr = ls_main-netwr2."不含税金额
-      ls_out-zsfxcp = ls_main-zsfxcp."新产品
-      ls_out-zypsl = ls_main-zypsl."样品数量
+      APPEND ls_out TO lt_out.
+      " 如果制单人字段为空，去掉相对应的输出行
+      IF ls_out-zmakeuser IS INITIAL.
+        DELETE TABLE lt_out FROM ls_out.
+      ENDIF.
+      "如果业务员和客户字段为空的话，去掉相对应的输出行
+      IF ls_out-zcustom IS INITIAL.
+        DELETE TABLE lt_out FROM ls_out.
+      ENDIF.
+      IF ls_out-zuser IS INITIAL AND pkunnr IS NOT INITIAL.
+        DELETE TABLE lt_out FROM ls_out.
+      ENDIF.
+      CLEAR ls_out.
     ENDLOOP.
   ENDIF.
 ENDFORM.
 FORM catalog.
+  w_repid = sy-repid.
+  CLEAR fieldcat.
+
+  DEFINE fieldcatset."宏定义
+    fieldcat-just = 'C'."字段居中显示
+    fieldcat-outputlen = 10."自定义字段的长度
+    fieldcat-fieldname = &1."透明表字段名
+    fieldcat-seltext_l = &2."ALV列名
+    fieldcat-col_pos = &3."列位置
+    APPEND fieldcat.
+  END-OF-DEFINITION.
+
+  fieldcatset   'VBELN'   '交货单'   sy-tabix.
+  fieldcatset   'POSNR'   '行项目'   sy-tabix.
+  fieldcatset   'VGBEL'   '销售订单'    sy-tabix.
+  fieldcatset   'VGPOS'   '行项目'   sy-tabix.
+  fieldcatset   'VKORG'   '销售组织'    sy-tabix.
+  fieldcatset   'WERKS'   '工厂'    sy-tabix.
+  fieldcatset   'LGORT'   '库存地址'    sy-tabix.
+  fieldcatset   'ERDAT'   '创建日期'    sy-tabix.
+  fieldcatset   'ZFHRQ'   '发货日期'    sy-tabix.
+  fieldcatset   'WADAT'   '过账日期'    sy-tabix.
+  fieldcatset   'MATNR'   '产品代号'    sy-tabix.
+  fieldcatset   'ARKTX'   '产品名称'    sy-tabix.
+  fieldcatset   'LFIMG'   '销售数量'    sy-tabix.
+  fieldcatset   'VRKME'   '销售单位'    sy-tabix.
+  fieldcatset   'ZJIANS'      '件数'    sy-tabix.
+  fieldcatset   'ZLXSL'     '零箱数量'    sy-tabix.
+  fieldcatset   'ZLFIMG'      '实发销售数量'    sy-tabix.
+  fieldcatset   'MEINS'   '基本计量单位'    sy-tabix.
+  fieldcatset   'WBSTA'   '交货单状态'   sy-tabix.
+  fieldcatset   'CHARG'   '批量流水'    sy-tabix.
+  fieldcatset   'BAXSSL'      '基本计量数量'    sy-tabix.
+  fieldcatset   'ZFHQD'     '是否特殊发货清单'    sy-tabix.
+  fieldcatset   'ZSHCOA'      '是否需要随货'    sy-tabix.
+  fieldcatset   'ZFHSX'     '发货顺序'    sy-tabix.
+  fieldcatset   'ZWMSZT'      '是否传输WMS'   sy-tabix.
+  fieldcatset   'ZUSER'     '业务员'   sy-tabix.
+  fieldcatset   'ZCUSTOM'     '客户'    sy-tabix.
+  fieldcatset   'ZRUSER'      '实际客户'    sy-tabix.
+  fieldcatset   'ZMAKEUSER'     '制单人'   sy-tabix.
+  fieldcatset   'SORTL'     '检索项'   sy-tabix.
+  fieldcatset   'KUKLA'     '实际客户等级'    sy-tabix.
+  fieldcatset   'BEZEI'     '销售渠道/客户类型'   sy-tabix.
+  fieldcatset   'PMATN'     '定价参考物料'    sy-tabix.
+  fieldcatset   'MAKTX'     '定价参考物料描述'    sy-tabix.
+  fieldcatset   'ZSTDNAME'      '标准名称'    sy-tabix.
+  fieldcatset   'GROES'     '规格型号'    sy-tabix.
+  fieldcatset   'MATKL'     '物料小类编号'    sy-tabix.
+  fieldcatset   'WGBEZ'     '物料小类描述'    sy-tabix.
+  fieldcatset   'ZPSPE'     '包装规格'    sy-tabix.
+  fieldcatset   'ZSFXCP'      '新产品'   sy-tabix.
+  fieldcatset   'ZYPSL'     '样品数量'    sy-tabix.
+  fieldcatset   'ZHSDAT'      '生产日期'    sy-tabix.
+*  fieldcatset    '待定'      保质期   sy-tabix.
+*  fieldcatset    '待定'      失效日期    sy-tabix.
+  fieldcatset   'SVBELN'      '销售订单号'   sy-tabix.
+  fieldcatset   'BSTKD'     '客户合同单号'    sy-tabix.
+  fieldcatset   'KPSUM'     '开票数量'    sy-tabix.
+  fieldcatset   'DDPPRICE'      'DDP价格'   sy-tabix.
+  fieldcatset   'PERPRICE'      '含税单价'    sy-tabix.
+  fieldcatset   'DISCLV'      '折扣率'   sy-tabix.
+  fieldcatset   'DISCNUM'     '折扣金额'    sy-tabix.
+  fieldcatset   'KBETR'     '税率'    sy-tabix.
+  fieldcatset   'MWSBP'     '销项税额'    sy-tabix.
+  fieldcatset   'NETWR'     '不含税金额'   sy-tabix.
+  fieldcatset   'NETWR'     '价税总计'    sy-tabix.
+  fieldcatset   'WAERK'     '订单币别'    sy-tabix.
+  fieldcatset   'ZPACK_CHARG'     '打印批号'    sy-tabix.
+  fieldcatset   'Z004'      '备注'    sy-tabix.
 ENDFORM.
+
 FORM alvshow.
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+*     I_INTERFACE_CHECK  = ' '
+*     I_BYPASSING_BUFFER = ' '
+*     I_BUFFER_ACTIVE    = ' '
+      i_callback_program = w_repid "程序名称
+*     I_CALLBACK_PF_STATUS_SET          = 'FRM_SET_PF_STATUS'
+*     I_CALLBACK_USER_COMMAND           = 'ALV_USER_COMMAND'"对ALV操作的时候触发所定义的子程序
+*     I_CALLBACK_TOP_OF_PAGE            = ' '
+*     I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
+*     I_CALLBACK_HTML_END_OF_LIST       = ' '
+*     I_STRUCTURE_NAME   =
+*     I_BACKGROUND_ID    = ' '
+      i_grid_title       = '交货单报表' "标题名
+*     I_GRID_SETTINGS    =
+      is_layout          = layout "程序所定义的layout名称
+      it_fieldcat        = fieldcat[] "定义fieldcat数据
+*     IT_EXCLUDING       =
+*     IT_SPECIAL_GROUPS  =
+*     IT_SORT            =
+*     IT_FILTER          =
+*     IS_SEL_HIDE        =
+*     I_DEFAULT          = 'X'
+*     I_SAVE             = ' '
+*     IS_VARIANT         =
+*     IT_EVENTS          =
+*     IT_EVENT_EXIT      =
+*     IS_PRINT           =
+*     IS_REPREP_ID       =
+*     I_SCREEN_START_COLUMN             = 0
+*     I_SCREEN_START_LINE               = 0
+*     I_SCREEN_END_COLUMN               = 0
+*     I_SCREEN_END_LINE  = 0
+*     I_HTML_HEIGHT_TOP  = 0
+*     I_HTML_HEIGHT_END  = 0
+*     IT_ALV_GRAPHICS    =
+*     IT_HYPERLINK       =
+*     IT_ADD_FIELDCAT    =
+*     IT_EXCEPT_QINFO    =
+*     IR_SALV_FULLSCREEN_ADAPTER        =
+* IMPORTING
+*     E_EXIT_CAUSED_BY_CALLER           =
+*     ES_EXIT_CAUSED_BY_USER            =
+    TABLES
+      t_outtab           = lt_out
+    EXCEPTIONS "下面都是默认的
+      program_error      = 1
+      OTHERS             = 2.
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
 ENDFORM.

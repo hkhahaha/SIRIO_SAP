@@ -97,27 +97,27 @@ TYPES:BEGIN OF lv_out2.
       END OF lv_out2.
 TYPES:BEGIN OF lv_main.
 
-        TYPES: vkorg     TYPE likp-vkorg, "销售组织
-        zfhrq     TYPE likp-zfhrq, "发货日期
-        wadat_ist TYPE likp-wadat_ist, "过账日期
-        zfhqd     TYPE    likp-zfhqd, "是否特殊发货清单
-        zshcoa    TYPE    likp-zshcoa, "是否需要随货COA
-        zwmszt    TYPE    likp-zwmszt, "是否传输WMS
-        zsfxcp    TYPE  vbap-zsfxcp, "新产品
-        zypsl     TYPE  vbap-zypsl, "样品数量
-        mwsbp     TYPE vbap-mwsbp, "销项税额
-        netwr2    TYPE  vbap-netwr, " 不含税金额
-        sortl     TYPE kna1-sortl, "检索项
-        kukla     TYPE kna1-kukla, "实际客户等级
+TYPES: vkorg     TYPE likp-vkorg, "销售组织
+       zfhrq     TYPE likp-zfhrq, "发货日期
+       wadat_ist TYPE likp-wadat_ist, "过账日期
+       zfhqd     TYPE    likp-zfhqd, "是否特殊发货清单
+       zshcoa    TYPE    likp-zshcoa, "是否需要随货COA
+       zwmszt    TYPE    likp-zwmszt, "是否传输WMS
+       zsfxcp    TYPE  vbap-zsfxcp, "新产品
+       zypsl     TYPE  vbap-zypsl, "样品数量
+       mwsbp     TYPE vbap-mwsbp, "销项税额
+       netwr2    TYPE  vbap-netwr, " 不含税金额
+       sortl     TYPE kna1-sortl, "检索项
+       kukla     TYPE kna1-kukla, "实际客户等级
 *        vkorg     TYPE vbak-vkorg,   " 销售机构VKORG
 *        vtweg     TYPE vbak-vtweg,    " 分销渠道VTWEG
 *        spart     TYPE vbak-spart,  " 产品组SPART
-        ernam2    TYPE vbak-ernam, " 创建者
-        kunnr     TYPE vbak-kunnr,  " 售达方KUNNR
-        waerk     TYPE vbak-waerk, "订单币别
-        knumv     TYPE vbak-knumv. "凭证条件编号
-      INCLUDE TYPE lips.
-types:END OF lv_main.
+       ernam2    TYPE vbak-ernam, " 创建者
+       kunnr     TYPE vbak-kunnr,  " 售达方KUNNR
+       waerk     TYPE vbak-waerk, "订单币别
+       knumv     TYPE vbak-knumv. "凭证条件编号
+       INCLUDE TYPE lips.
+       TYPES:END OF lv_main.
 
 
 
@@ -228,8 +228,10 @@ FORM getdata.
   INNER JOIN likp
   ON lips~vbeln = likp~vbeln
   INNER JOIN vbap
-  ON vbap~vbeln = lips~vgbel
-  AND vbap~posnr = lips~vgpos
+*  ON vbap~vbeln = lips~vgbel
+*  AND vbap~posnr = lips~vgpos
+  ON lips~vgbel = vbap~vbeln
+  AND lips~vgpos = vbap~posnr
   WHERE lips~werks IN pwerks
   AND lips~matnr IN pmatnr
   AND lips~wbsta IN pwbsta
@@ -238,8 +240,18 @@ FORM getdata.
   AND likp~erdat IN perdat
   AND likp~vkorg IN pvkorg
   AND likp~vbeln IN pvbeln
-  AND vbap~vbeln IN pvbeln2
-  AND LIPS~vbeln = '800000498'.
+  AND vbap~vbeln IN pvbeln2.
+
+*  需要解决的问题：
+*  VBELN字段的冲突
+
+
+
+
+
+
+
+
   IF lt_main IS NOT INITIAL.
 
     "下面对原始数据进行处理，根据前台的筛选条件

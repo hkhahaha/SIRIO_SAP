@@ -145,10 +145,12 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret2.
         ls_vbak-kunnr = zcl_bc_public=>conv_by_ddic( i_input = ls_vbak-kunnr i_out = 'X' ).
 *      ls_vbak-vbeln = zcl_bc_public=>conv_by_ddic( i_input = ls_vbak-vbeln i_out = 'X' ).
         MOVE-CORRESPONDING ls_vbak TO ls_so.
+        "9.29号，黄铠，修改自动匹配字段对应
+*        LS_SO-erdat = ls_vbak-erdat."创建日期
         READ TABLE lt_kna1 INTO ls_kna1 WITH KEY kunnr = ls_vbak-kunnr.
         IF sy-subrc = 0.
           ls_so-name = ls_kna1-name1 &&  ls_kna1-name2 && ls_kna1-name3 &&  ls_kna1-name4 .
-          MOVE-CORRESPONDING ls_kna1 TO ls_so.
+          ls_so-kukla = ls_kna1-kukla."客户等级
         ENDIF.
         READ TABLE lt_vbkd INTO ls_vbkd WITH KEY vbeln = ls_vbak-vbeln.
         IF sy-subrc = 0.
@@ -209,7 +211,8 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret2.
         FROM kna1
         WHERE kna1~kunnr = ls_vbak-kunnr.
         ls_so-name = ls_kna1-name1 && ls_kna1-name2 && ls_kna1-name3 && ls_kna1-name4.
-        " ZZSKK
+        ls_so-kukla = ls_kna1-kukla.
+        " ZZSKKNO
         SELECT SINGLE
           kunnr
         FROM vbpa
@@ -217,12 +220,15 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret2.
         WHERE vbpa~vbeln = ls_vbak-vbeln
         AND vbpa~parvw = 'Z1'.
         ls_so-zzskkno = ls_vbpa-kunnr.
-        "ZZSKKNO 字段
+        "ZZSKK 字段
         SELECT SINGLE
         *
         INTO CORRESPONDING FIELDS OF ls_but000
         FROM but000
-        WHERE but000~partner = ls_vbpa-kunnr.
+        INNER JOIN vbpa
+        ON vbpa~kunnr = but000~partner
+        WHERE vbpa~parvw = 'Z1'
+          AND but000~partner = ls_vbpa-kunnr.
         ls_so-zzskk = ls_but000-name_org1 && ls_but000-name_org2
                         && ls_but000-name_org3 && ls_but000-name_org4.
         " ZXSQD
@@ -234,15 +240,29 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret2.
         AND   knvv~vkorg = ls_vbak-vkorg
         AND   knvv~vtweg = ls_vbak-vtweg
         AND   knvv~spart = ls_vbak-spart.
-        ls_so-zxsqd = ls_knvv-kvgr1.
+        ls_so-zxsqd = ls_vbak-kvgr1.
+        SELECT SINGLE
+          bezei
+        INTO ls_so-zxsqd
+        FROM tvv1t
+        WHERE tvv1t~spras = '1'
+        AND tvv1t~kvgr1 = ls_so-zxsqd.
+        CLEAR ls_but000.
         " ZYWY
         SELECT SINGLE
-          *
+        d~bu_sort1
         INTO CORRESPONDING FIELDS OF ls_but000
-        FROM but000
-        WHERE but000~partner = ls_vbpa-kunnr.
-        ls_so-zywy = ls_but000-name_org1 && ls_but000-name_org2
-                        && ls_but000-name_org3 && ls_but000-name_org4.
+        FROM vbak AS a
+        JOIN vbap AS b
+        ON a~vbeln = b~vbeln
+        JOIN vbpa AS c
+        ON b~vbeln = c~vbeln  AND c~parvw = 'Z3'
+        JOIN but000 AS d
+        ON c~kunnr = d~partner
+        JOIN kna1 AS e
+        ON a~kunnr = e~kunnr
+        WHERE a~vbeln = ls_vbak-vbeln.
+        ls_so-zywy = ls_but000-bu_sort1.
 
 
 
@@ -251,14 +271,22 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret2.
         "下面是行内容信息
         LOOP AT lt_vbap INTO ls_vbap WHERE vbeln = ls_vbak-vbeln.
           MOVE-CORRESPONDING ls_vbap TO ls_item.
+          ls_item-zbhcl = ls_vbap-zbhcl."ZBHCL
+          SELECT SINGLE
+            *
+          INTO CORRESPONDING FIELDS OF ls_vbkd
+          FROM vbkd
+          WHERE vbkd~posnr = ls_vbap-posnr
+          AND vbkd~vbeln = ls_vbap-vbeln.
           MOVE-CORRESPONDING ls_vbkd TO ls_item.
+          ls_item-posex_e = ls_vbkd-posex_e.
           MOVE ls_vbap-posnr TO ls_item-posnr.
-          IF sy-subrc = 0.
+          IF ls_vbap IS NOT INITIAL.
             READ TABLE lt_makt INTO ls_makt WITH KEY matnr = ls_vbap-matnr.
             MOVE ls_makt-maktx TO ls_item-zcpms.
           ENDIF.
           CLEAR i_name.
-          i_name = ls_vbak-vbeln.
+          i_name = ls_vbak-vbeln && ls_vbap-posnr.
           " 行项目ZSCHXMBZ 字段
           CALL FUNCTION 'READ_TEXT'
             EXPORTING
@@ -300,7 +328,10 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret2.
       ENDLOOP.
       ls_so-item = lt_item.
     ENDLOOP.
-    APPEND ls_so TO lt_so.
+    IF lt_item IS NOT INITIAL.
+      APPEND ls_so TO lt_so.
+    ENDIF.
+
     CLEAR ls_so.
 
     c_output-so = lt_so.

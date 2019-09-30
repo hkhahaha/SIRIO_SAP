@@ -496,7 +496,7 @@ FORM frm_get_data.
             allocvalueschar = lt_allocvalueschar
             allocvaluescurr = lt_allocvaluescurr
             RETURN          = lt_return.
-          CHECK lv_status IS NOT INITIAL.
+*          CHECK lv_status IS NOT INITIAL.
           READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPSPE'.
           gs_out-zpack_sta = ls_allocvalueschar-value_char_long.
         ENDIF.
@@ -586,7 +586,7 @@ FORM frm_get_data.
               allocvalueschar = lt_allocvalueschar
               allocvaluescurr = lt_allocvaluescurr
               return          = lt_return.
-          CHECK lv_status IS NOT INITIAL.
+*          CHECK lv_status IS NOT INITIAL.
           READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_STA'.
           gs_out-zpack_sta = ls_allocvalueschar-value_char_long.
         ENDIF.
@@ -658,7 +658,7 @@ FORM frm_get_data.
             allocvalueschar = lt_allocvalueschar
             allocvaluescurr = lt_allocvaluescurr
             return          = lt_return.
-        CHECK lv_status IS NOT INITIAL.
+*        CHECK lv_status IS NOT INITIAL.
         READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZBOX_NUM'.
         gs_out-num = ls_allocvalueschar-value_char_long.
         IF gs_out-num IS INITIAL.
@@ -828,7 +828,7 @@ FORM alvshow.
 *     I_CALLBACK_HTML_END_OF_LIST       = ' '
 *     I_STRUCTURE_NAME         =
 *     I_BACKGROUND_ID          = ' '
-      i_grid_title             = '取样单报表'
+      i_grid_title             = '打印取样单'
 *     I_GRID_SETTINGS          =
       is_layout_lvc            = layout
       it_fieldcat_lvc          = fieldcat[]

@@ -92,8 +92,8 @@ TYPES:BEGIN OF lv_out,
       END OF lv_out.
 TYPES:BEGIN OF lv_out2.
         INCLUDE TYPE lv_out.
-        TYPES:zson(20) TYPE c,
-        zsum(20) TYPE c,
+        TYPES:zson(20) TYPE c, "子件
+        zsum(20) TYPE c, "铝盒装子件销售数量
       END OF lv_out2.
 TYPES:BEGIN OF lv_main.
 
@@ -270,8 +270,8 @@ DATA: g_total  TYPE i,
 *当筛选界面客户为空时，检索项不为空时，根据检索项获取KNA1对应的客户号KNA1-KUNNR
 
 PERFORM getdata.
-PERFORM catalog.
-PERFORM alvshow.
+PERFORM catalog USING flag_b.
+PERFORM alvshow USING flag_b.
 
 FORM getdata.
 *  SELECT
@@ -325,7 +325,7 @@ FORM getdata.
   vbap~zypsl
   vbap~mwsbp
   vbap~netwr
-  VBAP~POSNR AS posnr_vbap
+  vbap~posnr AS posnr_vbap
   INTO CORRESPONDING FIELDS OF TABLE lt_main
   FROM lips
   INNER JOIN likp
@@ -662,6 +662,8 @@ FORM getdata.
       ls_out-z004 = ls_lines-tdline.
 
 
+
+
       "上面是对尚未完善的数据进行添加操作
       "下面是已经处理好的数据进行添加操作
       ls_out-baxssl = ( ls_main-umvkz / ls_main-umvkn ) * ls_main-lfimg." 基本计量数量
@@ -701,6 +703,31 @@ FORM getdata.
       ls_out-zypsl = ls_main-zypsl ."  样品数量
       ls_out-mwsbp = ls_main-mwsbp."销项税额
       ls_out-netwr = ls_main-netwr."不含税金额
+
+
+      " 当是铝盒装的时候：
+      IF flag_b = 'X'.
+
+        SELECT
+        zmatnr
+        zson
+        INTO CORRESPONDING FIELDS OF TABLE lt_zaluminium
+        FROM zaluminium
+        WHERE zaluminium~zmatnr = ls_out-matnr
+        AND zaluminium~zdatefrom <= ls_out-wadat
+        AND zaluminium~zdateend >= ls_out-wadat.
+        " 当是铝盒装的时候，把数据存在lt_out2里面
+        LOOP AT lt_zaluminium INTO ls_zaluminium.
+          ls_out2-zson = ls_zaluminium-zson.
+          ls_out2-zsum = ls_zaluminium-zson * ls_out-lfimg.
+          MOVE-CORRESPONDING ls_out TO ls_out2.
+        ENDLOOP.
+        APPEND ls_out2 TO lt_out2.
+        ELSE.
+        APPEND ls_out TO lt_out.
+      ENDIF.
+
+
       APPEND ls_out TO lt_out.
       " 如果制单人字段为空，去掉相对应的输出行
 *      IF ls_out-zmakeuser IS INITIAL.
@@ -717,12 +744,12 @@ FORM getdata.
     ENDLOOP.
   ENDIF.
 ENDFORM.
-FORM catalog.
+FORM catalog USING flag_b.
   w_repid = sy-repid.
   CLEAR fieldcat.
 
   DEFINE fieldcatset."宏定义
-    fieldcat-just = 'C'."字段居中显示
+    fieldcat-just = 'L'."字段居中显示
     fieldcat-outputlen = 10."自定义字段的长度
     fieldcat-fieldname = &1."透明表字段名
     fieldcat-seltext_l = &2."ALV列名
@@ -788,59 +815,119 @@ FORM catalog.
   fieldcatset   'WAERK'     '订单币别'    sy-tabix.
   fieldcatset   'ZPACK_CHARG'     '打印批号'    sy-tabix.
   fieldcatset   'Z004'      '备注'    sy-tabix.
+
+  IF flag_b = 'X'.
+    fieldcatset   'ZSON'      '子件'    sy-tabix.
+    fieldcatset   'ZSUM'      '铝合装子件销售数量'    sy-tabix.
+  ENDIF.
 ENDFORM.
 
-FORM alvshow.
-  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
-    EXPORTING
-*     I_INTERFACE_CHECK  = ' '
-*     I_BYPASSING_BUFFER = ' '
-*     I_BUFFER_ACTIVE    = ' '
-      i_callback_program = w_repid "程序名称
-*     I_CALLBACK_PF_STATUS_SET          = 'FRM_SET_PF_STATUS'
-*     I_CALLBACK_USER_COMMAND           = 'ALV_USER_COMMAND'"对ALV操作的时候触发所定义的子程序
-*     I_CALLBACK_TOP_OF_PAGE            = ' '
-*     I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
-*     I_CALLBACK_HTML_END_OF_LIST       = ' '
-*     I_STRUCTURE_NAME   =
-*     I_BACKGROUND_ID    = ' '
-      i_grid_title       = '交货单报表' "标题名
-*     I_GRID_SETTINGS    =
-      is_layout          = layout "程序所定义的layout名称
-      it_fieldcat        = fieldcat[] "定义fieldcat数据
-*     IT_EXCLUDING       =
-*     IT_SPECIAL_GROUPS  =
-*     IT_SORT            =
-*     IT_FILTER          =
-*     IS_SEL_HIDE        =
-*     I_DEFAULT          = 'X'
-*     I_SAVE             = ' '
-*     IS_VARIANT         =
-*     IT_EVENTS          =
-*     IT_EVENT_EXIT      =
-*     IS_PRINT           =
-*     IS_REPREP_ID       =
-*     I_SCREEN_START_COLUMN             = 0
-*     I_SCREEN_START_LINE               = 0
-*     I_SCREEN_END_COLUMN               = 0
-*     I_SCREEN_END_LINE  = 0
-*     I_HTML_HEIGHT_TOP  = 0
-*     I_HTML_HEIGHT_END  = 0
-*     IT_ALV_GRAPHICS    =
-*     IT_HYPERLINK       =
-*     IT_ADD_FIELDCAT    =
-*     IT_EXCEPT_QINFO    =
-*     IR_SALV_FULLSCREEN_ADAPTER        =
+FORM alvshow USING flag_b.
+  IF flag_b = 'X'.
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+      EXPORTING
+*       I_INTERFACE_CHECK  = ' '
+*       I_BYPASSING_BUFFER = ' '
+*       I_BUFFER_ACTIVE    = ' '
+        i_callback_program = w_repid "程序名称
+*       I_CALLBACK_PF_STATUS_SET          = 'FRM_SET_PF_STATUS'
+*       I_CALLBACK_USER_COMMAND           = 'ALV_USER_COMMAND'"对ALV操作的时候触发所定义的子程序
+*       I_CALLBACK_TOP_OF_PAGE            = ' '
+*       I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
+*       I_CALLBACK_HTML_END_OF_LIST       = ' '
+*       I_STRUCTURE_NAME   =
+*       I_BACKGROUND_ID    = ' '
+        i_grid_title       = '交货单报表' "标题名
+*       I_GRID_SETTINGS    =
+        is_layout          = layout "程序所定义的layout名称
+        it_fieldcat        = fieldcat[] "定义fieldcat数据
+*       IT_EXCLUDING       =
+*       IT_SPECIAL_GROUPS  =
+*       IT_SORT            =
+*       IT_FILTER          =
+*       IS_SEL_HIDE        =
+*       I_DEFAULT          = 'X'
+*       I_SAVE             = ' '
+*       IS_VARIANT         =
+*       IT_EVENTS          =
+*       IT_EVENT_EXIT      =
+*       IS_PRINT           =
+*       IS_REPREP_ID       =
+*       I_SCREEN_START_COLUMN             = 0
+*       I_SCREEN_START_LINE               = 0
+*       I_SCREEN_END_COLUMN               = 0
+*       I_SCREEN_END_LINE  = 0
+*       I_HTML_HEIGHT_TOP  = 0
+*       I_HTML_HEIGHT_END  = 0
+*       IT_ALV_GRAPHICS    =
+*       IT_HYPERLINK       =
+*       IT_ADD_FIELDCAT    =
+*       IT_EXCEPT_QINFO    =
+*       IR_SALV_FULLSCREEN_ADAPTER        =
 * IMPORTING
-*     E_EXIT_CAUSED_BY_CALLER           =
-*     ES_EXIT_CAUSED_BY_USER            =
-    TABLES
-      t_outtab           = lt_out
-    EXCEPTIONS "下面都是默认的
-      program_error      = 1
-      OTHERS             = 2.
-  IF sy-subrc <> 0.
+*       E_EXIT_CAUSED_BY_CALLER           =
+*       ES_EXIT_CAUSED_BY_USER            =
+      TABLES
+        t_outtab           = lt_out2
+      EXCEPTIONS "下面都是默认的
+        program_error      = 1
+        OTHERS             = 2.
+    IF sy-subrc <> 0.
 * Implement suitable error handling here
-    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
+  ELSE.
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+      EXPORTING
+*       I_INTERFACE_CHECK  = ' '
+*       I_BYPASSING_BUFFER = ' '
+*       I_BUFFER_ACTIVE    = ' '
+        i_callback_program = w_repid "程序名称
+*       I_CALLBACK_PF_STATUS_SET          = 'FRM_SET_PF_STATUS'
+*       I_CALLBACK_USER_COMMAND           = 'ALV_USER_COMMAND'"对ALV操作的时候触发所定义的子程序
+*       I_CALLBACK_TOP_OF_PAGE            = ' '
+*       I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
+*       I_CALLBACK_HTML_END_OF_LIST       = ' '
+*       I_STRUCTURE_NAME   =
+*       I_BACKGROUND_ID    = ' '
+        i_grid_title       = '交货单报表' "标题名
+*       I_GRID_SETTINGS    =
+        is_layout          = layout "程序所定义的layout名称
+        it_fieldcat        = fieldcat[] "定义fieldcat数据
+*       IT_EXCLUDING       =
+*       IT_SPECIAL_GROUPS  =
+*       IT_SORT            =
+*       IT_FILTER          =
+*       IS_SEL_HIDE        =
+*       I_DEFAULT          = 'X'
+*       I_SAVE             = ' '
+*       IS_VARIANT         =
+*       IT_EVENTS          =
+*       IT_EVENT_EXIT      =
+*       IS_PRINT           =
+*       IS_REPREP_ID       =
+*       I_SCREEN_START_COLUMN             = 0
+*       I_SCREEN_START_LINE               = 0
+*       I_SCREEN_END_COLUMN               = 0
+*       I_SCREEN_END_LINE  = 0
+*       I_HTML_HEIGHT_TOP  = 0
+*       I_HTML_HEIGHT_END  = 0
+*       IT_ALV_GRAPHICS    =
+*       IT_HYPERLINK       =
+*       IT_ADD_FIELDCAT    =
+*       IT_EXCEPT_QINFO    =
+*       IR_SALV_FULLSCREEN_ADAPTER        =
+* IMPORTING
+*       E_EXIT_CAUSED_BY_CALLER           =
+*       ES_EXIT_CAUSED_BY_USER            =
+      TABLES
+        t_outtab           = lt_out
+      EXCEPTIONS "下面都是默认的
+        program_error      = 1
+        OTHERS             = 2.
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
   ENDIF.
 ENDFORM.

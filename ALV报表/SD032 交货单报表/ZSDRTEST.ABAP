@@ -97,27 +97,80 @@ TYPES:BEGIN OF lv_out2.
       END OF lv_out2.
 TYPES:BEGIN OF lv_main.
 
-TYPES: vkorg     TYPE likp-vkorg, "销售组织
-       zfhrq     TYPE likp-zfhrq, "发货日期
-       wadat_ist TYPE likp-wadat_ist, "过账日期
-       zfhqd     TYPE    likp-zfhqd, "是否特殊发货清单
-       zshcoa    TYPE    likp-zshcoa, "是否需要随货COA
-       zwmszt    TYPE    likp-zwmszt, "是否传输WMS
-       zsfxcp    TYPE  vbap-zsfxcp, "新产品
-       zypsl     TYPE  vbap-zypsl, "样品数量
-       mwsbp     TYPE vbap-mwsbp, "销项税额
-       netwr2    TYPE  vbap-netwr, " 不含税金额
-       sortl     TYPE kna1-sortl, "检索项
-       kukla     TYPE kna1-kukla, "实际客户等级
-*        vkorg     TYPE vbak-vkorg,   " 销售机构VKORG
-*        vtweg     TYPE vbak-vtweg,    " 分销渠道VTWEG
-*        spart     TYPE vbak-spart,  " 产品组SPART
-       ernam2    TYPE vbak-ernam, " 创建者
-       kunnr     TYPE vbak-kunnr,  " 售达方KUNNR
-       waerk     TYPE vbak-waerk, "订单币别
-       knumv     TYPE vbak-knumv. "凭证条件编号
-       INCLUDE TYPE lips.
-       TYPES:END OF lv_main.
+TYPES:
+  vbeln_likp  TYPE    likp-vbeln  , "  交货单
+  posnr_lips  TYPE    lips-posnr  , "  行项目
+  vgbel       TYPE    lips-vgbel  , "  销售订单
+  vgpos       TYPE    lips-vgpos  , "  行项目
+  vkorg       TYPE    likp-vkorg  , "  销售组织
+  werks       TYPE    lips-werks  , "  工厂
+  lgort       TYPE    lips-lgort  , "  库存地址
+  erdat       TYPE    likp-erdat  , "  创建日期
+  zfhrq       TYPE    likp-zfhrq  , "  发货日期
+  wadat       TYPE    likp-wadat_ist  , "  过账日期
+  matnr       TYPE    lips-matnr  , "  产品代号
+  arktx       TYPE    lips-arktx  , "  产品名称
+  lfimg       TYPE    lips-lfimg  , "  销售数量
+  vrkme       TYPE    lips-vrkme  , "  销售单位
+  zjians      TYPE    lips-zjians , "  件数
+  zlxsl       TYPE    lips-zlxsl  , "  零箱数量
+  zlfimg      TYPE    lips-lfimg  , "  实发销售数量
+  meins       TYPE    lips-meins  , "  基本计量单位
+  wbsta       TYPE    lips-wbsta  , "  交货单状态
+  charg       TYPE    lips-charg  , "  批量流水
+  baxssl      TYPE    string  , "  基本计量数量
+  zfhqd       TYPE    likp-zfhqd  , "  是否特殊发货清单
+  zshcoa      TYPE    likp-zshcoa , "  是否需要随货COA
+  zfhsx       TYPE    lips-zfhsx  , "  发货顺序
+  zwmszt      TYPE    likp-zwmszt , "  是否传输WMS
+  zuser       TYPE    but000-name_org1  , "  业务员
+  zcustom     TYPE    but000-name_org1  , "  客户
+  zruser      TYPE    but000-name_org1  , "  实际客户
+  zmakeuser   TYPE    adrp-name_text  , "  制单人
+  sortl       TYPE    kna1-sortl  , "  检索项
+  kukla       TYPE    kna1-kukla  , "  实际客户等级
+  bezei       TYPE    tvv1t-bezei , "  销售渠道/客户类型
+  pmatn       TYPE    mvke-pmatn  , "  定价参考物料
+  maktx       TYPE    makt-maktx  , "  定价参考物料描述
+  zstdname    TYPE    string  , "  标准名称
+  groes       TYPE    mara-groes  , "  规格型号
+  matkl       TYPE    mara-matkl  , "  物料小类编号
+  wgbez       TYPE    t023t-wgbez , "  物料小类描述
+  zpspe       TYPE    string  , "  包装规格
+  zsfxcp      TYPE    vbap-zsfxcp , "  新产品
+  zypsl       TYPE    vbap-zypsl  , "  样品数量
+  zhsdat      TYPE    string  , "  生产日期
+*  待定   TYPE    C ,"  保质期
+*  待定   TYPE    C ,"  失效日期
+  svbeln      TYPE    vbak-vbeln  , "  销售订单号
+  bstkd       TYPE    vbkd-bstkd  , "  客户合同单号
+  kpsum       TYPE    string  , "  开票数量
+  ddpprice    TYPE    string  , "  DDP价格
+  perprice    TYPE    string  , "  含税单价
+  disclv      TYPE    string  , "  折扣率
+  discnum     TYPE    string  , "  折扣金额
+  kbetr       TYPE    prcd_elements-kbetr , "  税率
+  mwsbp       TYPE    vbap-mwsbp  , "  销项税额
+  netwr       TYPE    vbap-netwr  , "  不含税金额
+  netwr_all   TYPE    string  , "  价税总计
+  waerk       TYPE    vbak-waerk  , "  订单币别
+  zpack_charg TYPE    string  , "  打印批号
+  z004        TYPE    string  , "  备注
+*上面是从字段里面复制过来的。
+
+  vtweg       TYPE vbak-vtweg,    " 分销渠道VTWEG
+  spart       TYPE vbak-spart,  " 产品组SPART
+  ernam2      TYPE vbak-ernam, " 创建者
+  kunnr       TYPE vbak-kunnr,  " 售达方KUNNR
+  knumv       TYPE vbak-knumv, "凭证条件编号
+
+*  下面添加查询所需要的其他字段。
+  umvkn       TYPE lips-umvkn, "分子
+  umvkz       LIKE lips-umvkz, "分母
+  vbeln_vbak  TYPE    vbak-vbeln,   "  销售订单
+  posnr_vbap  TYPE    vbap-posnr.   "  销售订单
+
+TYPES:END OF lv_main.
 
 
 
@@ -221,15 +274,63 @@ PERFORM catalog.
 PERFORM alvshow.
 
 FORM getdata.
+*  SELECT
+*    likp~vbeln
+*  INTO lt_main
+*  FROM lips
+*  INNER JOIN likp
+*  ON lips~vbeln = likp~vbeln
+*  INNER JOIN vbap
+*  ON lips~vgbel = vbap~vbeln
+*  AND lips~vgpos = vbap~posnr
+*  WHERE lips~werks IN pwerks
+*  AND lips~matnr IN pmatnr
+*  AND lips~wbsta IN pwbsta
+*  AND likp~wadat_ist IN pwadat
+*  AND likp~zfhrq IN pzfhrq
+*  AND likp~erdat IN perdat
+*  AND likp~vkorg IN pvkorg
+*  AND likp~vbeln IN pvbeln
+*  AND vbap~vbeln IN pvbeln2.
+
+*  需要解决的问题：
+*  VBELN字段的冲突
+
   SELECT
-    *
+  likp~vbeln AS vbeln_likp
+  lips~posnr AS posnr_lips
+  lips~vgbel
+  lips~vgpos
+  likp~vkorg
+  lips~werks
+  lips~lgort
+  likp~erdat
+  likp~zfhrq
+  likp~wadat_ist AS wadat
+  lips~matnr
+  lips~arktx
+  lips~lfimg
+  lips~vrkme
+  lips~zjians
+  lips~zlxsl
+  lips~lfimg AS zlfimg
+  lips~meins
+  lips~wbsta
+  lips~charg
+  likp~zfhqd
+  likp~zshcoa
+  lips~zfhsx
+  likp~zwmszt
+  vbap~zsfxcp
+  vbap~zypsl
+  vbap~mwsbp
+  vbap~netwr
+  VBAP~POSNR AS posnr_vbap
   INTO CORRESPONDING FIELDS OF TABLE lt_main
   FROM lips
   INNER JOIN likp
   ON lips~vbeln = likp~vbeln
   INNER JOIN vbap
-*  ON vbap~vbeln = lips~vgbel
-*  AND vbap~posnr = lips~vgpos
   ON lips~vgbel = vbap~vbeln
   AND lips~vgpos = vbap~posnr
   WHERE lips~werks IN pwerks
@@ -242,11 +343,6 @@ FORM getdata.
   AND likp~vbeln IN pvbeln
   AND vbap~vbeln IN pvbeln2.
 
-*  需要解决的问题：
-*  VBELN字段的冲突
-
-
-
 
 
 
@@ -257,30 +353,70 @@ FORM getdata.
     "下面对原始数据进行处理，根据前台的筛选条件
     "根据已知的条件查询VBAK里面的数据
 
+*    SELECT
+*    vbak~vbeln AS vbeln_vbak,
+*    vbak~kunnr,
+*    vbak~waerk,
+*    vbak~ernam AS ernam2,
+*    vbak~knumv
+*    INTO TABLE @DATA(lt_main2)
+*    FROM vbak
+*    FOR ALL ENTRIES IN @lt_main
+*    WHERE vbak~vbeln = @lt_main-vgbel.
+
 
     SELECT
-      vbak~kunnr
-      kna1~sortl
-      kna1~kukla
-      vbak~waerk
-      vbak~ernam AS ernam2
-      vbak~knumv
-    INTO CORRESPONDING FIELDS OF TABLE lt_main
-    FROM vbak
-    INNER JOIN kna1
-    ON kna1~kunnr = vbak~kunnr
-    FOR ALL ENTRIES IN lt_main
-    WHERE vbak~vbeln = lt_main-vgbel
-      AND kna1~sortl IN psortl.
+    vbak~vbeln AS vbeln_vbak,
+    vbak~kunnr,
+    vbak~waerk,
+    kna1~sortl,
+    kna1~kukla,
+    vbak~ernam AS ernam2,
+    vbak~knumv
+    INTO TABLE @DATA(lt_main2)
+      FROM vbak
+      INNER JOIN kna1
+      ON kna1~kunnr = vbak~kunnr
+      FOR ALL ENTRIES IN @lt_main
+      WHERE vbak~vbeln = @lt_main-vgbel
+      AND kna1~sortl IN @psortl.
+
+*    SELECT
+*      vbak~kunnr
+*      kna1~sortl
+*      kna1~kukla
+*      vbak~waerk
+*      vbak~ernam AS ernam2
+*      vbak~knumv
+*    INTO CORRESPONDING FIELDS OF TABLE lt_main
+*    FROM vbak
+*    INNER JOIN kna1
+*    ON kna1~kunnr = vbak~kunnr
+*    FOR ALL ENTRIES IN lt_main
+*    WHERE vbak~vbeln = lt_main-vgbel
+*      AND kna1~sortl IN psortl.
 
 
-
+    SORT lt_main2 BY vbeln_vbak.
 
 *    DELETE TABLE lt_main WITH TABLE KEY kunnr = ''.
     "过滤掉数据
     LOOP AT lt_main INTO ls_main.
-      IF ls_main-kunnr IS INITIAL.
-        DELETE TABLE lt_main FROM ls_main.
+      READ TABLE lt_main2 INTO DATA(ls_main2) WITH KEY vbeln_vbak = ls_main-vgbel BINARY SEARCH.
+      IF sy-subrc = 0.
+        ls_main-kunnr = ls_main2-kunnr.
+        ls_main-waerk = ls_main2-waerk.
+        ls_main-vbeln_vbak  = ls_main2-vbeln_vbak.
+        ls_main-ernam2 = ls_main2-ernam2.
+        ls_main-knumv = ls_main2-knumv.
+        ls_main-sortl = ls_main2-sortl.
+        ls_main-kukla = ls_main2-kukla.
+        IF ls_main-kunnr IS INITIAL.
+          DELETE TABLE lt_main FROM ls_main.
+          CONTINUE.
+        ELSE.
+          MODIFY lt_main FROM ls_main.
+        ENDIF.
       ENDIF.
     ENDLOOP.
 
@@ -300,8 +436,8 @@ FORM getdata.
       FROM but000
       INNER JOIN vbpa
       ON but000~partner = vbpa~kunnr
-      WHERE vbpa~vbeln = ls_main-vgbel
-        AND vbpa~posnr = ls_main-vgpos
+      WHERE vbpa~vbeln = ls_main-vbeln_likp
+      AND vbpa~posnr = ls_main-posnr_lips
         AND vbpa~parvw = 'Z3'
         AND vbpa~kunnr IN puser.
       "客户
@@ -311,8 +447,8 @@ FORM getdata.
       FROM but000
       INNER JOIN vbpa
       ON but000~partner = vbpa~kunnr
-      WHERE vbpa~vbeln = ls_main-vgbel
-        AND vbpa~posnr = ls_main-vgpos
+      WHERE vbpa~vbeln = ls_main-vbeln_likp
+      AND vbpa~posnr = ls_main-posnr_lips
         AND vbpa~parvw = 'AG'
         AND vbpa~kunnr IN pcustom.
 
@@ -323,8 +459,8 @@ FORM getdata.
       FROM but000
       INNER JOIN vbpa
       ON but000~partner = vbpa~kunnr
-      WHERE vbpa~vbeln = ls_main-vgbel
-        AND vbpa~posnr = ls_main-vgpos
+      WHERE vbpa~vbeln = ls_main-vbeln_likp
+      AND vbpa~posnr = ls_main-posnr_lips
         AND vbpa~parvw = 'Z1'.
       "制单人
       SELECT SINGLE
@@ -342,10 +478,12 @@ FORM getdata.
       FROM tvv1t
       INNER JOIN knvv
       ON knvv~kvgr1 = tvv1t~kvgr1
-      WHERE knvv~kunnr = ls_main-kunnr
-      AND knvv~vkorg = ls_main-vkorg
-      AND knvv~vtweg = ls_main-vtweg
-      AND knvv~spart = ls_main-spart.
+      INNER JOIN vbak
+      ON vbak~vkorg = knvv~vkorg
+      AND vbak~vtweg = knvv~vtweg
+      AND vbak~spart = knvv~spart
+      AND vbak~kunnr = knvv~kunnr
+      WHERE vbak~vbeln = ls_main-vbeln_vbak.
       "定价参考物料和定价参考物料描述
       SELECT SINGLE
       mvke~pmatn AS pmatn
@@ -354,6 +492,7 @@ FORM getdata.
       FROM mvke
       INNER JOIN makt
       ON makt~matnr = mvke~pmatn
+
       WHERE mvke~matnr = ls_main-matnr
         AND mvke~vkorg = ls_main-vkorg
         AND mvke~vtweg = ls_main-vtweg
@@ -404,7 +543,6 @@ FORM getdata.
       SELECT SINGLE
         groes
         matkl
-        matkl
       INTO CORRESPONDING FIELDS OF ls_mara
       FROM mara
       WHERE mara~matnr = ls_main-matnr.
@@ -421,8 +559,8 @@ FORM getdata.
         bstkd
       INTO ls_out-bstkd
       FROM vbkd
-      WHERE vbkd~vbeln = ls_main-vgbel
-        AND vbkd~posnr = ls_main-vgpos.
+      WHERE vbkd~vbeln = ls_main-vbeln_vbak
+      AND vbkd~posnr = ls_main-posnr_vbap.
 
       "开票数量和DDP价格
       SELECT SINGLE
@@ -492,51 +630,51 @@ FORM getdata.
       AND prcd_elements~kposn = ls_main-vgpos.
       ls_out-kbetr = ls_prcd_elements-kbetr.
 
-      lv_name = ls_main-vgbel.
+      lv_name = ls_main-vbeln_likp.
       "备注
-      IF ls_likp IS NOT INITIAL.
-        CALL FUNCTION 'READ_TEXT'
-          EXPORTING
-*           CLIENT                  = SY-MANDT
-            id                      = 'Z004'
-            language                = sy-langu
-            name                    = lv_name
-            object                  = 'VBBK'
-*           ARCHIVE_HANDLE          = 0
-*           LOCAL_CAT               = ' '
+      CALL FUNCTION 'READ_TEXT'
+        EXPORTING
+*         CLIENT                  = SY-MANDT
+          id                      = 'Z004'
+          language                = sy-langu
+          name                    = lv_name
+          object                  = 'VBBK'
+*         ARCHIVE_HANDLE          = 0
+*         LOCAL_CAT               = ' '
 *     IMPORTING
-*           HEADER                  =
-*           OLD_LINE_COUNTER        =
-          TABLES
-            lines                   = lines
-          EXCEPTIONS
-            id                      = 1
-            language                = 2
-            name                    = 3
-            not_found               = 4
-            object                  = 5
-            reference_check         = 6
-            wrong_access_to_archive = 7
-            OTHERS                  = 8.
-        IF sy-subrc <> 0.
+*         HEADER                  =
+*         OLD_LINE_COUNTER        =
+        TABLES
+          lines                   = lines
+        EXCEPTIONS
+          id                      = 1
+          language                = 2
+          name                    = 3
+          not_found               = 4
+          object                  = 5
+          reference_check         = 6
+          wrong_access_to_archive = 7
+          OTHERS                  = 8.
+      IF sy-subrc <> 0.
 * Implement suitable error handling here
-        ENDIF.
-        READ TABLE lines INTO ls_lines INDEX 1.
-        ls_out-z004 = ls_lines-tdline.
       ENDIF.
+      READ TABLE lines INTO ls_lines INDEX 1.
+      ls_out-z004 = ls_lines-tdline.
 
 
       "上面是对尚未完善的数据进行添加操作
       "下面是已经处理好的数据进行添加操作
       ls_out-baxssl = ( ls_main-umvkz / ls_main-umvkn ) * ls_main-lfimg." 基本计量数量
       ls_out-waerk = ls_main-waerk."订单币别
-      ls_out-netwr = ls_main-mwsbp + ls_main-netwr2."价税总计
-      ls_out-perprice = ( ls_main-mwsbp + ls_main-netwr2 ) / ls_main-lfimg." 含税单价
+      ls_out-netwr = ls_main-mwsbp + ls_main-netwr."价税总计
+      IF ls_main-lfimg IS NOT INITIAL.
+        ls_out-perprice = ( ls_main-mwsbp + ls_main-netwr ) / ls_main-lfimg." 含税单价
+      ENDIF.
       ls_out-sortl = ls_main-sortl."检索项
       ls_out-kukla = ls_main-kukla."实际客户等级
       ls_out-baxssl = ( ( ls_main-umvkz / ls_main-umvkn ) * ls_main-lfimg ). "基本计量数量
-      ls_out-vbeln = ls_main-vbeln ."  交货单
-      ls_out-posnr = ls_main-posnr ."  行项目
+      ls_out-vbeln = ls_main-vbeln_likp ."  交货单
+      ls_out-posnr = ls_main-posnr_lips ."  行项目
       ls_out-vgbel = ls_main-vgbel ."  销售订单
       ls_out-vgpos = ls_main-vgpos ."  行项目
       ls_out-vkorg = ls_main-vkorg ."  销售组织
@@ -544,7 +682,7 @@ FORM getdata.
       ls_out-lgort = ls_main-lgort ."  库存地址
       ls_out-erdat = ls_main-erdat ."  创建日期
       ls_out-zfhrq = ls_main-zfhrq ."  发货日期
-      ls_out-wadat = ls_main-wadat_ist ."  过账日期
+      ls_out-wadat = ls_main-wadat ."  过账日期
       ls_out-matnr = ls_main-matnr ."  产品代号
       ls_out-arktx = ls_main-arktx ."  产品名称
       ls_out-lfimg = ls_main-lfimg ."  销售数量
@@ -562,20 +700,20 @@ FORM getdata.
       ls_out-zsfxcp  = ls_main-zsfxcp  ."  新产品
       ls_out-zypsl = ls_main-zypsl ."  样品数量
       ls_out-mwsbp = ls_main-mwsbp."销项税额
-      ls_out-netwr = ls_main-netwr2."不含税金额
+      ls_out-netwr = ls_main-netwr."不含税金额
       APPEND ls_out TO lt_out.
       " 如果制单人字段为空，去掉相对应的输出行
-      IF ls_out-zmakeuser IS INITIAL.
-        DELETE TABLE lt_out FROM ls_out.
-      ENDIF.
-      "如果业务员和客户字段为空的话，去掉相对应的输出行
-      IF ls_out-zcustom IS INITIAL.
-        DELETE TABLE lt_out FROM ls_out.
-      ENDIF.
-      IF ls_out-zuser IS INITIAL AND pkunnr IS NOT INITIAL.
-        DELETE TABLE lt_out FROM ls_out.
-      ENDIF.
-      CLEAR ls_out.
+*      IF ls_out-zmakeuser IS INITIAL.
+*        DELETE TABLE lt_out FROM ls_out.
+*      ENDIF.
+*      "如果业务员和客户字段为空的话，去掉相对应的输出行
+*      IF ls_out-zcustom IS INITIAL.
+*        DELETE TABLE lt_out FROM ls_out.
+*      ENDIF.
+*      IF ls_out-zuser IS INITIAL AND pkunnr IS NOT INITIAL.
+*        DELETE TABLE lt_out FROM ls_out.
+*      ENDIF.
+*      CLEAR ls_out.
     ENDLOOP.
   ENDIF.
 ENDFORM.

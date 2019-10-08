@@ -51,7 +51,7 @@ ENDFORM.
 FORM frm_get_info_data USING    u_input TYPE zdt_oa2sap_salesorder_header
 CHANGING c_output TYPE zdt_oa2sap_salesorder_ret.
   TYPES: BEGIN OF ty_vbap1,
-    zcpms TYPE mara-matkl,"物料描述
+           zcpms    TYPE mara-matkl, "物料描述
            vbeln    TYPE vbap-vbeln, "订单号
            posnr    TYPE  vbap-posnr, "行项目号
            zdjzsj   TYPE  kzwi1, "单价（主数据）
@@ -78,7 +78,7 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret.
            bstkd_e  TYPE vbkd-bstkd_e , "客户合同单号
            posex_e  TYPE vbkd-posex_e , "客户合同分录
            zschxmbz TYPE c400 , "生产行项目备注
-           zsfxcp TYPE VBAP-ZSFXCP,"是否新产品
+           zsfxcp   TYPE vbap-zsfxcp, "是否新产品
          END OF ty_vbap1.
   DATA:ls_vbap1 TYPE ty_vbap1,
        lt_vbap1 TYPE TABLE OF ty_vbap1.
@@ -309,20 +309,24 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret.
           ls_item-posnr = ls_vbap-posnr.
           ls_item-matnr = ls_vbap-matnr.
           SELECT SINGLE
-          BSTKD_E
-          INTO ls_vbap1-bstkd_e
+          bstkd_e
+          posex_e
+          INTO CORRESPONDING FIELDS OF ls_vbap1
           FROM vbkd
           WHERE vbkd~posnr = ls_vbap-posnr
           AND vbkd~vbeln = ls_vbap-vbeln.
-          ls_vbap1-posex_e = ls_vbkd-posex_e.
+*          ls_vbap1-posex_e = ls_vbkd-posex_e.
+*          ls_vbap1-bstkd_e = ls_vbkd-bstkd_e.
+
           "物料描述
           SELECT SINGLE
-          MAKTX
+          maktx
           INTO ls_vbap1-zcpms
-          FROM MAKT
-          WHERE MAKT~spras = '1'
-          AND MAKT~MATNR = ls_vbap-matnr.
-
+          FROM makt
+          WHERE makt~spras = '1'
+          AND makt~matnr = ls_vbap-matnr.
+          "物料描述（行项目表头）
+          ls_item-maktx = ls_vbap1-zcpms.
 
           i_name = ls_vbak-vbeln && ls_vbap-posnr.
           " 行项目ZSCHXMBZ 字段
@@ -354,10 +358,10 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret.
           ENDIF.
           READ TABLE lt_lines INTO ls_lines INDEX 1.
           ls_vbap1-zschxmbz = ls_lines-tdline.
-          IF sy-subrc = 0.
-            READ TABLE lt_makt INTO ls_makt WITH KEY maktx = ls_vbap-matnr.
-            ls_item-maktx = ls_makt-maktx.
-          ENDIF.
+*          IF sy-subrc = 0.
+*            READ TABLE lt_makt INTO ls_makt WITH KEY maktx = ls_vbap-matnr.
+*            ls_item-maktx = ls_makt-maktx.
+*          ENDIF.
 *          接下来一行一行的插入字段名、字段值还有字段描述。
 *          ls_item-fieldname = 'zdjzsj'.
 *          ls_item-fielddes = '单价（主数据）'.

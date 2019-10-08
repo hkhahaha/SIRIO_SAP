@@ -279,223 +279,223 @@ FORM frm_pro_data USING input TYPE zmt_wms2sap_batch_chars
   ls_key-classnum = e_class.
   ls_key-classtype = e_klart.
   ls_key-object_long = e_objek.
+  "2019.10.7反复提交2次更改
 
-  CALL FUNCTION 'BAPI_OBJCL_GETDETAIL'
-    EXPORTING
-*     objectkey       = ls_key-object
-      objecttable     = ls_key-objecttable
-      classnum        = ls_key-classnum
-      classtype       = ls_key-classtype
-      objectkey_long  = ls_key-object_long
-    IMPORTING
-      status          = lv_status
-*     STANDARDCLASS   =
-    TABLES
-      allocvaluesnum  = lt_allocvaluesnum
-      allocvalueschar = lt_allocvalueschar
-      allocvaluescurr = lt_allocvaluescurr
-      return          = lt_return.
 
-  CHECK lv_status IS NOT INITIAL.
-  " 下面进行内表chartact字段完整性的校验
-  READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZOUT_X'.
-  IF sy-subrc <> 0.
-    ls_allocvalueschar-charact = 'ZOUT_X'.
-    APPEND ls_allocvalueschar TO lt_allocvalueschar.
-  ENDIF.
-  READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZST_CODE'.
-  IF sy-subrc <> 0.
-    ls_allocvalueschar-charact = 'ZST_CODE'.
-    APPEND ls_allocvalueschar TO lt_allocvalueschar.
-  ENDIF.
-  READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_CHARG'.
-  IF sy-subrc <> 0.
-    ls_allocvalueschar-charact = 'ZPACK_CHARG'.
-    APPEND ls_allocvalueschar TO lt_allocvalueschar.
-  ENDIF.
-  READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZCHARGL'.
-  IF sy-subrc <> 0.
-    ls_allocvalueschar-charact = 'ZCHARGL'.
-    APPEND ls_allocvalueschar TO lt_allocvalueschar.
-  ENDIF.
-  READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_CODE'.
-  IF sy-subrc <> 0.
-    ls_allocvalueschar-charact = 'ZPACK_CODE'.
-    APPEND ls_allocvalueschar TO lt_allocvalueschar.
-  ENDIF.
-  READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_STA'.
-  IF sy-subrc <> 0.
-    ls_allocvalueschar-charact = 'ZPACK_STA'.
-    APPEND ls_allocvalueschar TO lt_allocvalueschar.
-  ENDIF.
-  READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_QUA'.
-  IF sy-subrc <> 0.
-    ls_allocvalueschar-charact = 'ZPACK_QUA'.
-    APPEND ls_allocvalueschar TO lt_allocvalueschar.
-  ENDIF.
-  READ TABLE lt_allocvaluesnum INTO ls_allocvaluesnum WITH KEY charact = 'ZHSDAT'.
-  IF sy-subrc <> 0.
-    ls_allocvaluesnum-charact = 'ZHSDAT'.
-    APPEND ls_allocvaluesnum TO lt_allocvaluesnum.
-  ENDIF.
-  " 修改批次属性
-  LOOP AT lt_allocvalueschar INTO ls_allocvalueschar.
-    IF ls_allocvalueschar-charact = 'ZPRODUCER'." 制造商编码
-      ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-      = input-mt_wms2sap_batch_chars-producer_name.
-      ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-      = input-mt_wms2sap_batch_chars-producer_name.
-      MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+    CALL FUNCTION 'BAPI_OBJCL_GETDETAIL'
+      EXPORTING
+*       objectkey       = ls_key-object
+        objecttable     = ls_key-objecttable
+        classnum        = ls_key-classnum
+        classtype       = ls_key-classtype
+        objectkey_long  = ls_key-object_long
+      IMPORTING
+        status          = lv_status
+*       STANDARDCLASS   =
+      TABLES
+        allocvaluesnum  = lt_allocvaluesnum
+        allocvalueschar = lt_allocvalueschar
+        allocvaluescurr = lt_allocvaluescurr
+        return          = lt_return.
+
+    CHECK lv_status IS NOT INITIAL.
+    " 下面进行内表chartact字段完整性的校验
+    READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZOUT_X'.
+    IF sy-subrc <> 0.
+      ls_allocvalueschar-charact = 'ZOUT_X'.
+      APPEND ls_allocvalueschar TO lt_allocvalueschar.
     ENDIF.
-    IF ls_allocvalueschar-charact = 'ZPACK_CHARG'." 包装批号（打印）
-      ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-      = input-mt_wms2sap_batch_chars-pack_charg.
-      ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-      = input-mt_wms2sap_batch_chars-pack_charg.
-      MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+    READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZST_CODE'.
+    IF sy-subrc <> 0.
+      ls_allocvalueschar-charact = 'ZST_CODE'.
+      APPEND ls_allocvalueschar TO lt_allocvalueschar.
     ENDIF.
-    IF ls_allocvalueschar-charact = 'ZCHARGL'. " 长批号
-      ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-      = input-mt_wms2sap_batch_chars-charg.
-      ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-      = input-mt_wms2sap_batch_chars-charg.
-      MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+    READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_CHARG'.
+    IF sy-subrc <> 0.
+      ls_allocvalueschar-charact = 'ZPACK_CHARG'.
+      APPEND ls_allocvalueschar TO lt_allocvalueschar.
     ENDIF.
-    IF ls_allocvalueschar-charact = 'ZPACK_CODE'. " 包装代码
-      ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-      = input-mt_wms2sap_batch_chars-pack_code.
-      ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-      = input-mt_wms2sap_batch_chars-pack_code.
-      MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+    READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZCHARGL'.
+    IF sy-subrc <> 0.
+      ls_allocvalueschar-charact = 'ZCHARGL'.
+      APPEND ls_allocvalueschar TO lt_allocvalueschar.
     ENDIF.
-    IF ls_allocvalueschar-charact = 'ZPACK_STA'." 包装规格
-      ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-      = input-mt_wms2sap_batch_chars-groes.
-      ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-      = input-mt_wms2sap_batch_chars-groes.
-      MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+    READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_CODE'.
+    IF sy-subrc <> 0.
+      ls_allocvalueschar-charact = 'ZPACK_CODE'.
+      APPEND ls_allocvalueschar TO lt_allocvalueschar.
     ENDIF.
-    IF ls_allocvalueschar-charact = 'ZPACK_QUA'." 包装量
-      ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-      = input-mt_wms2sap_batch_chars-pack_qyt.
-      ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-      = input-mt_wms2sap_batch_chars-pack_qyt.
-      MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+    READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_STA'.
+    IF sy-subrc <> 0.
+      ls_allocvalueschar-charact = 'ZPACK_STA'.
+      APPEND ls_allocvalueschar TO lt_allocvalueschar.
     ENDIF.
-    IF ls_allocvalueschar-charact = 'ZCHARGL'." 厂批号
-      ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-      = input-mt_wms2sap_batch_chars-chargl.
-      ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-      = input-mt_wms2sap_batch_chars-chargl.
-      MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+    READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_QUA'.
+    IF sy-subrc <> 0.
+      ls_allocvalueschar-charact = 'ZPACK_QUA'.
+      APPEND ls_allocvalueschar TO lt_allocvalueschar.
     ENDIF.
-    " 对标识进行拆分
-    DATA: string(60),
-          p1(20)     VALUE '',
-          p2(20)     VALUE '',
-          p3(20)     VALUE '',
-          del(3)     VALUE ''.
-    string = input-mt_wms2sap_batch_chars-wms_ext_st.
-    p1 = string+0(1)."
-    p2 = string+1(1). "质量标识
-    p3 = string+2(1)." 寄售标识
-    " 质量标识
-    IF ls_allocvalueschar-charact = 'ZST_CODE'. " 质量标识
-      IF p2 = '1'.
+    READ TABLE lt_allocvaluesnum INTO ls_allocvaluesnum WITH KEY charact = 'ZHSDAT'.
+    IF sy-subrc <> 0.
+      ls_allocvaluesnum-charact = 'ZHSDAT'.
+      APPEND ls_allocvaluesnum TO lt_allocvaluesnum.
+    ENDIF.
+    " 修改批次属性
+    LOOP AT lt_allocvalueschar INTO ls_allocvalueschar.
+      IF ls_allocvalueschar-charact = 'ZPRODUCER'." 制造商编码
         ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-        = ' '.
+        = input-mt_wms2sap_batch_chars-producer_name.
         ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-        = ' '.
+        = input-mt_wms2sap_batch_chars-producer_name.
         MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
       ENDIF.
-      IF p2 = '2'.
+      IF ls_allocvalueschar-charact = 'ZPACK_CHARG'." 包装批号（打印）
         ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-        = 'TT'.
+        = input-mt_wms2sap_batch_chars-pack_charg.
         ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-        = 'TT'.
+        = input-mt_wms2sap_batch_chars-pack_charg.
         MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
       ENDIF.
-      IF p2 = '3'.
+      IF ls_allocvalueschar-charact = 'ZCHARGL'. " 长批号
         ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-        = 'TC'.
+        = input-mt_wms2sap_batch_chars-charg.
         ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-        = 'TC'.
+        = input-mt_wms2sap_batch_chars-charg.
         MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
       ENDIF.
-      IF p2 = '4'.
+      IF ls_allocvalueschar-charact = 'ZPACK_CODE'. " 包装代码
         ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-        = 'ZC'.
+        = input-mt_wms2sap_batch_chars-pack_code.
         ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-        = 'ZC'.
+        = input-mt_wms2sap_batch_chars-pack_code.
         MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
       ENDIF.
-    ENDIF.
-    " 寄售标识（外寄标识）
-    IF ls_allocvalueschar-charact = 'ZOUT_X'.
-      IF p3 = '1'.
+      IF ls_allocvalueschar-charact = 'ZPACK_STA'." 包装规格
         ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-        = ' '.
+        = input-mt_wms2sap_batch_chars-groes.
         ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-        = ' '.
+        = input-mt_wms2sap_batch_chars-groes.
         MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
       ENDIF.
-      IF p3 = '2'.
+      IF ls_allocvalueschar-charact = 'ZPACK_QUA'." 包装量
         ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-        = 'K'.
+        = input-mt_wms2sap_batch_chars-pack_qyt.
         ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-        = 'K'.
+        = input-mt_wms2sap_batch_chars-pack_qyt.
         MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
       ENDIF.
-    ENDIF.
-  ENDLOOP.
-  LOOP AT lt_allocvaluesnum INTO ls_allocvaluesnum.
-    IF ls_allocvaluesnum-charact = 'ZHSDAT'." 生产日期
-      ls_allocvaluesnum-value_from = input-mt_wms2sap_batch_chars-hsdat.
-      MODIFY lt_allocvaluesnum FROM ls_allocvaluesnum INDEX sy-tabix.
-    ENDIF.
-  ENDLOOP.
+      IF ls_allocvalueschar-charact = 'ZCHARGL'." 厂批号
+        ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
+        = input-mt_wms2sap_batch_chars-chargl.
+        ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
+        = input-mt_wms2sap_batch_chars-chargl.
+        MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+      ENDIF.
+      " 对标识进行拆分
+      DATA: string(60),
+            p1(20)     VALUE '',
+            p2(20)     VALUE '',
+            p3(20)     VALUE '',
+            del(3)     VALUE ''.
+      string = input-mt_wms2sap_batch_chars-wms_ext_st.
+      p1 = string+0(1)."外寄标识
+      p2 = string+1(1). "质量标识
+      p3 = string+2(1)." 寄售标识
+      " 质量标识
+      IF ls_allocvalueschar-charact = 'ZST_CODE'. " 质量标识
+        IF p2 = '1'.
+          ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
+          = ' '.
+          ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
+          = ' '.
+          MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+        ENDIF.
+        IF p2 = '2'.
+          ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
+          = 'TT'.
+          ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
+          = 'TT'.
+          MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+        ENDIF.
+        IF p2 = '3'.
+          ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
+          = 'TC'.
+          ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
+          = 'TC'.
+          MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+        ENDIF.
+        IF p2 = '4'.
+          ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
+          = 'ZC'.
+          ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
+          = 'ZC'.
+          MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+        ENDIF.
+      ENDIF.
+      " 外寄标识
+      IF ls_allocvalueschar-charact = 'ZOUT_X'.
+        IF p1 = '1'.
+          ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
+          = ' '.
+          ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
+          = ' '.
+          MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+        ENDIF.
+        IF p1 = '2'.
+          ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
+          = 'X'.
+          ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
+          = 'X'.
+          MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+        ENDIF.
+      ENDIF.
+    ENDLOOP.
+    LOOP AT lt_allocvaluesnum INTO ls_allocvaluesnum.
+      IF ls_allocvaluesnum-charact = 'ZHSDAT'." 生产日期
+        ls_allocvaluesnum-value_from = input-mt_wms2sap_batch_chars-hsdat.
+        MODIFY lt_allocvaluesnum FROM ls_allocvaluesnum INDEX sy-tabix.
+      ENDIF.
+    ENDLOOP.
 
 
 
 
-
-  CLEAR lv_status.
-  CALL FUNCTION 'BAPI_OBJCL_CHANGE'
-    EXPORTING
-*     OBJECTKEY          =
-      objecttable        = ls_key-objecttable
-      classnum           = ls_key-classnum
-      classtype          = ls_key-classtype
-      objectkey_long     = ls_key-object_long
-    IMPORTING
-      classif_status     = lv_status
-    TABLES
-      allocvaluesnumnew  = lt_allocvaluesnum
-      allocvaluescharnew = lt_allocvalueschar
-      allocvaluescurrnew = lt_allocvaluescurr
-      return             = lt_return.
+*  CLEAR lv_status.
+    CALL FUNCTION 'BAPI_OBJCL_CHANGE'
+      EXPORTING
+*       OBJECTKEY          =
+        objecttable        = ls_key-objecttable
+        classnum           = ls_key-classnum
+        classtype          = ls_key-classtype
+        objectkey_long     = ls_key-object_long
+      IMPORTING
+        classif_status     = lv_status
+      TABLES
+        allocvaluesnumnew  = lt_allocvaluesnum
+        allocvaluescharnew = lt_allocvalueschar
+        allocvaluescurrnew = lt_allocvaluescurr
+        return             = lt_return.
 * 2.调用函数"BAPI_BATCH_CHANGE"更改批次主数据字段，
 
 
 * 3.以及调用"BAPI_MATERIAL_SAVEREPLICA"更新批分类属性。
 
-  IF lv_status <> 0.
-    CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
-      EXPORTING
-        wait = 'X'.
-  ELSE.
-    CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
-    "2019.9.26添加返回的错误信息（开始）
-    READ TABLE lt_return INTO ls_return INDEX 1.
-    output-mt_wms2sap_batch_chars_ret-ret_msg = '当前批次可能正在被编辑，请稍候重试'.
-    output-mt_wms2sap_batch_chars_ret-ret_code = 'E'.
+    IF lv_status <> 0.
+      CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+        EXPORTING
+          wait = 'X'.
+    ELSE.
+      CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+      "2019.9.26添加返回的错误信息（开始）
+      READ TABLE lt_return INTO ls_return INDEX 1.
+      output-mt_wms2sap_batch_chars_ret-ret_msg = '当前批次可能正在被编辑，请稍候重试'.
+      output-mt_wms2sap_batch_chars_ret-ret_code = 'E'.
 
-    "2019.9.26添加返回的错误信息（结束）
-  ENDIF.
-  IF sy-subrc = 0.
-    output-mt_wms2sap_batch_chars_ret-werks = werks.
-    output-mt_wms2sap_batch_chars_ret-charg = charg.
-    output-mt_wms2sap_batch_chars_ret-wms_custid = '8100'.
-  ENDIF.
-
+      "2019.9.26添加返回的错误信息（结束）
+    ENDIF.
+    IF sy-subrc = 0.
+      output-mt_wms2sap_batch_chars_ret-werks = werks.
+      output-mt_wms2sap_batch_chars_ret-charg = charg.
+      output-mt_wms2sap_batch_chars_ret-wms_custid = '8100'.
+    ENDIF.
 ENDFORM.

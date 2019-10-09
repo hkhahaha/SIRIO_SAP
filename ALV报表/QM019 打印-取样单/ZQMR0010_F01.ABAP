@@ -359,7 +359,7 @@ FORM frm_get_data.
     *
   INTO CORRESPONDING FIELDS OF TABLE lt_qals
   FROM qals
-  WHERE qals~werk IN p_werks
+  WHERE qals~werk = p_werks
   AND qals~matnr IN p_matnr
   AND qals~charg IN p_charg
   AND qals~prueflos IN p_pruef.
@@ -368,7 +368,7 @@ FORM frm_get_data.
     ztxbh
   INTO  lv_out-number
   FROM zqmt007
-  WHERE zqmt007~werks IN p_werks.
+  WHERE zqmt007~werks = p_werks.
   lv_out-number = '编号:' && lv_out-number.
   IF lt_qals IS NOT INITIAL.
     LOOP AT lt_qals INTO ls_qals.
@@ -460,15 +460,15 @@ FORM frm_get_data.
         IF ls_qals-charg IS NOT INITIAL AND ls_qals-matnr IS NOT INITIAL AND ls_qals-werk IS NOT INITIAL.
           ls_qals-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_qals-matnr ).
           CALL FUNCTION 'VB_BATCH_2_CLASS_OBJECT'
-          EXPORTING
-            i_matnr = ls_qals-matnr
-            i_charg = ls_qals-charg
-            i_werks = ls_qals-werk
-          IMPORTING
-            e_objek = e_objek
-            e_obtab = e_obtab
-            e_klart = e_klart
-            e_class = e_class.
+            EXPORTING
+              i_matnr = ls_qals-matnr
+              i_charg = ls_qals-charg
+              i_werks = ls_qals-werk
+            IMPORTING
+              e_objek = e_objek
+              e_obtab = e_obtab
+              e_klart = e_klart
+              e_class = e_class.
 
 *  ls_key-object = e_objek.
           ls_key-objecttable = e_obtab.
@@ -476,26 +476,26 @@ FORM frm_get_data.
           ls_key-classtype = e_klart.
           ls_key-object_long = e_objek.
           SELECT SINGLE
-            MATKL
-          INTO LS_KEY-classnum
-          FROM MARA
-          WHERE MARA~MATNR = ls_qals-matnr.
+            matkl
+          INTO ls_key-classnum
+          FROM mara
+          WHERE mara~matnr = ls_qals-matnr.
 
           CALL FUNCTION 'BAPI_OBJCL_GETDETAIL'
-          EXPORTING
+            EXPORTING
 *             objectkey       = ls_key-object
-            objecttable     = ls_key-objecttable
-            classnum        = ls_key-classnum
-            classtype       = '001'
-            objectkey_long  = ls_key-object_long
-          IMPORTING
-            status          = lv_status
+              objecttable     = ls_key-objecttable
+              classnum        = ls_key-classnum
+              classtype       = '001'
+              objectkey_long  = ls_key-object_long
+            IMPORTING
+              status          = lv_status
 *             STANDARDCLASS   =
-          TABLES
-            allocvaluesnum  = lt_allocvaluesnum
-            allocvalueschar = lt_allocvalueschar
-            allocvaluescurr = lt_allocvaluescurr
-            RETURN          = lt_return.
+            TABLES
+              allocvaluesnum  = lt_allocvaluesnum
+              allocvalueschar = lt_allocvalueschar
+              allocvaluescurr = lt_allocvaluescurr
+              return          = lt_return.
 *          CHECK lv_status IS NOT INITIAL.
           READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPSPE'.
           gs_out-zpack_sta = ls_allocvalueschar-value_char_long.
@@ -882,4 +882,22 @@ FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
 
   ENDCASE.
   CALL SCREEN 0100.                  .  " FORM-Routines
+ENDFORM.
+
+FORM frm_authority_check.
+*  DATA lv_werks TYPE werks_d.
+  AUTHORITY-CHECK OBJECT 'Q_INSPLOT'
+*  ID 'QACT_ILOT' FIELD 'xxxxxxxx'
+   ID 'WERKS' FIELD p_werks.
+*  ID 'QPRUEFART' FIELD 'xxxxxxxx'
+*  ID 'QMATAUTH' FIELD 'xxxxxxxx'.
+  IF sy-subrc <> 0.
+* Implement a suitable exception handling here
+    MESSAGE '权限检查失败' TYPE 'E'.
+    gv_sel_error = 'X'.
+  ELSE.
+    MESSAGE '有权限' TYPE 'S'.
+    gv_sel_error = ''.
+  ENDIF.
+
 ENDFORM.

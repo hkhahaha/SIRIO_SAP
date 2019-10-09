@@ -6,6 +6,10 @@ FUNCTION z_mm_pi_batch_chars. "MM029
 *"  EXPORTING
 *"     REFERENCE(OUTPUT) TYPE  ZMT_WMS2SAP_BATCH_CHARS_RET
 *"----------------------------------------------------------------------
+  DO 5 TIMES.
+
+
+
   PERFORM frm_chk_data USING input
                         CHANGING output.
 
@@ -14,6 +18,8 @@ FUNCTION z_mm_pi_batch_chars. "MM029
                          CHANGING output.
   ENDIF.
 
+  WAIT UP TO 1 SECONDS.
+  ENDDO.
 
 
 

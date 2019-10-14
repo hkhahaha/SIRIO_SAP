@@ -118,15 +118,15 @@ FORM frm_pro_data USING input TYPE zmt_wms2sap_batch_chars
   DATA:lv_ret    TYPE TABLE OF bapiret2,
        ls_ret    TYPE bapiret2,
        lv_output LIKE bapibatchatt.
-  DATA:LS_MARA TYPE MARA.
+  DATA:ls_mara TYPE mara.
   DATA:material         TYPE bapibatchkey-material,
-        batch            TYPE bapibatchkey-batch,
-        plant            TYPE bapibatchkey-plant,
-        batchattributes  LIKE  bapibatchatt,
-        batchattributesx LIKE  bapibatchattx,
-        matnr            LIKE mara-matnr,
-        werks            LIKE marc-werks,
-        charg            LIKE mcha-charg.
+       batch            TYPE bapibatchkey-batch,
+       plant            TYPE bapibatchkey-plant,
+       batchattributes  LIKE  bapibatchatt,
+       batchattributesx LIKE  bapibatchattx,
+       matnr            LIKE mara-matnr,
+       werks            LIKE marc-werks,
+       charg            LIKE mcha-charg.
   input_matnr = input-mt_wms2sap_batch_chars-matnr.
   input_charg = input-mt_wms2sap_batch_chars-charg.
   input_werks = input-mt_wms2sap_batch_chars-werks.
@@ -134,7 +134,7 @@ FORM frm_pro_data USING input TYPE zmt_wms2sap_batch_chars
   "获取物料类型
   SELECT SINGLE
     mtart
-  INTO CORRESPONDING FIELDS OF LS_MARA
+  INTO CORRESPONDING FIELDS OF ls_mara
   FROM mara
   WHERE mara~matnr = material.
 
@@ -311,47 +311,47 @@ FORM frm_pro_data USING input TYPE zmt_wms2sap_batch_chars
   CHECK lv_status IS NOT INITIAL.
   " 下面进行内表chartact字段完整性的校验
   READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZOUT_X'.
-  IF sy-subrc <> 0 AND LS_MARA-mtart = 'Z010'.
+  IF sy-subrc <> 0 AND ls_mara-mtart <> 'Z050' AND ls_mara-mtart <> 'Z030'.
     ls_allocvalueschar-charact = 'ZOUT_X'.
     APPEND ls_allocvalueschar TO lt_allocvalueschar.
   ENDIF.
   READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZST_CODE'.
-  IF sy-subrc <> 0 AND LS_MARA-mtart = 'Z010'.
+  IF sy-subrc <> 0 AND ls_mara-mtart <> 'Z050' AND ls_mara-mtart <> 'Z030'.
     ls_allocvalueschar-charact = 'ZST_CODE'.
     APPEND ls_allocvalueschar TO lt_allocvalueschar.
   ENDIF.
   READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_CHARG'.
-  IF sy-subrc <> 0 AND LS_MARA-mtart = 'Z010'.
+  IF sy-subrc <> 0 AND ls_mara-mtart <> 'Z050' AND ls_mara-mtart <> 'Z030'.
     ls_allocvalueschar-charact = 'ZPACK_CHARG'.
     APPEND ls_allocvalueschar TO lt_allocvalueschar.
   ENDIF.
-  READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'Z_BATCH_DYPC'."成品的打印批号
-  IF sy-subrc <> 0 AND LS_MARA-mtart = 'Z050'.
-    ls_allocvalueschar-charact = 'Z_BATCH_DYPC'.
-    APPEND ls_allocvalueschar TO lt_allocvalueschar.
-  ENDIF.
+*  READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'Z_BATCH_DYPC'."成品的打印批号
+*  IF sy-subrc <> 0.
+*    ls_allocvalueschar-charact = 'Z_BATCH_DYPC'.
+*    APPEND ls_allocvalueschar TO lt_allocvalueschar.
+*  ENDIF.
   READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZCHARGL'.
-  IF sy-subrc <> 0 AND LS_MARA-mtart = 'Z010'.
+  IF sy-subrc <> 0 AND ls_mara-mtart <> 'Z050' AND ls_mara-mtart <> 'Z030'.
     ls_allocvalueschar-charact = 'ZCHARGL'.
     APPEND ls_allocvalueschar TO lt_allocvalueschar.
   ENDIF.
   READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_CODE'.
-  IF sy-subrc <> 0 AND LS_MARA-mtart = 'Z010'.
+  IF sy-subrc <> 0 AND ls_mara-mtart <> 'Z050' AND ls_mara-mtart <> 'Z030'.
     ls_allocvalueschar-charact = 'ZPACK_CODE'.
     APPEND ls_allocvalueschar TO lt_allocvalueschar.
   ENDIF.
   READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_STA'.
-  IF sy-subrc <> 0 AND LS_MARA-mtart = 'Z010'.
+  IF sy-subrc <> 0 AND ls_mara-mtart <> 'Z050' AND ls_mara-mtart <> 'Z030'.
     ls_allocvalueschar-charact = 'ZPACK_STA'.
     APPEND ls_allocvalueschar TO lt_allocvalueschar.
   ENDIF.
   READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_QUA'.
-  IF sy-subrc <> 0 AND LS_MARA-mtart = 'Z010'.
+  IF sy-subrc <> 0 AND ls_mara-mtart <> 'Z050' AND ls_mara-mtart <> 'Z030'.
     ls_allocvalueschar-charact = 'ZPACK_QUA'.
     APPEND ls_allocvalueschar TO lt_allocvalueschar.
   ENDIF.
   READ TABLE lt_allocvaluesnum INTO ls_allocvaluesnum WITH KEY charact = 'ZHSDAT'.
-  IF sy-subrc <> 0 AND LS_MARA-mtart = 'Z010'.
+  IF sy-subrc <> 0 .
     ls_allocvaluesnum-charact = 'ZHSDAT'.
     APPEND ls_allocvaluesnum TO lt_allocvaluesnum.
   ENDIF.
@@ -385,13 +385,13 @@ FORM frm_pro_data USING input TYPE zmt_wms2sap_batch_chars
       = input-mt_wms2sap_batch_chars-pack_code.
       MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
     ENDIF.
-    IF ls_allocvalueschar-charact = 'Z_BATCH_DYPC'. " 包装代码(成品的)
-      ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
-      = INPUT-mt_wms2sap_batch_chars-pack_code.
-      ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
-      = INPUT-mt_wms2sap_batch_chars-pack_code.
-      MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
-    ENDIF.
+*    IF ls_allocvalueschar-charact = 'Z_BATCH_DYPC'. " 包装代码(成品的)
+*      ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
+*      = INPUT-mt_wms2sap_batch_chars-pack_code.
+*      ls_allocvalueschar-value_neutral_long = ls_allocvalueschar-value_neutral
+*      = INPUT-mt_wms2sap_batch_chars-pack_code.
+*      MODIFY lt_allocvalueschar FROM ls_allocvalueschar INDEX sy-tabix.
+*    ENDIF.
     IF ls_allocvalueschar-charact = 'ZPACK_STA'." 包装规格
       ls_allocvalueschar-value_char_long = ls_allocvalueschar-value_char
       = input-mt_wms2sap_batch_chars-groes.
@@ -477,13 +477,18 @@ FORM frm_pro_data USING input TYPE zmt_wms2sap_batch_chars
       ls_allocvaluesnum-value_from = input-mt_wms2sap_batch_chars-hsdat.
       ls_allocvaluesnum-value_to = input-mt_wms2sap_batch_chars-hsdat.
       ls_allocvaluesnum-value_relation = '1'.
-*        ls_allocvaluesnum-value_from = zcl_bc_public=>date_to_float( input-mt_wms2sap_batch_chars-hsdat ).
+*      CLEAR ls_allocvaluesnum-value_from.
+*      CLEAR ls_allocvaluesnum-value_to.
+*      ls_allocvaluesnum-value_from = zcl_bc_public=>date_to_float( input-mt_wms2sap_batch_chars-hsdat ).
+*      ls_allocvaluesnum-value_to = zcl_bc_public=>date_to_float( input-mt_wms2sap_batch_chars-hsdat ).
       MODIFY lt_allocvaluesnum FROM ls_allocvaluesnum INDEX sy-tabix.
     ENDIF.
     IF ls_allocvaluesnum-charact = 'ZVFDAT'." 货架寿命到期日
       ls_allocvaluesnum-value_from = input-mt_wms2sap_batch_chars-vfdat.
       ls_allocvaluesnum-value_to = input-mt_wms2sap_batch_chars-vfdat.
       ls_allocvaluesnum-value_relation = '1'.
+*      CLEAR ls_allocvaluesnum-value_from.
+*      CLEAR ls_allocvaluesnum-value_to.
 *        ls_allocvaluesnum-value_from = zcl_bc_public=>date_to_float( input-mt_wms2sap_batch_chars-hsdat ).
       MODIFY lt_allocvaluesnum FROM ls_allocvaluesnum INDEX sy-tabix.
     ENDIF.
@@ -494,6 +499,7 @@ FORM frm_pro_data USING input TYPE zmt_wms2sap_batch_chars
 *        ls_allocvaluesnum-value_from = zcl_bc_public=>date_to_float( input-mt_wms2sap_batch_chars-hsdat ).
       MODIFY lt_allocvaluesnum FROM ls_allocvaluesnum INDEX sy-tabix.
     ENDIF.
+    CLEAR ls_allocvaluesnum.
   ENDLOOP.
 
 
@@ -528,7 +534,7 @@ FORM frm_pro_data USING input TYPE zmt_wms2sap_batch_chars
     "2019.9.26添加返回的错误信息（开始）
     READ TABLE lt_return INTO ls_return INDEX 1.
 *    output-mt_wms2sap_batch_chars_ret-ret_msg = '当前批次可能正在被编辑，请稍候重试'.
-    OUTPUT-mt_wms2sap_batch_chars_ret-ret_msg = ls_return-MESSAGE.
+    output-mt_wms2sap_batch_chars_ret-ret_msg = ls_return-message.
     output-mt_wms2sap_batch_chars_ret-ret_code = 'E'.
 
     "2019.9.26添加返回的错误信息（结束）

@@ -4,7 +4,7 @@
 *& Include ZQMROO10_TOP                             - Report ZQMR0010
 *&---------------------------------------------------------------------*
 REPORT zqmr0010.
-TABLES: qals.
+TABLES: qals,mara.
 
 TYPES:BEGIN OF typ_out,"选择屏幕读取
         matnr         LIKE qals-matnr, "物料编号
@@ -53,9 +53,15 @@ DATA:grf_container     TYPE REF TO cl_gui_custom_container,
      gv_initialized(1),
      gv_item_url(256).
 DATA:gs_qals TYPE qals.
+DATA gv_sel_error TYPE flag.
 SELECTION-SCREEN: BEGIN OF BLOCK blk1.
-SELECT-OPTIONS :p_matnr FOR gs_qals-matnr, "检验批号
-              p_charg FOR gs_qals-charg, "检验批号
-              p_pruef FOR gs_qals-prueflos, "检验批号
-              p_werks FOR gs_qals-werk OBLIGATORY." 工厂
+SELECT-OPTIONS :p_dat FOR gs_qals-enstehdat,"检验批创建日期
+            p_matkl FOR  mara-matkl,"物料组
+            p_art FOR gs_qals-art," 检验类型
+            p_matnr FOR gs_qals-matnr, "检验批号
+            p_charg FOR gs_qals-charg, "检验批号
+            p_pruef FOR gs_qals-prueflos. "检验批号
+*              p_werks FOR gs_qals-werk OBLIGATORY." 工厂
+
+PARAMETERS:   p_werks TYPE werks_d OBLIGATORY." 工厂
 SELECTION-SCREEN:END OF BLOCK blk1.

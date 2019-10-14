@@ -372,7 +372,8 @@ FORM getdata.
     kna1~sortl,
     kna1~kukla,
     vbak~ernam AS ernam2,
-    vbak~knumv
+    vbak~knumv,
+    vbak~vtweg
     INTO TABLE @DATA(lt_main2)
       FROM vbak
       INNER JOIN kna1
@@ -411,6 +412,7 @@ FORM getdata.
         ls_main-knumv = ls_main2-knumv.
         ls_main-sortl = ls_main2-sortl.
         ls_main-kukla = ls_main2-kukla.
+        ls_main-vtweg = ls_main2-vtweg.
         IF ls_main-kunnr IS INITIAL.
           DELETE TABLE lt_main FROM ls_main.
           CONTINUE.
@@ -437,7 +439,7 @@ FORM getdata.
       INNER JOIN vbpa
       ON but000~partner = vbpa~kunnr
       WHERE vbpa~vbeln = ls_main-vbeln_likp
-      AND vbpa~posnr = ls_main-posnr_lips
+      AND vbpa~posnr = ''
         AND vbpa~parvw = 'Z3'
         AND vbpa~kunnr IN puser.
       "客户
@@ -448,7 +450,7 @@ FORM getdata.
       INNER JOIN vbpa
       ON but000~partner = vbpa~kunnr
       WHERE vbpa~vbeln = ls_main-vbeln_likp
-      AND vbpa~posnr = ls_main-posnr_lips
+      AND vbpa~posnr = ''
         AND vbpa~parvw = 'AG'
         AND vbpa~kunnr IN pcustom.
 
@@ -460,7 +462,7 @@ FORM getdata.
       INNER JOIN vbpa
       ON but000~partner = vbpa~kunnr
       WHERE vbpa~vbeln = ls_main-vbeln_likp
-      AND vbpa~posnr = ls_main-posnr_lips
+      AND vbpa~posnr = ''
         AND vbpa~parvw = 'Z1'.
       "制单人
       SELECT SINGLE
@@ -626,7 +628,7 @@ FORM getdata.
       INTO CORRESPONDING FIELDS OF ls_prcd_elements
       FROM  prcd_elements
       WHERE prcd_elements~knumv = ls_main-knumv
-      AND prcd_elements~kappl = 'MWSI'
+      AND prcd_elements~kschl = 'MWSI'
       AND prcd_elements~kposn = ls_main-vgpos.
       ls_out-kbetr = ls_prcd_elements-kbetr.
 
@@ -685,6 +687,7 @@ FORM getdata.
       ls_out-erdat = ls_main-erdat ."  创建日期
       ls_out-zfhrq = ls_main-zfhrq ."  发货日期
       ls_out-wadat = ls_main-wadat ."  过账日期
+      ls_main-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_main-matnr i_out = 'X' ).
       ls_out-matnr = ls_main-matnr ."  产品代号
       ls_out-arktx = ls_main-arktx ."  产品名称
       ls_out-lfimg = ls_main-lfimg ."  销售数量
@@ -704,31 +707,37 @@ FORM getdata.
       ls_out-mwsbp = ls_main-mwsbp."销项税额
       ls_out-netwr = ls_main-netwr."不含税金额
 
+      IF ls_out-zlfimg IS NOT INITIAL.
+        " 当是铝盒装的时候：
+        IF flag_b = 'X'.
 
-      " 当是铝盒装的时候：
-      IF flag_b = 'X'.
-
-        SELECT
-        zmatnr
-        zson
-        INTO CORRESPONDING FIELDS OF TABLE lt_zaluminium
-        FROM zaluminium
-        WHERE zaluminium~zmatnr = ls_out-matnr
-        AND zaluminium~zdatefrom <= ls_out-wadat
-        AND zaluminium~zdateend >= ls_out-wadat.
-        " 当是铝盒装的时候，把数据存在lt_out2里面
-        LOOP AT lt_zaluminium INTO ls_zaluminium.
-          ls_out2-zson = ls_zaluminium-zson.
-          ls_out2-zsum = ls_zaluminium-zson * ls_out-lfimg.
+          SELECT
+          zmatnr
+          zson
+          INTO CORRESPONDING FIELDS OF TABLE lt_zaluminium
+          FROM zaluminium
+          WHERE zaluminium~zmatnr = ls_out-matnr
+          AND zaluminium~zdatefrom <= ls_out-wadat
+          AND zaluminium~zdateend >= ls_out-wadat.
+          " 当是铝盒装的时候，把数据存在lt_out2里面
+          LOOP AT lt_zaluminium INTO ls_zaluminium.
+            ls_out2-zson = ls_zaluminium-zson.
+            ls_out2-zsum = ls_zaluminium-zson * ls_out-lfimg.
+            MOVE-CORRESPONDING ls_out TO ls_out2.
+          ENDLOOP.
           MOVE-CORRESPONDING ls_out TO ls_out2.
-        ENDLOOP.
-        APPEND ls_out2 TO lt_out2.
+          IF ls_out2-vbeln IS NOT INITIAL.
+            APPEND ls_out2 TO lt_out2.
+          ENDIF.
         ELSE.
-        APPEND ls_out TO lt_out.
+          APPEND ls_out TO lt_out.
+        ENDIF.
+
+        IF ls_out-vbeln IS NOT INITIAL.
+          APPEND ls_out TO lt_out.
+        ENDIF.
       ENDIF.
 
-
-      APPEND ls_out TO lt_out.
       " 如果制单人字段为空，去掉相对应的输出行
 *      IF ls_out-zmakeuser IS INITIAL.
 *        DELETE TABLE lt_out FROM ls_out.

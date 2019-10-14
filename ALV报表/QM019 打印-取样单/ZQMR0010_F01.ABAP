@@ -335,7 +335,9 @@ FORM frm_get_data.
        ls_qamv     TYPE qamv,
        lt_qamv     TYPE TABLE OF qamv,
        lt_tq11t    TYPE TABLE OF tq11t,
-       ls_tq11t    TYPE tq11t.
+       ls_tq11t    TYPE tq11t,
+       ls_ekpo     TYPE ekpo,
+       ls_t006a    TYPE t006a.
   TYPES:BEGIN OF lv_out,
           pqtxt TYPE tq11t-pqtxt,
         END OF lv_out.
@@ -359,10 +361,17 @@ FORM frm_get_data.
     *
   INTO CORRESPONDING FIELDS OF TABLE lt_qals
   FROM qals
+  INNER JOIN mara
+  ON mara~matnr = qals~matnr
   WHERE qals~werk = p_werks
   AND qals~matnr IN p_matnr
   AND qals~charg IN p_charg
-  AND qals~prueflos IN p_pruef.
+  AND qals~prueflos IN p_pruef
+  AND qals~enstehdat IN p_dat
+  AND mara~matkl IN p_matkl
+  AND qals~art IN p_art.
+*  AND qals~matnr = '000000000100000766'
+*  AND qals~charg = '0000000687'.
   "编号
   SELECT SINGLE
     ztxbh
@@ -376,8 +385,79 @@ FORM frm_get_data.
       gs_out-matnr = ls_qals-matnr."物料代码
       gs_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = gs_out-matnr i_out = 'X' ).
       gs_out-charg = ls_qals-charg." 批次号
+*      gs_out-lmengeist = ls_qals-lmengeist && ls_qals-mengeneinh." 批量
+      SELECT SINGLE
+        menge
+        meinh
+      INTO CORRESPONDING FIELDS OF ls_qprs
+      FROM qprs
+      WHERE qprs~charg = ls_qals-charg
+      AND qprs~prart = '1'.
+
+      SELECT SINGLE
+        msehl
+      INTO CORRESPONDING FIELDS OF ls_t006a
+      FROM t006a
+      WHERE t006a~msehi = ls_qals-mengeneinh
+      AND t006a~spras = '1'.
+      "获取转换之后的值
+      CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+        EXPORTING
+          input          = ls_qals-mengeneinh
+          language       = sy-langu
+        IMPORTING
+*         LONG_TEXT      =
+          output         = ls_qals-mengeneinh
+*         SHORT_TEXT     =
+        EXCEPTIONS
+          unit_not_found = 1
+          OTHERS         = 2.
+      IF sy-subrc <> 0.
+* Implement suitable error handling here
+      ENDIF.
       gs_out-lmengeist = ls_qals-lmengeist && ls_qals-mengeneinh." 批量
-      gs_out-gesstichpr = ls_qals-gesstichpr && ls_qals-einhprobe." 检验量
+
+
+
+
+
+
+
+
+*      gs_out-gesstichpr = ls_qals-gesstichpr && ls_qals-einhprobe." 检验量
+      SELECT SINGLE
+        menge
+        meinh
+      INTO CORRESPONDING FIELDS OF ls_qprs
+      FROM qprs
+      WHERE qprs~charg = ls_qals-charg
+      AND qprs~prtyp = '1'.
+
+      SELECT SINGLE
+        msehl
+      INTO CORRESPONDING FIELDS OF ls_t006a
+      FROM t006a
+      WHERE t006a~msehi = ls_qprs-meinh.
+
+      "获取转换之后的值
+      CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+        EXPORTING
+          input          = ls_qprs-meinh
+          language       = sy-langu
+        IMPORTING
+*         LONG_TEXT      =
+          output         = ls_qprs-meinh
+*         SHORT_TEXT     =
+        EXCEPTIONS
+          unit_not_found = 1
+          OTHERS         = 2.
+      IF sy-subrc <> 0.
+* Implement suitable error handling here
+      ENDIF.
+      gs_out-gesstichpr = ls_qprs-menge && ls_qprs-meinh.
+
+
+
       "长期稳定性考察
       IF ls_qals-zcqwdxly IS INITIAL.
         gs_out-zcqwdxly = '无'.
@@ -429,8 +509,10 @@ FORM frm_get_data.
         WHERE zppt0001~matnr = ls_qals-matnr
         AND zppt0001~charg = ls_qals-charg.
         gs_out-zchanx = ls_zppt0001-zchanx.
+        CLEAR ls_zppt0001.
         " 规格
         gs_out-zpack_sta = ls_mara-groes.
+        CLEAR ls_mara-groes.
         "留样观察
         SELECT SINGLE
         *
@@ -444,7 +526,7 @@ FORM frm_get_data.
         FROM vbap
         WHERE vbap~vbeln = ls_zppt0001-kdauf
         AND vbap~posnr = ls_zppt0001-kdpos.
-        IF ls_vbap-zsfxbz = 'ABC'.
+        IF ls_vbap-zsfxbz = 'A' OR ls_vbap-zsfxbz = 'B' OR ls_vbap-zsfxbz = 'C'.
           gs_out-zsfxbz = '7个包装单位'.
         ENDIF.
 *        gs_out-zsfxbz = ls_vbap-zsfxbz.
@@ -458,47 +540,59 @@ FORM frm_get_data.
 *          AND ausp~atinn = 'ZPSPE'.
 *        gs_out-zpack_sta = ls_ausp-atwrt.
         IF ls_qals-charg IS NOT INITIAL AND ls_qals-matnr IS NOT INITIAL AND ls_qals-werk IS NOT INITIAL.
+*          ls_qals-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_qals-matnr ).
+*          CALL FUNCTION 'VB_BATCH_2_CLASS_OBJECT'
+*            EXPORTING
+*              i_matnr = ls_qals-matnr
+*              i_charg = ls_qals-charg
+*              i_werks = ls_qals-werk
+*            IMPORTING
+*              e_objek = e_objek
+*              e_obtab = e_obtab
+*              e_klart = e_klart
+*              e_class = e_class.
+*
+**  ls_key-object = e_objek.
+*          ls_key-objecttable = e_obtab.
+*          ls_key-classnum = e_class.
+*          ls_key-classtype = e_klart.
+*          ls_key-object_long = e_objek.
+*          SELECT SINGLE
+*            matkl
+*          INTO ls_key-classnum
+*          FROM mara
+*          WHERE mara~matnr = ls_qals-matnr.
+*
+*          CALL FUNCTION 'BAPI_OBJCL_GETDETAIL'
+*            EXPORTING
+**             objectkey       = ls_key-object
+*              objecttable     = ls_key-objecttable
+*              classnum        = ls_key-classnum
+*              classtype       = '001'
+*              objectkey_long  = ls_key-object_long
+*            IMPORTING
+*              status          = lv_status
+**             STANDARDCLASS   =
+*            TABLES
+*              allocvaluesnum  = lt_allocvaluesnum
+*              allocvalueschar = lt_allocvalueschar
+*              allocvaluescurr = lt_allocvaluescurr
+*              return          = lt_return.
+**          CHECK lv_status IS NOT INITIAL.
+*          READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPSPE'.
+**          gs_out-zpack_sta = ls_allocvalueschar-value_char_long.
+          DATA:lt_output2 LIKE TABLE OF zmaterial_tx_value,
+               ls_output2 LIKE zmaterial_tx_value.
           ls_qals-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_qals-matnr ).
-          CALL FUNCTION 'VB_BATCH_2_CLASS_OBJECT'
+          CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
             EXPORTING
-              i_matnr = ls_qals-matnr
-              i_charg = ls_qals-charg
-              i_werks = ls_qals-werk
-            IMPORTING
-              e_objek = e_objek
-              e_obtab = e_obtab
-              e_klart = e_klart
-              e_class = e_class.
-
-*  ls_key-object = e_objek.
-          ls_key-objecttable = e_obtab.
-          ls_key-classnum = e_class.
-          ls_key-classtype = e_klart.
-          ls_key-object_long = e_objek.
-          SELECT SINGLE
-            matkl
-          INTO ls_key-classnum
-          FROM mara
-          WHERE mara~matnr = ls_qals-matnr.
-
-          CALL FUNCTION 'BAPI_OBJCL_GETDETAIL'
-            EXPORTING
-*             objectkey       = ls_key-object
-              objecttable     = ls_key-objecttable
-              classnum        = ls_key-classnum
-              classtype       = '001'
-              objectkey_long  = ls_key-object_long
-            IMPORTING
-              status          = lv_status
-*             STANDARDCLASS   =
+              matnr  = ls_qals-matnr
+              atnam  = 'ZPSPE'
             TABLES
-              allocvaluesnum  = lt_allocvaluesnum
-              allocvalueschar = lt_allocvalueschar
-              allocvaluescurr = lt_allocvaluescurr
-              return          = lt_return.
-*          CHECK lv_status IS NOT INITIAL.
-          READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPSPE'.
-          gs_out-zpack_sta = ls_allocvalueschar-value_char_long.
+              output = lt_output2.
+          READ TABLE lt_output2 INTO ls_output2 INDEX 1.
+          gs_out-zpack_sta = ls_output2-atwrt.
+          CLEAR ls_output2-atwrt.
         ENDIF.
 
 
@@ -518,7 +612,7 @@ FORM frm_get_data.
         FROM vbap
         WHERE vbap~vbeln = ls_afpo-kdauf
         AND vbap~posnr = ls_afpo-kdpos.
-        IF ls_vbap-zsfxbz = 'ABC'.
+        IF ls_vbap-zsfxbz = 'A' OR ls_vbap-zsfxbz = 'B' OR ls_vbap-zsfxbz = 'C'.
           gs_out-zsfxbz = '7个包装单位'.
         ENDIF.
 
@@ -588,7 +682,11 @@ FORM frm_get_data.
               return          = lt_return.
 *          CHECK lv_status IS NOT INITIAL.
           READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZPACK_STA'.
-          gs_out-zpack_sta = ls_allocvalueschar-value_char_long.
+          IF sy-subrc = 0.
+            gs_out-zpack_sta = ls_allocvalueschar-value_char_long.
+          ENDIF.
+
+          CLEAR ls_allocvalueschar-value_char_long.
         ENDIF.
 
 
@@ -659,6 +757,7 @@ FORM frm_get_data.
             allocvaluescurr = lt_allocvaluescurr
             return          = lt_return.
 *        CHECK lv_status IS NOT INITIAL.
+        CLEAR ls_allocvalueschar.
         READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZBOX_NUM'.
         gs_out-num = ls_allocvalueschar-value_char_long.
         IF gs_out-num IS INITIAL.
@@ -689,11 +788,24 @@ FORM frm_get_data.
       ENDIF.
       CLEAR ls_but000.
       "制造商
+*      SELECT SINGLE
+*        name_org1
+*      INTO ls_but000-name_org1
+*      FROM but000
+*      WHERE but000~partner = ls_mara-mfrnr.
+      CLEAR ls_but000.
       SELECT SINGLE
-        name_org1
-      INTO ls_but000-name_org1
+        mfrnr
+      INTO CORRESPONDING FIELDS OF ls_ekpo
+      FROM ekpo
+      WHERE ekpo~ebeln = ls_qals-ebeln
+        AND ekpo~ebelp = ls_qals-ebelp.
+      SELECT SINGLE
+      name_org1
+      INTO  ls_but000-name_org1
       FROM but000
-      WHERE but000~partner = ls_mara-mfrnr.
+      WHERE but000~partner = ls_ekpo-mfrnr.
+
       gs_out-mfrnr = ls_but000-name_org1.
       IF gs_out-mfrnr IS INITIAL.
         gs_out-mfrnr = '无'.
@@ -717,7 +829,7 @@ FORM frm_get_data.
       CLEAR ls_qamv.
       CLEAR ls_qpmk.
       SELECT
-        verwmerkm
+        pruefquali
       INTO CORRESPONDING FIELDS OF TABLE lt_qamv
       FROM qamv
       WHERE qamv~prueflos = ls_qals-prueflos.
@@ -727,18 +839,33 @@ FORM frm_get_data.
           pqtxt
         INTO CORRESPONDING FIELDS OF TABLE lt_tq11t
         FROM tq11t
-        INNER JOIN qpmk
-        ON tq11t~prfql = qpmk~prfql
-        WHERE qpmk~mkmnr = ls_qamv-verwmerkm
+        WHERE tq11t~prfql = ls_qamv-pruefquali
         AND tq11t~sprsl = '1'.
         LOOP AT lt_tq11t INTO ls_tq11t.
           ls_out-pqtxt = ls_tq11t-pqtxt.
           APPEND ls_out TO lt_out.
-          SORT lt_out BY pqtxt.
+*          SORT lt_out BY pqtxt DESCENDING.
           DELETE ADJACENT DUPLICATES FROM lt_out COMPARING ALL FIELDS.
           DELETE TABLE lt_out WITH TABLE KEY pqtxt = ''.
         ENDLOOP.
       ENDLOOP.
+
+*        SELECT
+*          PRFQL
+*        INTO CORRESPONDING FIELDS OF TABLE LT_QPMK
+*        FROM QPMK
+*        FOR ALL ENTRIES IN LT_QAMV
+*        WHERE QPMK~mkmnr = LT_QAMV-verwmerkm.
+
+
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：12.10.2019 09:25:52
+*&---------------------------------------------------------------------*
+*&修改记录：上面修复检验项字段和数据库字段不匹配的问题
+*&
+*&---------------------------------------------------------------------*
+
       SORT lt_out BY pqtxt.
       DELETE ADJACENT DUPLICATES FROM lt_out COMPARING ALL FIELDS.
       LOOP AT lt_out INTO ls_out.
@@ -748,11 +875,16 @@ FORM frm_get_data.
           CONCATENATE gs_out-station ls_out-pqtxt INTO gs_out-station SEPARATED BY '、'.
         ENDIF.
       ENDLOOP.
+      "判断规格是否为空
+      IF gs_out-zpack_sta IS INITIAL.
+        gs_out-zpack_sta = '无'.
+      ENDIF.
 
       IF gs_out-zsfxbz IS INITIAL.
         gs_out-zsfxbz = '无'.
       ENDIF.
       APPEND gs_out TO gt_out.
+      CLEAR ls_zppt0001.
       CLEAR gs_out.
     ENDLOOP.
   ENDIF.

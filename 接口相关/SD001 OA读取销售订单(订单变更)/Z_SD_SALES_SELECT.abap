@@ -511,7 +511,11 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret.
 *          IF ls_vbap1-zschxmbz IS NOT INITIAL.
           APPEND ls_item TO lt_item.
 *          ENDIF.
+          CLEAR ls_vbap1.
+          CLEAR ls_item.
         ENDLOOP.
+        CLEAR ls_vbap.
+        CLEAR lt_vbap1.
       ENDLOOP.
 
 

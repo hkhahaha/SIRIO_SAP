@@ -119,136 +119,140 @@
           "当移动类型为321或者350时，取SHKZG = 'S''
           IF ls_xmseg-bwart = '321' OR ls_xmseg-bwart = '350'.
             CHECK ls_xmseg-shkzg = 'S'.
-
-
-            " WMS_CUSTID  WMS货主ID
-            ls_out-wms_custid = ls_xmseg-werks.
-            "	MBLNR	物料凭证编号
-            ls_out-mblnr = ls_xmseg-mblnr.
-            "	MJAHR	物料凭证的年份
-            ls_out-mjahr = ls_xmseg-mjahr.
-            "	ZEILE	物料凭证中的项目
-            ls_out-zeile = ls_xmseg-zeile.
-            " BUS_TYPE  业务类型
-            ls_out-bus_type = 'C03'.
-            "移动类型BWART
-            ls_out-bwart = ls_xmseg-bwart.
-
-            "	WERKS	工厂
-            ls_out-werks = ls_xmseg-werks.
-            "	LGORT	发出库存地点
-            ls_out-lgort = ls_xmseg-lgort.
-            " NOTE  备注
-
-            "	MAKTX	物料名称
-            SELECT SINGLE
-              maktx
-            INTO CORRESPONDING FIELDS OF ls_makt
-            FROM makt
-            WHERE makt~spras = '1'
-              AND makt~matnr = ls_xmseg-matnr.
-            ls_out-maktx = ls_makt-maktx.
-            "	MATNR	物料号
-            ls_xmseg-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_xmseg-matnr i_out = 'X' ).
-            ls_out-matnr = ls_xmseg-matnr.
-            "	CHARG	SAP批号
-            ls_out-charg = ls_xmseg-charg.
-            " WMS_EXT_ST  WMS状态控制字
-            "外寄标识ZOUT_X
-            "质量标准ZST_CODE
-            "XCONSIGN寄售库存标记
-            IF ls_xmseg-matnr IS NOT INITIAL AND ls_xmseg-werks IS NOT INITIAL AND ls_xmseg-charg IS NOT INITIAL.
-              CALL FUNCTION 'VB_BATCH_2_CLASS_OBJECT'
-                EXPORTING
-                  i_matnr = ls_xmseg-matnr
-                  i_charg = ls_xmseg-charg
-                  i_werks = ls_xmseg-werks
-                IMPORTING
-                  e_objek = lv_e_objek
-                  e_obtab = lv_e_obtab
-                  e_klart = lv_e_klart
-                  e_class = lv_e_class.
-**          获取批次对象的属性信息
-              IF sy-subrc = 0.
-                lv_objectkey  =    lv_e_objek.
-                lv_objecttable   = lv_e_obtab.
-                lv_classnum  = lv_e_class.
-                lv_classtype  = lv_e_klart.
-                lv_objectkey_long = lv_e_objek.
-                CALL FUNCTION 'BAPI_OBJCL_GETDETAIL'
-                  EXPORTING
-                    objectkey       = lv_objectkey
-                    objecttable     = lv_objecttable
-                    classnum        = lv_classnum
-                    classtype       = lv_classtype
-                    objectkey_long  = lv_objectkey_long
-                  TABLES
-                    allocvaluesnum  = lt_allocvaluesnum
-                    allocvalueschar = lt_allocvalueschar
-                    allocvaluescurr = lt_allocvaluescurr
-                    return          = lt_return.
-                IF lt_return IS NOT INITIAL AND lt_return[ 1 ]-type = 'S'.
-                ENDIF.
-              ENDIF.
-              "质量标识
-              READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZST_CODE'.
-              IF sy-subrc = 0.
-                ls_zmmwms_ext_st-zst_code = ls_allocvalueschar-value_char.
-              ENDIF.
-              "外寄标识
-              READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZOUT_X'.
-              IF sy-subrc = 0.
-                ls_zmmwms_ext_st-zout_x = ls_allocvalueschar-value_char.
-              ENDIF.
-              " 获取寄售标识
-              SELECT SINGLE
-              sobkz
-              INTO ls_zmmwms_ext_st-xconsign
-              FROM mkol
-              WHERE mkol~matnr = ls_xmseg-matnr
-              AND mkol~werks = ls_xmseg-werks
-              AND mkol~charg = ls_xmseg-charg.
-
-              SELECT SINGLE
-              wms_ext_st
-              INTO ls_zmmwms_ext_st-wms_ext_st
-              FROM zmmwms_ext_st
-              WHERE zmmwms_ext_st~zout_x = ls_zmmwms_ext_st-zout_x
-              AND zmmwms_ext_st~zst_code = ls_zmmwms_ext_st-zst_code
-              AND zmmwms_ext_st~xconsign = ls_zmmwms_ext_st-xconsign.
-
-              ls_out-wms_ext_st = ls_zmmwms_ext_st-wms_ext_st.
-            ENDIF.
-
-            " QMREL_QUAN  数量
-            ls_out-qmrel_quan = ls_xmseg-menge.
-            " DLGORT  目标库存地点
-            ls_out-dlgort = ls_xmseg-umlgo.
-            " STOCK_ST  库存状态
-            "空-非限制321
-            IF ls_xmseg-bwart = '321'.
-              ls_out-stock_st = ''.
-              "B-冻结350
-            ELSEIF ls_xmseg-bwart = '331'.
-              ls_out-stock_st = 'B'.
-              "331-C
-            ELSEIF ls_xmseg-bwart = '331'.
-              ls_out-stock_st = 'C'.
-            ENDIF.
-            "	MEINS	计量单位
-            ls_out-meins = ls_xmseg-meins.
-            "	MSEHT	计量单位文本
-            SELECT SINGLE
-             mseht
-            INTO CORRESPONDING FIELDS OF ls_t006a
-            FROM t006a
-            WHERE t006a~spras = '1'
-            AND t006a~msehi = ls_xmseg-meins.
-            ls_out-mseht = ls_t006a-mseht.
-
-            MOVE-CORRESPONDING ls_out TO ls_output_line.
-            APPEND ls_output_line TO ls_output_main-mt_wms_qmrel-linesofqm.
           ENDIF.
+
+          " WMS_CUSTID  WMS货主ID
+          ls_out-wms_custid = ls_xmseg-werks.
+          "	MBLNR	物料凭证编号
+          ls_out-mblnr = ls_xmseg-mblnr.
+          "	MJAHR	物料凭证的年份
+          ls_out-mjahr = ls_xmseg-mjahr.
+          "	ZEILE	物料凭证中的项目
+          ls_out-zeile = ls_xmseg-zeile.
+          " BUS_TYPE  业务类型
+          ls_out-bus_type = 'C03'.
+          "移动类型BWART
+          ls_out-bwart = ls_xmseg-bwart.
+
+          "	WERKS	工厂
+          ls_out-werks = ls_xmseg-werks.
+          "	LGORT	发出库存地点
+          ls_out-lgort = ls_xmseg-lgort.
+          " NOTE  备注
+
+          "	MAKTX	物料名称
+          SELECT SINGLE
+            maktx
+          INTO CORRESPONDING FIELDS OF ls_makt
+          FROM makt
+          WHERE makt~spras = '1'
+            AND makt~matnr = ls_xmseg-matnr.
+          ls_out-maktx = ls_makt-maktx.
+          "	MATNR	物料号
+          ls_xmseg-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_xmseg-matnr i_out = 'X' ).
+          ls_out-matnr = ls_xmseg-matnr.
+          "	CHARG	SAP批号
+          ls_out-charg = ls_xmseg-charg.
+          " WMS_EXT_ST  WMS状态控制字
+          "外寄标识ZOUT_X
+          "质量标准ZST_CODE
+          "XCONSIGN寄售库存标记
+          IF ls_xmseg-matnr IS NOT INITIAL AND ls_xmseg-werks IS NOT INITIAL AND ls_xmseg-charg IS NOT INITIAL.
+            CALL FUNCTION 'VB_BATCH_2_CLASS_OBJECT'
+              EXPORTING
+                i_matnr = ls_xmseg-matnr
+                i_charg = ls_xmseg-charg
+                i_werks = ls_xmseg-werks
+              IMPORTING
+                e_objek = lv_e_objek
+                e_obtab = lv_e_obtab
+                e_klart = lv_e_klart
+                e_class = lv_e_class.
+**          获取批次对象的属性信息
+            IF sy-subrc = 0.
+              lv_objectkey  =    lv_e_objek.
+              lv_objecttable   = lv_e_obtab.
+              lv_classnum  = lv_e_class.
+              lv_classtype  = lv_e_klart.
+              lv_objectkey_long = lv_e_objek.
+              CALL FUNCTION 'BAPI_OBJCL_GETDETAIL'
+                EXPORTING
+                  objectkey       = lv_objectkey
+                  objecttable     = lv_objecttable
+                  classnum        = lv_classnum
+                  classtype       = lv_classtype
+                  objectkey_long  = lv_objectkey_long
+                TABLES
+                  allocvaluesnum  = lt_allocvaluesnum
+                  allocvalueschar = lt_allocvalueschar
+                  allocvaluescurr = lt_allocvaluescurr
+                  return          = lt_return.
+              IF lt_return IS NOT INITIAL AND lt_return[ 1 ]-type = 'S'.
+              ENDIF.
+            ENDIF.
+            "质量标识
+            READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZST_CODE'.
+            IF sy-subrc = 0.
+              ls_zmmwms_ext_st-zst_code = ls_allocvalueschar-value_char.
+            ENDIF.
+            "外寄标识
+            READ TABLE lt_allocvalueschar INTO ls_allocvalueschar WITH KEY charact = 'ZOUT_X'.
+            IF sy-subrc = 0.
+              ls_zmmwms_ext_st-zout_x = ls_allocvalueschar-value_char.
+            ENDIF.
+            " 获取寄售标识
+            SELECT SINGLE
+            sobkz
+            INTO ls_zmmwms_ext_st-xconsign
+            FROM mkol
+            WHERE mkol~matnr = ls_xmseg-matnr
+            AND mkol~werks = ls_xmseg-werks
+            AND mkol~charg = ls_xmseg-charg.
+
+            SELECT SINGLE
+            wms_ext_st
+            INTO ls_zmmwms_ext_st-wms_ext_st
+            FROM zmmwms_ext_st
+            WHERE zmmwms_ext_st~zout_x = ls_zmmwms_ext_st-zout_x
+            AND zmmwms_ext_st~zst_code = ls_zmmwms_ext_st-zst_code
+            AND zmmwms_ext_st~xconsign = ls_zmmwms_ext_st-xconsign.
+
+            ls_out-wms_ext_st = ls_zmmwms_ext_st-wms_ext_st.
+          ENDIF.
+
+          " QMREL_QUAN  数量
+          ls_out-qmrel_quan = ls_xmseg-menge.
+          " DLGORT  目标库存地点
+          IF ls_xmseg-bwart = '331'.
+            ls_out-dlgort = ls_xmseg-lgort.
+          ELSE.
+            ls_out-dlgort = ls_xmseg-umlgo.
+          ENDIF.
+
+          " STOCK_ST  库存状态
+          "空-非限制321
+          IF ls_xmseg-bwart = '321'.
+            ls_out-stock_st = ''.
+            "B-冻结350
+          ELSEIF ls_xmseg-bwart = '331'.
+            ls_out-stock_st = 'B'.
+            "331-C
+          ELSEIF ls_xmseg-bwart = '331'.
+            ls_out-stock_st = 'C'.
+          ENDIF.
+          "	MEINS	计量单位
+          ls_out-meins = ls_xmseg-meins.
+          "	MSEHT	计量单位文本
+          SELECT SINGLE
+           mseht
+          INTO CORRESPONDING FIELDS OF ls_t006a
+          FROM t006a
+          WHERE t006a~spras = '1'
+          AND t006a~msehi = ls_xmseg-meins.
+          ls_out-mseht = ls_t006a-mseht.
+
+          MOVE-CORRESPONDING ls_out TO ls_output_line.
+          APPEND ls_output_line TO ls_output_main-mt_wms_qmrel-linesofqm.
         ENDIF.
       ENDLOOP.
 

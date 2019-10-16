@@ -182,16 +182,23 @@ FORM frm_pro_data USING input TYPE zmt_wms2sap_batch_chars
 
   "供应商账号
   "1、根据供应商简称找出供应商编码
-  SELECT sortl, lifnr
-    INTO TABLE @DATA(ls_lifnr)
-    FROM lfa1
-    WHERE sortl = @input-mt_wms2sap_batch_chars-lifnr.
-  IF sy-subrc = 0.
-    ls_batch_attr-vendor_no = input-mt_wms2sap_batch_chars-lifnr.
-  ENDIF.
-  IF ls_batch_attr-vendor_no IS NOT INITIAL.
-    ls_batch_attrx-vendor_no = 'X'.
-  ENDIF.
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：14.10.2019 21:03:26
+*&---------------------------------------------------------------------*
+*&修改记录：去掉供应商账号字段
+*&
+*&---------------------------------------------------------------------*
+*  SELECT sortl, lifnr
+*    INTO TABLE @DATA(ls_lifnr)
+*    FROM lfa1
+*    WHERE sortl = @input-mt_wms2sap_batch_chars-lifnr.
+*  IF sy-subrc = 0.
+*    ls_batch_attr-vendor_no = input-mt_wms2sap_batch_chars-lifnr.
+*  ENDIF.
+*  IF ls_batch_attr-vendor_no IS NOT INITIAL.
+*    ls_batch_attrx-vendor_no = 'X'.
+*  ENDIF.
 
 
   material    = zcl_bc_public=>conv_by_ddic( i_input = input_matnr ).

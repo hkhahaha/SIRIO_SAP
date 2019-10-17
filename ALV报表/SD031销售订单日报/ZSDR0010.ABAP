@@ -77,18 +77,18 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
       END OF ty_all.
 TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zapszt      TYPE    vbap-zapszt , "  APS状态
-        state       TYPE    string      , "订单状态
+        state       TYPE    string      , "  订单状态
         vbeln       TYPE    vbak-vbeln  , "  单据号
         posnr       TYPE    vbap-posnr  , "  行号
         ernam       TYPE    string      , "  制单人
         vkorg       TYPE    vbak-vkorg  , "  销售组织
         auart       TYPE    vbak-auart  , "  订单类型
         vtweg       TYPE    vbak-vtweg  , "  分销渠道
-        kvgr1       TYPE    knvv-kvgr1  , "销售渠道/客户类型
+        kvgr1       TYPE    knvv-kvgr1  , "  销售渠道/客户类型
         werks       TYPE    vbap-werks  , "  工厂
-        lgort       TYPE    lips-lgort  , "库存地点
+        lgort       TYPE    lips-lgort  , "  库存地点
         vkbur       TYPE    vbak-vkbur  , "  二级部门
-        saleman     TYPE    string      , " 业务员
+        saleman     TYPE    string      , "  业务员
         mc_name1    TYPE    but000-mc_name1, "检索项
         mandt       TYPE    vbak-mandt  , "  集团名称
         kunnr       TYPE    vbak-kunnr  , "  售达方(客户名称)
@@ -115,8 +115,6 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zprotype    TYPE    string      , "  产品类型
         zappsou     TYPE    string      , "  批文来源
         zcotype     TYPE    string      , "  合作类型
-
-
         meins       TYPE    vbap-meins  , "  基本计量单位
         number      TYPE    string      , "  基本计量数量
         kwmeng      TYPE    vbap-kwmeng , "  销售数量
@@ -158,8 +156,10 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         invoicenote TYPE string         , "  开票文本
       END OF ty_out.
 
+***********  ALV 定义 **********************************************
 
-
+DATA: lt_out TYPE TABLE OF ty_out, "用于存储ALV内表的数据
+      ls_out TYPE ty_out.
 
 "开始选择界面的数据操作
 SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001.
@@ -193,8 +193,6 @@ FORM getdata.
        ls_vbap          TYPE vbap,
        lt_all           TYPE TABLE OF ty_all, "用于存储VBAP、VBAK相关的数据
        ls_all           TYPE ty_all,
-       lt_out           TYPE TABLE OF ty_out, "用于存储ALV内表的数据
-       ls_out           TYPE ty_out,
        ls_jest          TYPE jest,
        ls_adrp          TYPE adrp,
        ls_knvv          TYPE knvv,
@@ -751,7 +749,7 @@ FORM getdata.
       flag = 'X'.
     ENDIF.
     DATA: lt_stb LIKE TABLE OF stpox,
-          ls_stb LIKE LINE OF stpox.
+          ls_stb LIKE LINE OF lt_stb.
 
     IF flag = 'X'.
 
@@ -770,32 +768,32 @@ FORM getdata.
 *         BESSL                 = ' '
 *         BGIXO                 = ' '
 *         BREMS                 = ' '
-         CAPID                 = 'STD1'
+          capid                 = 'PP01'
 *         CHLST                 = ' '
 *         COSPR                 = ' '
 *         CUOBJ                 = 000000000000000
 *         CUOVS                 = 0
 *         CUOLS                 = ' '
-*         DATUV                 = 00000000
+          datuv                 = sy-datum
 *         DELNL                 = ' '
 *         DRLDT                 = ' '
 *         EHNDL                 = ' '
-*         EMENG                 = 0
+          emeng                 = 1000
 *         ERSKZ                 = ' '
 *         ERSSL                 = ' '
 *         FBSTP                 = ' '
 *         KNFBA                 = ' '
 *         KSBVO                 = ' '
 *         MBWLS                 = ' '
-*         MKTLS                 = 'X'
+          mktls                 = 'X'
 *         MDMPS                 = ' '
-*         MEHRS                 = ' '
+          mehrs                 = 'X'
 *         MKMAT                 = ' '
 *         MMAPS                 = ' '
 *         SALWW                 = ' '
 *         SPLWW                 = ' '
 *         MMORY                 = ' '
-*         MTNRV                 = ' '
+          mtnrv                 = ls_all-matnr
 *         NLINK                 = ' '
 *         POSTP                 = ' '
 *         RNDKZ                 = ' '
@@ -810,22 +808,22 @@ FORM getdata.
 *         STLAL                 = ' '
 *         STLAN                 = ' '
 *         STPST                 = 0
-*         SVWVO                 = 'X'
-*         WERKS                 = ' '
+          svwvo                 = 'X'
+          werks                 = ls_all-werks
 *         NORVL                 = ' '
 *         MDNOT                 = ' '
 *         PANOT                 = ' '
 *         QVERW                 = ' '
 *         VERID                 = ' '
-*         VRSVO                 = 'X'
-         SGT_SCAT              = 'X'
+          vrsvo                 = 'X'
+          sgt_scat              = 'X'
 *         SGT_REL               =
 *         CALLER_APP            =
 *         BOM_VERSN             =
 * IMPORTING
 *         TOPMAT                =
 *         DSTST                 =
-        tables
+        TABLES
           stb                   = lt_stb
 *         MATCAT                =
         EXCEPTIONS
@@ -842,19 +840,166 @@ FORM getdata.
 * Implement suitable error handling here
       ENDIF.
 
+      LOOP AT lt_stb INTO ls_stb.
+        ls_out-matnr = ls_stb-idnrk."BOM的物料编码
+        APPEND ls_out TO lt_out." 输出BOM子件的行数
+      ENDLOOP.
+*      APPEND ls_out to lt_out.
+    ELSE.
+      APPEND ls_out TO lt_out."输出不含BOM的行数
     ENDIF.
-
-
-    APPEND ls_out TO lt_out.
+*    APPEND ls_out to lt_out.
     CLEAR ls_out.
     CLEAR ls_all.
-
   ENDLOOP.
-  BREAK-POINT.
 ENDFORM.
 
 FORM catalog.
+  w_repid = sy-repid.
+  CLEAR fieldcat.
+
+  DEFINE fieldcatset."宏定义
+    fieldcat-just = 'L'."字段居中显示
+    fieldcat-outputlen = 12."自定义字段的长度
+*    fieldcat-ref_tabname = 'BKPF'."调用透明表的数据结构
+    fieldcat-fieldname = &1."透明表字段名
+    fieldcat-seltext_l = &2."ALV列名
+    fieldcat-col_pos = &3."列位置
+    APPEND fieldcat.
+  END-OF-DEFINITION.
+  fieldcatset 'zapszt'   'APS状态' sy-tabix.
+  fieldcatset 'state'   '订单状态' sy-tabix.
+  fieldcatset 'vbeln'   '单据号' sy-tabix.
+  fieldcatset 'posnr'   '行号' sy-tabix.
+  fieldcatset 'ernam'   '制单人' sy-tabix.
+  fieldcatset 'vkorg'   '销售组织' sy-tabix.
+  fieldcatset 'auart'   '订单类型' sy-tabix.
+  fieldcatset 'vtweg'   '分销渠道' sy-tabix.
+  fieldcatset 'kvgr1'   '销售渠道/客户类型' sy-tabix.
+  fieldcatset 'werks'   '工厂' sy-tabix.
+  fieldcatset 'lgort'   '库存地点' sy-tabix.
+  fieldcatset 'vkbur'   '二级部门' sy-tabix.
+  fieldcatset 'saleman'   '业务员' sy-tabix.
+  fieldcatset 'mc_name1'   '检索项' sy-tabix.
+  fieldcatset 'mandt'   '集团名称' sy-tabix.
+  fieldcatset 'kunnr'   '售达方(客户名称)' sy-tabix.
+  fieldcatset 'custname'   '实际客户名称' sy-tabix.
+  fieldcatset 'kukla'   '实际客户等级' sy-tabix.
+  fieldcatset 'zterm'   '付款方式' sy-tabix.
+  fieldcatset 'zckgj'   '出口国家' sy-tabix.
+  fieldcatset 'bstkd_e'   '客户PO' sy-tabix.
+  fieldcatset 'waerk'   '订单币种' sy-tabix.
+  fieldcatset 'kursk'   '汇率' sy-tabix.
+  fieldcatset 'matnr'   '产品编码' sy-tabix.
+  fieldcatset 'arktx'   '产品名称' sy-tabix.
+  fieldcatset 'zstdname'   '标准名称' sy-tabix.
+  fieldcatset 'zkhwl'   '客户产品编码' sy-tabix.
+  fieldcatset 'zkhwlms'   '客户产品名称' sy-tabix.
+  fieldcatset 'pmatn'   '定价参考物料编码' sy-tabix.
+  fieldcatset 'maktx'   '品名' sy-tabix.
+  fieldcatset 'zpro'   '是否益生菌' sy-tabix.
+  fieldcatset 'matkl'   '物料小类编码' sy-tabix.
+  fieldcatset 'maktxs'   '物料小类名称' sy-tabix.
+  fieldcatset 'zcpgg'   '规格型号' sy-tabix.
+  fieldcatset 'zbzgg'   '包装规格' sy-tabix.
+  fieldcatset 'zpwsx'   '批文属性' sy-tabix.
+  fieldcatset 'zprotype'   '产品类型' sy-tabix.
+  fieldcatset 'zappsou'   '批文来源' sy-tabix.
+  fieldcatset 'zcotype'   '合作类型' sy-tabix.
+  fieldcatset 'meins'   '基本计量单位' sy-tabix.
+  fieldcatset 'number'   '基本计量数量' sy-tabix.
+  fieldcatset 'kwmeng'   '销售数量' sy-tabix.
+  fieldcatset 'zypsl'   '样品数量' sy-tabix.
+  fieldcatset 'vrkme'   '销售单位' sy-tabix.
+  fieldcatset 'kbetr'   '含税单价' sy-tabix.
+  fieldcatset 'kwert'   '折扣率' sy-tabix.
+  fieldcatset 'mwsbp'   '折扣金额' sy-tabix.
+  fieldcatset 'kwertdis'   '税率' sy-tabix.
+  fieldcatset 'mwsbp2'   '销项税额' sy-tabix.
+  fieldcatset 'netpr'   '不含税金额' sy-tabix.
+  fieldcatset 'priceall'   '价税合计' sy-tabix.
+  fieldcatset 'zdytk'   '短溢条款' sy-tabix.
+  fieldcatset 'zysjhq'   '客户要求交货日期' sy-tabix.
+  fieldcatset 'zatpdfrq'   'ATP答复日期' sy-tabix.
+  fieldcatset 'znbjhq'   '实际交货日期' sy-tabix.
+  fieldcatset 'innum'   '入库量' sy-tabix.
+  fieldcatset 'outnum'   '出库量' sy-tabix.
+  fieldcatset 'invoic'   '开票量' sy-tabix.
+  fieldcatset 'invoiced'   '开票日期' sy-tabix.
+  fieldcatset 'zsfxbz'   '新包装' sy-tabix.
+  fieldcatset 'zsfxcp'   '新产品' sy-tabix.
+  fieldcatset 'zsfbj'   '是否报检' sy-tabix.
+  fieldcatset 'zphyq'   '批号要求' sy-tabix.
+  fieldcatset 'zzztl'   '最早投料日期' sy-tabix.
+  fieldcatset 'zzwtl'   '最晚投料日期' sy-tabix.
+  fieldcatset 'zzzbz'   '最早包装时间' sy-tabix.
+  fieldcatset 'zzwbz'   '最晚包装时间' sy-tabix.
+  fieldcatset 'bstkd_e2'   '客户合同单号' sy-tabix.
+  fieldcatset 'posex_e'   '客户合同分录' sy-tabix.
+  fieldcatset 'note'   '生产行项目备注' sy-tabix.
+  fieldcatset 'zbhcl'   '备货策略' sy-tabix.
+  fieldcatset 'zbomqq'   'BOM欠缺物料' sy-tabix.
+  fieldcatset 'zblxy'   '是否有备料协议' sy-tabix.
+  fieldcatset 'zsfxkh'   '新客户 ' sy-tabix.
+  fieldcatset 'pronote'   '生产相关文本' sy-tabix.
+  fieldcatset 'salenot'   '销售文本' sy-tabix.
+  fieldcatset 'voicenot'   '发票文本' sy-tabix.
+  fieldcatset 'invoicenote' '开票文本' sy-tabix.
 ENDFORM.
 
 FORM alvshow.
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+*     I_INTERFACE_CHECK  = ' '
+*     I_BYPASSING_BUFFER = ' '
+*     I_BUFFER_ACTIVE    = ' '
+      i_callback_program = w_repid "程序名称
+*     i_callback_pf_status_set = 'FRM_SET_PF_STATUS'
+*     i_callback_user_command  = 'ALV_USER_COMMAND' "对ALV操作的时候触发所定义的子程序
+*     I_CALLBACK_TOP_OF_PAGE   = ' '
+*     I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
+*     I_CALLBACK_HTML_END_OF_LIST       = ' '
+*     I_STRUCTURE_NAME   =
+*     I_BACKGROUND_ID    = ' '
+      i_grid_title       = '销售订单日报表' "标题名
+*     I_GRID_SETTINGS    =
+      is_layout          = layout "程序所定义的layout名称
+      it_fieldcat        = fieldcat[] "定义fieldcat数据
+*     IT_EXCLUDING       =
+*     IT_SPECIAL_GROUPS  =
+*     IT_SORT            =
+*     IT_FILTER          =
+*     IS_SEL_HIDE        =
+*     I_DEFAULT          = 'X'
+*     I_SAVE             = ' '
+*     IS_VARIANT         =
+*     IT_EVENTS          =
+*     IT_EVENT_EXIT      =
+*     IS_PRINT           =
+*     IS_REPREP_ID       =
+*     I_SCREEN_START_COLUMN    = 0
+*     I_SCREEN_START_LINE      = 0
+*     I_SCREEN_END_COLUMN      = 0
+*     I_SCREEN_END_LINE  = 0
+*     I_HTML_HEIGHT_TOP  = 0
+*     I_HTML_HEIGHT_END  = 0
+*     IT_ALV_GRAPHICS    =
+*     IT_HYPERLINK       =
+*     IT_ADD_FIELDCAT    =
+*     IT_EXCEPT_QINFO    =
+*     IR_SALV_FULLSCREEN_ADAPTER        =
+* IMPORTING
+*     E_EXIT_CAUSED_BY_CALLER  =
+*     ES_EXIT_CAUSED_BY_USER   =
+    TABLES
+      t_outtab           = lt_out
+    EXCEPTIONS "下面都是默认的
+      program_error      = 1
+      OTHERS             = 2.
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+
+
 ENDFORM.

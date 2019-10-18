@@ -751,6 +751,8 @@ FORM getdata.
 *      ENDIF.
 *      CLEAR ls_out.
     ENDLOOP.
+    SORT lt_out BY vbeln.
+    DELETE ADJACENT DUPLICATES FROM lt_out COMPARING ALL FIELDS.
   ENDIF.
 ENDFORM.
 FORM catalog USING flag_b.

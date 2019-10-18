@@ -730,12 +730,11 @@ FORM getdata.
             APPEND ls_out2 TO lt_out2.
           ENDIF.
         ELSE.
-          APPEND ls_out TO lt_out.
+          IF ls_out-vbeln IS NOT INITIAL.
+            APPEND ls_out TO lt_out.
+          ENDIF.
         ENDIF.
 
-        IF ls_out-vbeln IS NOT INITIAL.
-          APPEND ls_out TO lt_out.
-        ENDIF.
       ENDIF.
 
       " 如果制单人字段为空，去掉相对应的输出行
@@ -751,8 +750,7 @@ FORM getdata.
 *      ENDIF.
 *      CLEAR ls_out.
     ENDLOOP.
-    SORT lt_out BY vbeln.
-    DELETE ADJACENT DUPLICATES FROM lt_out COMPARING ALL FIELDS.
+
   ENDIF.
 ENDFORM.
 FORM catalog USING flag_b.

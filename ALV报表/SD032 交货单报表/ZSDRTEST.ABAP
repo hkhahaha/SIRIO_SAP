@@ -78,15 +78,16 @@ TYPES:BEGIN OF lv_out,
 *        svbeln          TYPE    vbak-vbeln  , "  销售订单号
         bstkd           TYPE    vbkd-bstkd  , "  客户合同单号
         kpsum           TYPE    vbfa-rfmng , "  开票数量
-        ddpprice        TYPE    P DECIMALS 2, "  DDP价格
+        ddpprice        TYPE    p DECIMALS 2, "  DDP价格
         perprice        TYPE    vbap-mwsbp , "  含税单价
         disclv(12)      TYPE    c , "  折扣率
         discnum         TYPE    vbap-mwsbp , "  折扣金额
-        kbetr           TYPE    P DECIMALS 2 , "  税率
+        kbetr           TYPE    p DECIMALS 2 , "  税率
         mwsbp           TYPE    vbap-mwsbp  , "  销项税额
         price           TYPE    vbap-netwr  , "  不含税金额
         netwr           TYPE    vbap-netwr , "  价税总计
         waerk           TYPE    vbak-waerk  , "  订单币别
+        ernam           TYPE likp-ernam, "制单人
         zpack_charg(40) TYPE    c , "  打印批号
         z004(40)        TYPE    c , "  备注
       END OF lv_out.
@@ -169,6 +170,7 @@ TYPES:
   umvkz       LIKE lips-umvkz, "分母
   vbeln_vbak  TYPE    vbak-vbeln,   "  销售订单
   kwmeng      TYPE vbap-kwmeng, "订单数量
+  zernam      TYPE likp-ernam, "制单人
   posnr_vbap  TYPE    vbap-posnr.   "  销售订单
 
 TYPES:END OF lv_main.
@@ -330,6 +332,7 @@ FORM getdata.
   vbap~netwr
   vbap~posnr AS posnr_vbap
   vbap~kwmeng
+  likp~ernam AS zernam
   INTO CORRESPONDING FIELDS OF TABLE lt_main
   FROM lips
   INNER JOIN likp
@@ -345,7 +348,8 @@ FORM getdata.
   AND likp~erdat IN perdat
   AND likp~vkorg IN pvkorg
   AND likp~vbeln IN pvbeln
-  AND vbap~vbeln IN pvbeln2.
+  AND vbap~vbeln IN pvbeln2
+  AND likp~ernam IN puser.
 
 
 
@@ -578,7 +582,7 @@ FORM getdata.
       "DDP价格
       SELECT SINGLE
       kbetr
-      INTO CORRESPONDING FIELDS OF lS_prcd_elements
+      INTO CORRESPONDING FIELDS OF ls_prcd_elements
       FROM  prcd_elements
       INNER JOIN vbak
       ON prcd_elements~knumv = vbak~knumv
@@ -693,6 +697,16 @@ FORM getdata.
       READ TABLE lines INTO ls_lines INDEX 1.
       ls_out-z004 = ls_lines-tdline.
 
+      "制单人
+      CLEAR ls_adrp.
+      SELECT SINGLE
+        name_text
+      INTO CORRESPONDING FIELDS OF ls_adrp
+      FROM adrp
+      INNER JOIN usr21
+      ON adrp~persnumber = usr21~persnumber
+      WHERE usr21~bname = ls_main-zernam.
+
 
 
 
@@ -705,6 +719,7 @@ FORM getdata.
         ls_out-perprice = ( ls_main-mwsbp + ls_main-netwr ) / ls_main-kwmeng." 含税单价
       ENDIF.
       ls_out-sortl = ls_main-sortl."检索项
+      ls_out-ernam = ls_adrp-name_text."制单人
       ls_out-kukla = ls_main-kukla."实际客户等级
       ls_out-baxssl = ( ( ls_main-umvkz / ls_main-umvkn ) * ls_main-lfimg ). "基本计量数量
       ls_out-vbeln = ls_main-vbeln_likp ."  交货单
@@ -830,7 +845,7 @@ FORM catalog USING flag_b.
   fieldcatset   'ZUSER'     '业务员'   sy-tabix.
   fieldcatset   'ZCUSTOM'     '客户'    sy-tabix.
   fieldcatset   'ZRUSER'      '实际客户'    sy-tabix.
-  fieldcatset   'ZMAKEUSER'     '制单人'   sy-tabix.
+  fieldcatset   'ERNAM'     '制单人'   sy-tabix.
   fieldcatset   'SORTL'     '检索项'   sy-tabix.
   fieldcatset   'KUKLA'     '实际客户等级'    sy-tabix.
   fieldcatset   'BEZEI'     '销售渠道/客户类型'   sy-tabix.

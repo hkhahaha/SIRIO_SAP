@@ -78,11 +78,11 @@ TYPES:BEGIN OF lv_out,
 *        svbeln          TYPE    vbak-vbeln  , "  销售订单号
         bstkd           TYPE    vbkd-bstkd  , "  客户合同单号
         kpsum           TYPE    vbfa-rfmng , "  开票数量
-        ddpprice        TYPE    prcd_elements-kbetr , "  DDP价格
+        ddpprice        TYPE    P DECIMALS 2, "  DDP价格
         perprice        TYPE    vbap-mwsbp , "  含税单价
         disclv(12)      TYPE    c , "  折扣率
         discnum         TYPE    vbap-mwsbp , "  折扣金额
-        kbetr           TYPE    prcd_elements-kbetr , "  税率
+        kbetr           TYPE    P DECIMALS 2 , "  税率
         mwsbp           TYPE    vbap-mwsbp  , "  销项税额
         price           TYPE    vbap-netwr  , "  不含税金额
         netwr           TYPE    vbap-netwr , "  价税总计
@@ -468,15 +468,15 @@ FORM getdata.
       WHERE vbpa~vbeln = ls_main-vbeln_likp
       AND vbpa~posnr = ''
         AND vbpa~parvw = 'Z1'.
-      "制单人
-      SELECT SINGLE
-        name_text
-      INTO ls_out-zmakeuser
-      FROM adrp
-      INNER JOIN usr21
-      ON adrp~persnumber = usr21~persnumber
-      WHERE adrp~persnumber IN puser
-        AND usr21~bname = ls_main-ernam2.
+*      "制单人
+*      SELECT SINGLE
+*        name_text
+*      INTO ls_out-zmakeuser
+*      FROM adrp
+*      INNER JOIN usr21
+*      ON adrp~persnumber = usr21~persnumber
+*      WHERE adrp~persnumber IN puser
+*        AND usr21~bname = ls_main-ernam2.
       "销售渠道/客户类型
       SELECT SINGLE
         bezei
@@ -567,7 +567,7 @@ FORM getdata.
       FROM vbkd
       WHERE vbkd~vbeln = ls_main-vbeln_vbak
       AND vbkd~posnr = ls_main-posnr_vbap.
-      IF ls_out-bstkd is INITIAL.
+      IF ls_out-bstkd IS INITIAL.
         SELECT SINGLE
         bstkd
         INTO ls_out-bstkd
@@ -575,15 +575,17 @@ FORM getdata.
         WHERE vbkd~vbeln = ls_main-vbeln_vbak.
       ENDIF.
 
-      "开票数量和DDP价格
+      "DDP价格
       SELECT SINGLE
-      kwert
-      INTO CORRESPONDING FIELDS OF ls_prcd_elements
+      kbetr
+      INTO CORRESPONDING FIELDS OF lS_prcd_elements
       FROM  prcd_elements
-      WHERE prcd_elements~knumv = ls_vbak-knumv
-      AND prcd_elements~kappl = 'Z100'
-      AND prcd_elements~kposn = ls_main-vgpos.
-      ls_out-ddpprice = ls_prcd_elements-kwert.
+      INNER JOIN vbak
+      ON prcd_elements~knumv = vbak~knumv
+      WHERE prcd_elements~kschl = 'Z100'
+      AND prcd_elements~kposn = ls_main-posnr_vbap
+      AND vbak~vbeln = ls_main-vbeln_vbak.
+      ls_out-ddpprice =  ls_prcd_elements-kbetr.
       DATA count TYPE i.
       " 开票数量
 *      SELECT
@@ -771,7 +773,7 @@ FORM getdata.
 
       ENDIF.
 
-      " 如果制单人字段为空，去掉相对应的输出行
+*      " 如果制单人字段为空，去掉相对应的输出行
 *      IF ls_out-zmakeuser IS INITIAL.
 *        DELETE TABLE lt_out FROM ls_out.
 *      ENDIF.
@@ -782,7 +784,7 @@ FORM getdata.
 *      IF ls_out-zuser IS INITIAL AND pkunnr IS NOT INITIAL.
 *        DELETE TABLE lt_out FROM ls_out.
 *      ENDIF.
-*      CLEAR ls_out.
+      CLEAR ls_out.
     ENDLOOP.
 
   ENDIF.
@@ -851,7 +853,7 @@ FORM catalog USING flag_b.
   fieldcatset   'PERPRICE'      '含税单价'    sy-tabix.
   fieldcatset   'DISCLV'      '折扣率'   sy-tabix.
   fieldcatset   'DISCNUM'     '折扣金额'    sy-tabix.
-  fieldcatset   'KBETR'     '税率'    sy-tabix.
+  fieldcatset   'KBETR'     '税率(%)'    sy-tabix.
   fieldcatset   'MWSBP'     '销项税额'    sy-tabix.
   fieldcatset   'PRICE'     '不含税金额'   sy-tabix.
   fieldcatset   'NETWR'     '价税总计'    sy-tabix.

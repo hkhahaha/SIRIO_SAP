@@ -168,6 +168,7 @@ TYPES:
   umvkn       TYPE lips-umvkn, "分子
   umvkz       LIKE lips-umvkz, "分母
   vbeln_vbak  TYPE    vbak-vbeln,   "  销售订单
+  kwmeng      TYPE vbap-kwmeng, "订单数量
   posnr_vbap  TYPE    vbap-posnr.   "  销售订单
 
 TYPES:END OF lv_main.
@@ -299,6 +300,8 @@ FORM getdata.
   SELECT
   likp~vbeln AS vbeln_likp
   lips~posnr AS posnr_lips
+  lips~umvkz
+  lips~umvkn
   lips~vgbel
   lips~vgpos
   likp~vkorg
@@ -326,6 +329,7 @@ FORM getdata.
   vbap~mwsbp
   vbap~netwr
   vbap~posnr AS posnr_vbap
+  vbap~kwmeng
   INTO CORRESPONDING FIELDS OF TABLE lt_main
   FROM lips
   INNER JOIN likp
@@ -563,6 +567,13 @@ FORM getdata.
       FROM vbkd
       WHERE vbkd~vbeln = ls_main-vbeln_vbak
       AND vbkd~posnr = ls_main-posnr_vbap.
+      IF ls_out-bstkd is INITIAL.
+        SELECT SINGLE
+        bstkd
+        INTO ls_out-bstkd
+        FROM vbkd
+        WHERE vbkd~vbeln = ls_main-vbeln_vbak.
+      ENDIF.
 
       "开票数量和DDP价格
       SELECT SINGLE
@@ -575,35 +586,52 @@ FORM getdata.
       ls_out-ddpprice = ls_prcd_elements-kwert.
       DATA count TYPE i.
       " 开票数量
+*      SELECT
+*      vbelv
+*      posnv
+*      INTO CORRESPONDING FIELDS OF TABLE lt_vbfa
+*      FROM vbfa
+*      WHERE vbfa~vbtyp_v = 'M'
+*      AND vbfa~vbeln = ls_main-vgbel
+*      AND vbfa~posnn = ls_main-vgpos.
+*      IF lt_vbfa IS NOT INITIAL.
+*        LOOP AT lt_vbfa INTO ls_vbfa.
+*          SELECT SINGLE
+*          vbeln
+*          fksto
+*          INTO CORRESPONDING FIELDS OF ls_vbrk
+*          FROM vbrk
+*          WHERE vbrk~vbeln = ls_vbfa-vbelv.
+*          IF ls_vbrk-fksto IS NOT INITIAL.
+*            DELETE lt_vbfa FROM ls_vbfa-vbelv.
+*          ENDIF.
+*        ENDLOOP.
+*        CLEAR ls_vbfa.
+*        LOOP AT lt_vbfa INTO ls_vbfa.
+*          IF ls_vbfa-rfmng IS NOT INITIAL.
+*            count = count + 1.
+*          ENDIF.
+*        ENDLOOP.
+*      ENDIF.
+      CLEAR lt_vbfa.
+      CLEAR ls_vbfa.
       SELECT
-      vbelv
-      posnv
+        a~vbelv
+        a~posnv
+        a~vbtyp_n
+        a~vbeln
+        a~posnn
+        a~rfmng
       INTO CORRESPONDING FIELDS OF TABLE lt_vbfa
-      FROM vbfa
-      WHERE vbfa~vbtyp_v = 'M'
-      AND vbfa~vbeln = ls_main-vgbel
-      AND vbfa~posnn = ls_main-vgpos.
-      IF lt_vbfa IS NOT INITIAL.
-        LOOP AT lt_vbfa INTO ls_vbfa.
-          SELECT SINGLE
-          vbeln
-          fksto
-          INTO CORRESPONDING FIELDS OF ls_vbrk
-          FROM vbrk
-          WHERE vbrk~vbeln = ls_vbfa-vbelv.
-          IF ls_vbrk-fksto IS NOT INITIAL.
-            DELETE lt_vbfa FROM ls_vbfa-vbelv.
-          ENDIF.
-        ENDLOOP.
-        CLEAR ls_vbfa.
-        LOOP AT lt_vbfa INTO ls_vbfa.
-          IF ls_vbfa-rfmng IS NOT INITIAL.
-            count = count + 1.
-          ENDIF.
-        ENDLOOP.
-      ENDIF.
+      FROM vbfa AS a
+      INNER JOIN vbrk AS b
+      ON a~vbeln = b~vbeln
+      WHERE a~vbtyp_n = 'M' AND b~sfakn  = '' AND b~fksto = ''
+      AND a~vbelv = ls_main-vbeln_likp AND a~posnv = ls_main-posnr_lips.
+      LOOP AT lt_vbfa INTO ls_vbfa.
+        count = count + ls_vbfa-rfmng.
+      ENDLOOP.
       ls_out-kpsum = count.
-
       " 折扣率和折扣金额
       SELECT SINGLE
       kwert
@@ -671,8 +699,8 @@ FORM getdata.
       ls_out-baxssl = ( ls_main-umvkz / ls_main-umvkn ) * ls_main-lfimg." 基本计量数量
       ls_out-waerk = ls_main-waerk."订单币别
       ls_out-netwr = ls_main-mwsbp + ls_main-netwr."价税总计
-      IF ls_main-lfimg IS NOT INITIAL.
-        ls_out-perprice = ( ls_main-mwsbp + ls_main-netwr ) / ls_main-lfimg." 含税单价
+      IF ls_main-kwmeng IS NOT INITIAL.
+        ls_out-perprice = ( ls_main-mwsbp + ls_main-netwr ) / ls_main-kwmeng." 含税单价
       ENDIF.
       ls_out-sortl = ls_main-sortl."检索项
       ls_out-kukla = ls_main-kukla."实际客户等级
@@ -704,9 +732,15 @@ FORM getdata.
       ls_out-zwmszt  = ls_main-zwmszt  ."  是否传输WMS
       ls_out-zsfxcp  = ls_main-zsfxcp  ."  新产品
       ls_out-zypsl = ls_main-zypsl ."  样品数量
-      ls_out-mwsbp = ls_main-mwsbp."销项税额
-      ls_out-netwr = ls_main-netwr."不含税金额
+      IF ls_main-kwmeng IS NOT INITIAL.
+        ls_out-mwsbp = ls_main-mwsbp / ls_main-kwmeng * ls_out-lfimg."销项税额
+*      ls_out-netwr = ls_main-netwr."不含税金额
 
+        ls_out-price = ls_main-netwr / ls_main-kwmeng * ls_out-lfimg. "不含税金额
+      ENDIF.
+      ls_out-netwr = ls_out-price + ls_out-mwsbp."价税总计
+      ls_out-discnum = ls_out-perprice * ls_out-lfimg - ls_out-netwr."折扣金额
+      ls_out-pmatn = zcl_bc_public=>conv_by_ddic( i_input = ls_out-pmatn i_out = 'X' ).
       IF ls_out-zlfimg IS NOT INITIAL.
         " 当是铝盒装的时候：
         IF flag_b = 'X'.
@@ -810,7 +844,7 @@ FORM catalog USING flag_b.
   fieldcatset   'ZHSDAT'      '生产日期'    sy-tabix.
 *  fieldcatset    '待定'      保质期   sy-tabix.
 *  fieldcatset    '待定'      失效日期    sy-tabix.
-  fieldcatset   'SVBELN'      '销售订单号'   sy-tabix.
+*  fieldcatset   'SVBELN'      '销售订单号'   sy-tabix.
   fieldcatset   'BSTKD'     '客户合同单号'    sy-tabix.
   fieldcatset   'KPSUM'     '开票数量'    sy-tabix.
   fieldcatset   'DDPPRICE'      'DDP价格'   sy-tabix.
@@ -819,7 +853,7 @@ FORM catalog USING flag_b.
   fieldcatset   'DISCNUM'     '折扣金额'    sy-tabix.
   fieldcatset   'KBETR'     '税率'    sy-tabix.
   fieldcatset   'MWSBP'     '销项税额'    sy-tabix.
-  fieldcatset   'NETWR'     '不含税金额'   sy-tabix.
+  fieldcatset   'PRICE'     '不含税金额'   sy-tabix.
   fieldcatset   'NETWR'     '价税总计'    sy-tabix.
   fieldcatset   'WAERK'     '订单币别'    sy-tabix.
   fieldcatset   'ZPACK_CHARG'     '打印批号'    sy-tabix.

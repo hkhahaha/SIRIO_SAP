@@ -58,6 +58,7 @@ TYPES:BEGIN OF lv_out,
         zwmszt          TYPE    likp-zwmszt , "  是否传输WMS
         zuser           TYPE    but000-name_org1  , "  业务员
         zcustom         TYPE    but000-name_org1  , "  客户
+        zruserno        TYPE vbpa-kunnr, "实际客户编号
         zruser          TYPE    but000-name_org1  , "  实际客户
         zmakeuser       TYPE    adrp-name_text  , "  制单人
         sortl           TYPE    kna1-sortl  , "  检索项
@@ -89,6 +90,7 @@ TYPES:BEGIN OF lv_out,
         waerk           TYPE    vbak-waerk  , "  订单币别
         ernam           TYPE likp-ernam, "制单人
         zpack_charg(40) TYPE    c , "  打印批号
+        zcustomertext   TYPE string, "客户描述
         z004(40)        TYPE    c , "  备注
       END OF lv_out.
 TYPES:BEGIN OF lv_out2.
@@ -156,6 +158,7 @@ TYPES:
   netwr_all   TYPE    string  , "  价税总计
   waerk       TYPE    vbak-waerk  , "  订单币别
   zpack_charg TYPE    string  , "  打印批号
+  kunag       TYPE likp-kunag, "客户
   z004        TYPE    string  , "  备注
 *上面是从字段里面复制过来的。
 
@@ -333,6 +336,7 @@ FORM getdata.
   vbap~posnr AS posnr_vbap
   vbap~kwmeng
   likp~ernam AS zernam
+  likp~kunag
   INTO CORRESPONDING FIELDS OF TABLE lt_main
   FROM lips
   INNER JOIN likp
@@ -349,12 +353,20 @@ FORM getdata.
   AND likp~vkorg IN pvkorg
   AND likp~vbeln IN pvbeln
   AND vbap~vbeln IN pvbeln2
-  AND likp~ernam IN puser.
+  AND likp~ernam IN puser
+  AND likp~kunag IN pcustom.
 
-
-
-
-
+  "客户
+  SELECT
+    partner
+    name_org1
+    name_org2
+    name_org3
+    name_org4
+  INTO CORRESPONDING FIELDS OF TABLE lt_but000
+  FROM but000
+  FOR ALL ENTRIES IN lt_main
+  WHERE but000~partner = lt_main-kunag.
 
   IF lt_main IS NOT INITIAL.
 
@@ -451,16 +463,22 @@ FORM getdata.
         AND vbpa~parvw = 'Z3'
         AND vbpa~kunnr IN puser.
       "客户
-      SELECT SINGLE
-      name_org1
-      INTO ls_out-zcustom
-      FROM but000
-      INNER JOIN vbpa
-      ON but000~partner = vbpa~kunnr
-      WHERE vbpa~vbeln = ls_main-vbeln_likp
-      AND vbpa~posnr = ''
-        AND vbpa~parvw = 'AG'
-        AND vbpa~kunnr IN pcustom.
+*      SELECT SINGLE
+*      name_org1
+*      INTO ls_out-zcustom
+*      FROM but000
+*      INNER JOIN vbpa
+*      ON but000~partner = vbpa~kunnr
+*      WHERE vbpa~vbeln = ls_main-vbeln_likp
+*      AND vbpa~posnr = ''
+*        AND vbpa~parvw = 'AG'
+*        AND vbpa~kunnr IN pcustom.
+      READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_main-kunag.
+      IF sy-subrc = 0.
+        ls_out-zcustomertext = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
+      ENDIF.
+
+      ls_out-zcustom = ls_main-kunag.
 
       "实际客户
       SELECT SINGLE
@@ -471,7 +489,15 @@ FORM getdata.
       ON but000~partner = vbpa~kunnr
       WHERE vbpa~vbeln = ls_main-vbeln_likp
       AND vbpa~posnr = ''
-        AND vbpa~parvw = 'Z1'.
+      AND vbpa~parvw = 'Z1'.
+      "实际客户编号
+      SELECT SINGLE
+      kunnr
+        INTO ls_out-zruserno
+      FROM vbpa
+      WHERE vbpa~vbeln = ls_main-vbeln_likp
+      AND vbpa~posnr = ''
+      AND vbpa~parvw = 'Z1'.
 *      "制单人
 *      SELECT SINGLE
 *        name_text
@@ -844,6 +870,9 @@ FORM catalog USING flag_b.
   fieldcatset   'ZWMSZT'      '是否传输WMS'   sy-tabix.
   fieldcatset   'ZUSER'     '业务员'   sy-tabix.
   fieldcatset   'ZCUSTOM'     '客户'    sy-tabix.
+  fieldcatset   'ZCUSTOMERTEXT'     '客户中文描述'    sy-tabix.
+
+  fieldcatset   'ZRUSERNO'      '实际客户编号'    sy-tabix.
   fieldcatset   'ZRUSER'      '实际客户'    sy-tabix.
   fieldcatset   'ERNAM'     '制单人'   sy-tabix.
   fieldcatset   'SORTL'     '检索项'   sy-tabix.

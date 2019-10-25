@@ -50,7 +50,8 @@ FORM getdata.
   FROM mara
   INNER JOIN makt
   ON mara~matnr = makt~matnr
-  WHERE mara~mtart IN s_mtart.
+  WHERE mara~mtart IN s_mtart
+    AND mara~matnr IN s_matnr.
 
   "子件
   LOOP AT lt_alv2 INTO ls_alv2.
@@ -153,7 +154,7 @@ FORM getdata.
         maktx
         INTO ls_alv-maktx
         FROM makt
-        WHERE makt~matnr = ls_alv-matnr
+        WHERE makt~matnr = ls_stb-idnrk
           AND makt~spras = '1'.
         ls_alv-matnr = ls_alv2-matnr.
 *        ls_alv-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_alv-matnr i_out = 'X' ).

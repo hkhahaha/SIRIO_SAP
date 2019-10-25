@@ -235,6 +235,10 @@ DATA:lt_likp          TYPE TABLE OF likp,
      ls_makt          TYPE makt,
      lt_mara          TYPE TABLE OF mara,
      ls_mara          TYPE mara,
+     lt_mast          TYPE TABLE OF mast,
+     ls_mast          TYPE mast,
+     lt_stko          TYPE TABLE OF stko,
+     ls_stko          TYPE stko,
      lt_t023t         TYPE TABLE OF t023t,
      ls_t023t         TYPE t023t,
      lt_vbap          TYPE TABLE OF vbap,
@@ -758,8 +762,8 @@ FORM getdata.
       ls_out-erdat = ls_main-erdat ."  创建日期
       ls_out-zfhrq = ls_main-zfhrq ."  发货日期
       ls_out-wadat = ls_main-wadat ."  过账日期
-      ls_main-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_main-matnr i_out = 'X' ).
-      ls_out-matnr = ls_main-matnr ."  产品代号
+      ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_main-matnr i_out = 'X' )."产品代号
+*      ls_out-matnr = ls_main-matnr ."  产品代号
       ls_out-arktx = ls_main-arktx ."  产品名称
       ls_out-lfimg = ls_main-lfimg ."  销售数量
       ls_out-vrkme = ls_main-vrkme ."  销售单位
@@ -787,30 +791,166 @@ FORM getdata.
       IF ls_out-zlfimg IS NOT INITIAL.
         " 当是铝盒装的时候：
         IF flag_b = 'X'.
-
-          SELECT
-          zmatnr
-          zson
-          INTO CORRESPONDING FIELDS OF TABLE lt_zaluminium
-          FROM zaluminium
-          WHERE zaluminium~zmatnr = ls_out-matnr
-          AND zaluminium~zdatefrom <= ls_out-wadat
-          AND zaluminium~zdateend >= ls_out-wadat.
-          " 当是铝盒装的时候，把数据存在lt_out2里面
-          LOOP AT lt_zaluminium INTO ls_zaluminium.
-            ls_out2-zson = ls_zaluminium-zson.
-            ls_out2-zsum = ls_zaluminium-zson * ls_out-lfimg.
-            MOVE-CORRESPONDING ls_out TO ls_out2.
-          ENDLOOP.
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：23.10.2019 11:41:34
+*&---------------------------------------------------------------------*
+*&修改记录：修改礼合装的取数逻辑
+*&
+*&---------------------------------------------------------------------*
+          "获取对应的物料清单
+          SELECT SINGLE
+            stlnr
+          INTO CORRESPONDING FIELDS OF ls_mast
+          FROM mast AS a
+          WHERE a~matnr = ls_main-matnr
+            AND a~werks = ls_main-werks
+            AND a~stlan = '1'
+            AND a~stlal = '01'.
+          "BOM的基本数量
+          SELECT SINGLE
+            bmeng
+          INTO CORRESPONDING FIELDS OF ls_stko
+          FROM stko AS a
+          WHERE a~stlty = 'M'
+            AND a~stlal = '01'
+            AND a~stlnr = ls_mast-stlnr.
+          DATA lt_stb  LIKE TABLE OF stpox.
+          DATA ls_stb  LIKE stpox.
+          "获取BOM子件以及数量
+          CALL FUNCTION 'CS_BOM_EXPL_MAT_V2'
+            EXPORTING
+*             FTREL                 = ' '
+*             ALEKZ                 = ' '
+*             ALTVO                 = ' '
+*             AUFSW                 = ' '
+*             AUMGB                 = ' '
+*             AUMNG                 = 0
+*             AUSKZ                 = ' '
+*             AMIND                 = ' '
+*             BAGRP                 = ' '
+*             BEIKZ                 = ' '
+*             BESSL                 = ' '
+*             BGIXO                 = ' '
+*             BREMS                 = ' '
+              capid                 = 'PP01'
+*             CHLST                 = ' '
+*             COSPR                 = ' '
+*             CUOBJ                 = 000000000000000
+*             CUOVS                 = 0
+*             CUOLS                 = ' '
+              datuv                 = sy-datum
+*             DELNL                 = ' '
+*             DRLDT                 = ' '
+*             EHNDL                 = ' '
+*             EMENG                 = 0
+*             ERSKZ                 = ' '
+*             ERSSL                 = ' '
+*             FBSTP                 = ' '
+*             KNFBA                 = ' '
+*             KSBVO                 = ' '
+*             MBWLS                 = ' '
+              mktls                 = 'X'
+*             MDMPS                 = ' '
+              mehrs                 = 'X'
+*             MKMAT                 = ' '
+*             MMAPS                 = ' '
+*             SALWW                 = ' '
+*             SPLWW                 = ' '
+*             MMORY                 = ' '
+              mtnrv                 = ls_main-matnr
+*             NLINK                 = ' '
+*             POSTP                 = ' '
+*             RNDKZ                 = ' '
+*             RVREL                 = ' '
+*             SANFR                 = ' '
+*             SANIN                 = ' '
+*             SANKA                 = ' '
+*             SANKO                 = ' '
+*             SANVS                 = ' '
+*             SCHGT                 = ' '
+*             STKKZ                 = ' '
+*             STLAL                 = ' '
+*             STLAN                 = ' '
+*             STPST                 = 0
+              svwvo                 = 'X'
+              werks                 = ls_main-werks
+*             NORVL                 = ' '
+*             MDNOT                 = ' '
+*             PANOT                 = ' '
+*             QVERW                 = ' '
+*             VERID                 = ' '
+              vrsvo                 = 'X'
+*             SGT_SCAT              =
+*             SGT_REL               =
+*             CALLER_APP            =
+*             BOM_VERSN             =
+*           IMPORTING
+*             TOPMAT                =
+*             DSTST                 =
+            TABLES
+              stb                   = lt_stb
+*             MATCAT                =
+            EXCEPTIONS
+              alt_not_found         = 1
+              call_invalid          = 2
+              material_not_found    = 3
+              missing_authorization = 4
+              no_bom_found          = 5
+              no_plant_data         = 6
+              no_suitable_bom_found = 7
+              conversion_error      = 8
+              OTHERS                = 9.
+          IF sy-subrc <> 0.
+* Implement suitable error handling here
+          ENDIF.
+          LOOP AT LT_STB INTO LS_STB.
+          "子件
+          ls_out2-zson = LS_STB-idnrk.
+          "礼合装子件销售数量
+            ls_out2-zsum = ( ls_stb-menge / LS_STKO-bmeng ) * ls_out-baxssl.
           MOVE-CORRESPONDING ls_out TO ls_out2.
+          ENDLOOP.
+          IF LT_STB IS INITIAL.
+            MOVE-CORRESPONDING ls_out TO ls_out2.
+          ENDIF.
           IF ls_out2-vbeln IS NOT INITIAL.
             APPEND ls_out2 TO lt_out2.
           ENDIF.
-        ELSE.
+          ELSE.
           IF ls_out-vbeln IS NOT INITIAL.
             APPEND ls_out TO lt_out.
           ENDIF.
+
+
+
+
+
+
+*          SELECT
+*          zmatnr
+*          zson
+*          INTO CORRESPONDING FIELDS OF TABLE lt_zaluminium
+*          FROM zaluminium
+*          WHERE zaluminium~zmatnr = ls_out-matnr
+*          AND zaluminium~zdatefrom <= ls_out-wadat
+*          AND zaluminium~zdateend >= ls_out-wadat.
+*          " 当是铝盒装的时候，把数据存在lt_out2里面
+*          LOOP AT lt_zaluminium INTO ls_zaluminium.
+*            ls_out2-zson = ls_zaluminium-zson.
+*            ls_out2-zsum = ls_zaluminium-zson * ls_out-lfimg.
+*            MOVE-CORRESPONDING ls_out TO ls_out2.
+*          ENDLOOP.
+*          MOVE-CORRESPONDING ls_out TO ls_out2.
+*          IF ls_out2-vbeln IS NOT INITIAL.
+*            APPEND ls_out2 TO lt_out2.
+*          ENDIF.
+*        ELSE.
+*          IF ls_out-vbeln IS NOT INITIAL.
+*            APPEND ls_out TO lt_out.
+*          ENDIF.
         ENDIF.
+
 
       ENDIF.
 

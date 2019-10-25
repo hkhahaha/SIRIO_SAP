@@ -167,11 +167,11 @@ FORM getdata.
         WHERE ausp~objek = ls_stb-idnrk
           AND ausp~atinn = '0000000027'.
 
-        IF ls_alv-matnr IS NOT INITIAL AND ls_alv-zoriadd IS NOT INITIAL.
-          ls_alv-bom = zcl_bc_public=>conv_by_ddic( i_input = ls_stb-idnrk i_out = 'X' ).
-          ls_alv-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_alv-matnr i_out = 'X' ).
-          APPEND ls_alv TO lt_alv.
-        ENDIF.
+*        IF ls_alv-matnr IS NOT INITIAL AND ls_alv-zoriadd IS NOT INITIAL.
+        ls_alv-bom = zcl_bc_public=>conv_by_ddic( i_input = ls_stb-idnrk i_out = 'X' ).
+        ls_alv-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_alv-matnr i_out = 'X' ).
+        APPEND ls_alv TO lt_alv.
+*        ENDIF.
 
         CLEAR ls_stb.
 *        CLEAR LS_ALV.
@@ -181,6 +181,9 @@ FORM getdata.
     ENDIF.
     CLEAR ls_alv.
   ENDLOOP.
+  "将内表中的BOM重复项去重
+  SORT lt_alv.
+  DELETE ADJACENT DUPLICATES FROM lt_alv COMPARING ALL FIELDS.
 ENDFORM.
 
 

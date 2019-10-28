@@ -792,6 +792,7 @@ FORM frm_get_data.
       gs_out-menge2 = ls_qprs-menge && ls_qprs-meinh.
 *      gs_out-menge2 = gs_out-menge2 && '123'.
       " 供应商
+      CLEAR ls_but000-name_org1.
       SELECT SINGLE
         name_org1
       INTO  ls_but000-name_org1
@@ -808,6 +809,7 @@ FORM frm_get_data.
 *      INTO ls_but000-name_org1
 *      FROM but000
 *      WHERE but000~partner = ls_mara-mfrnr.
+      CLEAR ls_ekpo-mfrnr.
       CLEAR ls_but000.
       SELECT SINGLE
         mfrnr
@@ -822,6 +824,7 @@ FORM frm_get_data.
       WHERE but000~partner = ls_ekpo-mfrnr.
 
       gs_out-mfrnr = ls_but000-name_org1.
+      CLEAR ls_but000-name_org1.
       IF gs_out-mfrnr IS INITIAL.
         gs_out-mfrnr = '无'.
       ENDIF.

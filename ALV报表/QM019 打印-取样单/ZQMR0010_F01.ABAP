@@ -377,7 +377,8 @@ FORM frm_get_data.
     ztxbh
   INTO  lv_out-number
   FROM zqmt007
-  WHERE zqmt007~werks = p_werks.
+  WHERE zqmt007~werks = p_werks
+    AND zqmt007~zbddh = 'ZQM005'.
   lv_out-number = '编号:' && lv_out-number.
   IF lt_qals IS NOT INITIAL.
     LOOP AT lt_qals INTO ls_qals.
@@ -501,14 +502,21 @@ FORM frm_get_data.
       WHERE mara~matnr = ls_qals-matnr.
       "判断对应的规格类型
       IF ls_mara-mtart = 'HALB' OR ls_mara-mtart = 'Z030'."半成品
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：16.10.2019 11:11:14
+*&---------------------------------------------------------------------*
+*&修改记录：取样区域逻辑通过QALS-AUFNR=ZPPT001-AUFNR,输出ZPPT001-ZCHANX
+*&
+*&---------------------------------------------------------------------*
         "半成品的取样区域
-        SELECT SINGLE
-          *
-        INTO CORRESPONDING FIELDS OF ls_zppt0001
-        FROM zppt0001
-        WHERE zppt0001~matnr = ls_qals-matnr
-        AND zppt0001~charg = ls_qals-charg.
-        gs_out-zchanx = ls_zppt0001-zchanx.
+*        SELECT SINGLE
+*          *
+*        INTO CORRESPONDING FIELDS OF ls_zppt0001
+*        FROM zppt0001
+*        WHERE zppt0001~matnr = ls_qals-matnr
+*        AND zppt0001~charg = ls_qals-charg.
+*        gs_out-zchanx = ls_zppt0001-zchanx.
         CLEAR ls_zppt0001.
         " 规格
         gs_out-zpack_sta = ls_mara-groes.
@@ -617,14 +625,21 @@ FORM frm_get_data.
         ENDIF.
 
         CLEAR ls_zppt0001.
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：16.10.2019 11:11:14
+*&---------------------------------------------------------------------*
+*&修改记录：取样区域逻辑通过QALS-AUFNR=ZPPT001-AUFNR,输出ZPPT001-ZCHANX
+*&
+*&---------------------------------------------------------------------*
         "成品的取样区域
-        SELECT SINGLE
-          *
-        INTO CORRESPONDING FIELDS OF ls_zppt0001
-        FROM zppt0001
-        WHERE zppt0001~kdauf = ls_afpo-kdauf
-        AND zppt0001~kdpos = ls_afpo-kdpos.
-        gs_out-zchanx = ls_zppt0001-zchanx.
+*        SELECT SINGLE
+*          *
+*        INTO CORRESPONDING FIELDS OF ls_zppt0001
+*        FROM zppt0001
+*        WHERE zppt0001~kdauf = ls_afpo-kdauf
+*        AND zppt0001~kdpos = ls_afpo-kdpos.
+*        gs_out-zchanx = ls_zppt0001-zchanx.
       ELSE." 原辅料包材
 *        SELECT SINGLE
 *        atwrt
@@ -694,9 +709,9 @@ FORM frm_get_data.
 
 
       ENDIF.
-      IF gs_out-zchanx IS INITIAL.
-        gs_out-zchanx = '无'.
-      ENDIF.
+*      IF gs_out-zchanx IS INITIAL.
+*        gs_out-zchanx = '无'.
+*      ENDIF.
       " 抽样规则
 *      SELECT SINGLE
 *      atwrt
@@ -825,6 +840,14 @@ FORM frm_get_data.
         gs_out-verwmerkm = '不需要'.
       ENDIF.
 
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：14.10.2019 13:23:30
+*&---------------------------------------------------------------------*
+*&修改记录：修改检验岗位数量不匹配的问题
+*&
+*&---------------------------------------------------------------------*
+
       "检验项/岗位
       CLEAR ls_qamv.
       CLEAR ls_qpmk.
@@ -832,7 +855,8 @@ FORM frm_get_data.
         pruefquali
       INTO CORRESPONDING FIELDS OF TABLE lt_qamv
       FROM qamv
-      WHERE qamv~prueflos = ls_qals-prueflos.
+      WHERE qamv~prueflos = ls_qals-prueflos
+        AND qamv~satzstatus = '1'.
 
       LOOP AT lt_qamv INTO ls_qamv.
         SELECT DISTINCT
@@ -848,6 +872,8 @@ FORM frm_get_data.
           DELETE ADJACENT DUPLICATES FROM lt_out COMPARING ALL FIELDS.
           DELETE TABLE lt_out WITH TABLE KEY pqtxt = ''.
         ENDLOOP.
+        CLEAR lt_tq11t.
+        CLEAR ls_tq11t.
       ENDLOOP.
 
 *        SELECT
@@ -875,6 +901,8 @@ FORM frm_get_data.
           CONCATENATE gs_out-station ls_out-pqtxt INTO gs_out-station SEPARATED BY '、'.
         ENDIF.
       ENDLOOP.
+      CLEAR lt_out.
+      CLEAR ls_out.
       "判断规格是否为空
       IF gs_out-zpack_sta IS INITIAL.
         gs_out-zpack_sta = '无'.
@@ -882,6 +910,20 @@ FORM frm_get_data.
 
       IF gs_out-zsfxbz IS INITIAL.
         gs_out-zsfxbz = '无'.
+      ENDIF.
+      "取样区域
+      CLEAR ls_zppt0001.
+
+      IF ls_qals-aufnr IS  NOT INITIAL.
+        SELECT SINGLE
+        zchanx
+        INTO CORRESPONDING FIELDS OF ls_zppt0001
+        FROM zppt0001
+        WHERE zppt0001~aufnr = ls_qals-aufnr.
+        gs_out-zchanx = ls_zppt0001-zchanx.
+      ENDIF.
+      IF gs_out-zchanx IS INITIAL.
+        gs_out-zchanx = '无'.
       ENDIF.
       APPEND gs_out TO gt_out.
       CLEAR ls_zppt0001.

@@ -88,7 +88,7 @@ s_enddat FOR qals-enstehdat,"到货日期
 s_mtart FOR mara-mtart,"物料类型
 s_art FOR qals-art DEFAULT '01',"检验类型，默认01
 s_charg FOR qals-charg."SAP批号
-PARAMETERS:   p_werks TYPE werks_d.
+PARAMETERS:   p_werks TYPE werks_d OBLIGATORY.
 SELECTION-SCREEN BEGIN OF LINE.
 SELECTION-SCREEN COMMENT 1(20) TEXT-002.
 SELECTION-SCREEN POSITION 23.
@@ -143,26 +143,26 @@ FORM getdata.
 *s_art 检验类型
 *s_charg SAP批号
   SELECT
-   qals~matnr AS matnr
-   qals~werk AS werk
-   qals~enstehdat AS enstehdat
-   qals~art AS art
-   qals~charg AS charg
-   qals~lifnr AS lifnr
-   qals~mblnr AS mblnr
-   qals~mjahr AS mjahr
-   qals~zeile AS zeile
-   mara~mtart AS mtart
+  qals~matnr AS matnr
+  qals~werk AS werk
+  qals~enstehdat AS enstehdat
+  qals~art AS art
+  qals~charg AS charg
+  qals~lifnr AS lifnr
+  qals~mblnr AS mblnr
+  qals~mjahr AS mjahr
+  qals~zeile AS zeile
+  mara~mtart AS mtart
   INTO CORRESPONDING FIELDS OF TABLE lt_all
   FROM qals
   INNER JOIN mara
   ON mara~matnr = qals~matnr
   WHERE qals~matnr IN s_matnr
-    AND qals~werk = p_werks
-    AND qals~enstehdat IN s_enddat
-    AND qals~art IN s_art
-    AND qals~charg IN s_charg
-    AND mara~mtart IN s_mtart.
+  AND qals~werk = p_werks
+  AND qals~enstehdat IN s_enddat
+  AND qals~art IN s_art
+  AND qals~charg IN s_charg
+  AND mara~mtart IN s_mtart.
   LOOP AT lt_all INTO ls_all.
     input_matnr = ls_all-matnr.
     input_charg = ls_all-charg.
@@ -170,7 +170,7 @@ FORM getdata.
 
     "物料描述
     SELECT SINGLE
-      maktx
+    maktx
     INTO CORRESPONDING FIELDS OF ls_makt
     FROM makt
     WHERE makt~matnr = ls_all-matnr.
@@ -228,7 +228,7 @@ FORM getdata.
     ENDIF.
     "供应商
     SELECT SINGLE
-      name1
+    name1
     INTO CORRESPONDING FIELDS OF ls_lfa1
     FROM lfa1
     WHERE lfa1~lifnr =  ls_all-lifnr.
@@ -244,24 +244,21 @@ FORM getdata.
     ls_all-zoriadd = ls_output-atwrt.
     "有无报告书
     SELECT SINGLE
-      answer
+    answer
     INTO CORRESPONDING FIELDS OF ls_mseg
     FROM mseg
     WHERE mseg~mblnr = ls_all-mblnr
-      AND mseg~mjahr = ls_all-mjahr
-      AND mseg~zeile = ls_all-zeile.
+    AND mseg~mjahr = ls_all-mjahr
+    AND mseg~zeile = ls_all-zeile.
     ls_all-zflag = ls_mseg-answer.
-    IF ls_mseg-answer IS INITIAL.
-      ls_all-zflag = '未知'.
-    ENDIF.
+
     CLEAR ls_mseg.
     "是否供应商批次非首次
     SELECT DISTINCT
-      charg
+    charg
     INTO CORRESPONDING FIELDS OF TABLE lt_mseg2
     FROM mseg
-    WHERE mseg~matnr = ls_all-matnr
-      AND mseg~charg <> ''.
+    WHERE mseg~matnr = ls_all-matnr.
 
 *    LOOP AT lt_mseg2 INTO ls_mseg2.
 *      "检查其他批次的批次属性供应商批号
@@ -323,6 +320,9 @@ FORM getdata.
         ls_all-zflag2 = '首次'.
       ENDIF.
     ENDLOOP.
+    IF output IS INITIAL.
+      ls_all-zflag2 = '首次'.
+    ENDIF.
 *    READ TABLE lt_mseg2 INTO ls_mseg2 WITH KEY zlicha = ls_all-zlicha.
     "是否已审核
     IF ls_all-zflag2 = '非首次'.
@@ -330,14 +330,12 @@ FORM getdata.
     ELSE.
       ls_all-zflag3 = '待审核'.
     ENDIF.
-    IF ls_all-zflag2 IS INITIAL.
-      ls_all-zflag3 = '无'.
-    ENDIF.
+
 
 
 
     "归档命名规则
-    ls_all-z_name = |{ ls_all-maktx }-{ ls_all-charg }-{ ls_qals-lifnr }-{ ls_all-zlicha }|.
+    ls_all-z_name = |{ ls_all-maktx }&{ ls_all-charg }&{ ls_all-lifnr }&{ ls_all-zlicha }|.
     "物料编码
 *    ls_all-matnr = ls_qals-matnr.
     "SAP批次号
@@ -348,14 +346,14 @@ FORM getdata.
   ENDLOOP.
   LOOP AT lt_all INTO ls_all.
     IF flag_a = 'X'.
-*      IF ls_all-zflag3 = '已审核'.
-      MOVE-CORRESPONDING ls_all TO ls_out.
-*      ENDIF.
+      IF ls_all-zflag3 = '已审核'.
+        MOVE-CORRESPONDING ls_all TO ls_out.
+      ENDIF.
     ENDIF.
     IF flag_b = 'X'.
-*      IF ls_all-zflag3 = '待审核'.
-      MOVE-CORRESPONDING ls_all TO ls_out.
-*      ENDIF.
+      IF ls_all-zflag3 = '待审核'.
+        MOVE-CORRESPONDING ls_all TO ls_out.
+      ENDIF.
     ENDIF.
     APPEND ls_out TO lt_out.
   ENDLOOP.

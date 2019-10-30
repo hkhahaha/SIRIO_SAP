@@ -23,13 +23,13 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         posnr    TYPE    vbap-posnr  , "  行号
         ernam    TYPE    vbak-ernam  , "  制单人
         vkorg    TYPE    vbak-vkorg  , "  销售组织
-        auart    TYPE    vbak-auart  , "  订单类型
-        vtweg    TYPE    vbak-vtweg  , "  分销渠道
+        auart    TYPE    string  , "  订单类型
+        vtweg    TYPE    string , "  分销渠道
         werks    TYPE    vbap-werks  , "  工厂
-        vkbur    TYPE    vbak-vkbur  , "  二级部门
+        vkbur    TYPE    string  , "  二级部门
         mandt    TYPE    vbak-mandt  , "  集团名称
-        kunnr    TYPE    vbak-kunnr  , "  售达方
-        zckgj    TYPE    vbak-zckgj  , "  出口国家
+        kunnr    TYPE    string      , "  售达方
+        zckgj    TYPE    string  , "  出口国家
         waerk    TYPE    vbak-waerk  , "  订单币种
         matnr    TYPE    vbap-matnr  , "  产品编码
         arktx    TYPE    vbap-arktx  , "  产品名称
@@ -70,7 +70,7 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         erdat    TYPE    vbak-erdat  , "  创建日期
 *        matnr    TYPE    vbap-matnr  , "  物料编码
         objnr    TYPE    vbap-objnr  , " 对象编号
-        kvgr1    TYPE    knvv-kvgr1  , "  销售渠道/客户类型
+        kvgr1    TYPE    string  , "  销售渠道/客户类型
         umziz    TYPE    vbap-umziz  , "转换因子（分子）
         umzin    TYPE    vbap-umzin  ,  "转换因此（分母）
         knumv    TYPE vbak-knumv, "凭证条件号
@@ -82,12 +82,12 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         posnr       TYPE    vbap-posnr  , "  行号
         ernam       TYPE    string      , "  制单人
         vkorg       TYPE    vbak-vkorg  , "  销售组织
-        auart       TYPE    vbak-auart  , "  订单类型
-        vtweg       TYPE    vbak-vtweg  , "  分销渠道
-        kvgr1       TYPE    knvv-kvgr1  , "  销售渠道/客户类型
+        auart       TYPE    string  , "  订单类型
+        vtweg       TYPE    string  , "  分销渠道
+        kvgr1       TYPE    string  , "  销售渠道/客户类型
         werks       TYPE    vbap-werks  , "  工厂
         lgort       TYPE    lips-lgort  , "  库存地点
-        vkbur       TYPE    vbak-vkbur  , "  二级部门
+        vkbur       TYPE    string  , "  二级部门
         saleman     TYPE    string      , "  业务员
         mc_name1    TYPE    but000-mc_name1, "检索项
         mandt       TYPE    vbak-mandt  , "  集团名称
@@ -95,7 +95,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         custname    TYPE    string      , "  实际客户名称
         kukla       TYPE    kna1-kukla  , "  实际客户等级
         zterm       TYPE    vbkd-zterm  , "  付款方式
-        zckgj       TYPE    vbak-zckgj  , "  出口国家
+        zckgj       TYPE    string  , "  出口国家
         bstkd_e     TYPE    vbkd-bstkd_e, "  客户PO
         waerk       TYPE    vbak-waerk  , "  订单币种
         kursk       TYPE    vbkd-kursk  , "  汇率
@@ -187,6 +187,14 @@ END-OF-SELECTION.
 
 
 FORM getdata.
+  TYPES:BEGIN OF ty_all2,
+          matnr90(90) TYPE c,
+        END OF ty_all2.
+*  TYPES:BEGIN OF ty_test,
+*          flag TYPE c,
+*        END OF ty_test.
+*  DATA:lt_test TYPE TABLE OF ty_test,
+*       ls_test TYPE ty_test.
   DATA:lt_vbak          TYPE TABLE OF vbak,
        ls_vbak          TYPE vbak,
        lt_vbap          TYPE TABLE OF vbap,
@@ -207,10 +215,70 @@ FORM getdata.
        ls_mara          TYPE mara,
        ls_prcd_elements TYPE prcd_elements,
        ls_mska          TYPE mska,
+       lt_ausp          TYPE TABLE OF ausp,
+       ls_ausp          TYPE ausp,
+       lt_tvakt         TYPE TABLE OF tvakt,
+       ls_tvakt         TYPE tvakt,
+       lt_tvtwt         TYPE TABLE OF tvtwt,
+       ls_tvtwt         TYPE tvtwt,
+       lt_tvv1t         TYPE TABLE OF tvv1t,
+       ls_tvv1t         TYPE tvv1t,
+       lt_t005t         TYPE TABLE OF t005t,
+       ls_t005t         TYPE t005t,
+       lt_tvkbt         TYPE TABLE OF tvkbt,
+       ls_tvkbt         TYPE tvkbt,
        ls_kna1          TYPE kna1.
   DATA: lt_lines LIKE TABLE OF tline,
         ls_lines LIKE tline.
+  DATA:lt_all2 TYPE TABLE OF ty_all2,
+       ls_all2 TYPE ty_all2.
+*&---------------------------------------------------------------------*
+*& 程序名：ZSDR0010
+*&作者：Seashell Huang
+*&模块：
+*&创建日期：30.10.2019 19:01:42
+*&功能描述：
+*&---------------------------------------------------------------------*
+*&修改记录：添加中文描述信息，对应分别是订单类型、分销渠道、销售渠道、二级部门、出口国家
+*&
+*&---------------------------------------------------------------------*
   "取出所有的数据到对应的内表中
+  SELECT
+    auart
+    bezei
+  INTO CORRESPONDING FIELDS OF TABLE lt_tvakt
+  FROM tvakt
+  WHERE tvakt~spras = '1'.
+  "取出所有的分销渠道的中文描述
+  SELECT
+    vtweg
+    vtext
+  INTO CORRESPONDING FIELDS OF TABLE lt_tvtwt
+  FROM tvtwt
+  WHERE tvtwt~spras = '1'.
+  "获取销售渠道的全部中文描述
+  SELECT
+    bezei
+    kvgr1
+  INTO CORRESPONDING FIELDS OF TABLE lt_tvv1t
+  FROM tvv1t
+  WHERE spras = '1'.
+  "获取出口国家的全部中文描述
+  SELECT
+    land1
+    landx
+  INTO CORRESPONDING FIELDS OF TABLE lt_t005t
+  FROM t005t
+  WHERE spras = '1'.
+  "取二级部门的全部中文描述
+  SELECT
+    vkbur
+    bezei
+  INTO CORRESPONDING FIELDS OF TABLE lt_tvkbt
+  FROM tvkbt
+  WHERE spras = '1'.
+
+
   "首先先查询VBAK
   SELECT
   zapszt    "  APS状态
@@ -273,8 +341,41 @@ FORM getdata.
     AND vbak~ernam IN sernam
     AND vbak~erdat IN serdat.
   "上面获取到的是所有有关VBAP和VBAK的数据
+
+  "将物料编码转类型
+  LOOP AT lt_all INTO ls_all.
+    ls_all2-matnr90 = ls_all-matnr.
+    APPEND ls_all2 TO lt_all2.
+  ENDLOOP.
+
+  "查询出全部物料的所需要的全部批次属性特征值
+  SELECT
+    *
+  INTO CORRESPONDING FIELDS OF TABLE lt_ausp
+  FROM ausp
+  FOR ALL ENTRIES IN lt_all2
+  WHERE ausp~objek = lt_all2-matnr90
+    AND ausp~atinn IN ( '0000000075','0000000052','0000000074','0000000067','0000000035' ).
+
   "将一部分可以直接插入的数据插入到内表中
   LOOP AT lt_all INTO ls_all.
+
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
+                                             atinn = '0000000075'.
+    ls_out-zappsou = ls_ausp-atwrt.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
+                                             atinn = '0000000052'.
+    ls_out-zcotype = ls_ausp-atwrt.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
+                                             atinn = '0000000074'.
+    ls_out-zprotype = ls_ausp-atwrt.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
+                                             atinn = '0000000067'.
+    ls_out-zpro = ls_ausp-atwrt.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
+                                             atinn = '0000000035'.
+    ls_out-zstdname = ls_ausp-atwrt.
+
     "因为TY_OUT的结构包含了TY_ALL的结构，所以直接MOVE
     MOVE-CORRESPONDING ls_all TO ls_out.
     "订单状态
@@ -339,10 +440,16 @@ FORM getdata.
     "检索项
     SELECT SINGLE
       mc_name1
+      name_org1
+      name_org2
+      name_org3
+      name_org4
     INTO CORRESPONDING FIELDS OF ls_but000
     FROM but000
     WHERE but000~partner = ls_all-kunnr.
     ls_out-mc_name1 = ls_but000-mc_name1.
+    "客户名称
+    ls_out-kunnr = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
     "集团名称
     "实际客户名称
     SELECT SINGLE
@@ -371,10 +478,11 @@ FORM getdata.
       AND vbpa~posnr = ''.
     ls_out-kukla = ls_kna1-kukla.
     CLEAR ls_kna1.
-    "客户PO
+    "客户PO、付款方式
     SELECT SINGLE
       bstkd_e
       kursk
+      zterm
     INTO CORRESPONDING FIELDS OF ls_vbkd
     FROM vbkd
     WHERE vbkd~posnr = ls_all-posnr
@@ -387,29 +495,28 @@ FORM getdata.
       WHERE vbkd~posnr = ''
       AND vbkd~vbeln = ls_all-vbeln.
     ENDIF.
+    IF ls_vbkd-zterm IS INITIAL.
+      SELECT SINGLE
+      zterm
+      INTO CORRESPONDING FIELDS OF ls_vbkd
+      FROM vbkd
+      WHERE vbkd~posnr = ''
+      AND vbkd~vbeln = ls_all-vbeln.
+    ENDIF.
+    "付款方式
+    ls_out-zterm = ls_vbkd-zterm.
     ls_out-bstkd_e = ls_vbkd-bstkd_e.
     "汇率
     ls_out-kursk = ls_vbkd-kursk.
-    "标准名称
-    DATA:lt_output LIKE TABLE OF zmaterial_tx_value,
-         ls_output LIKE LINE OF lt_output.
-    CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
-      EXPORTING
-        matnr  = ls_all-matnr
-        atnam  = 'ZSTDNAME'
-      TABLES
-        output = lt_output.
-    READ TABLE lt_output INTO ls_output INDEX 1.
-    ls_out-zstdname = ls_output-atwrt.
-    CLEAR ls_output.
-    CLEAR lt_output.
+
     " 定价参考物料编码
     SELECT SINGLE
       pmatn
     INTO CORRESPONDING FIELDS OF ls_mvke
     FROM mvke
     WHERE mvke~matnr = ls_all-matnr.
-    ls_out-pmatn = ls_mvke-pmatn.
+    ls_out-pmatn = zcl_bc_public=>conv_by_ddic( i_input = ls_mvke-pmatn i_out = 'X' ).
+*    ls_out-pmatn = ls_mvke-pmatn.
     IF ls_mvke-pmatn IS NOT INITIAL.
       SELECT SINGLE
         maktx
@@ -418,17 +525,7 @@ FORM getdata.
       WHERE makt~matnr = ls_mvke-pmatn.
       ls_out-maktx = ls_makt-maktx.
     ENDIF.
-    "是否益生菌
-    CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
-      EXPORTING
-        matnr  = ls_all-matnr
-        atnam  = 'ZPRO'
-      TABLES
-        output = lt_output.
-    READ TABLE lt_output INTO ls_output INDEX 1.
-    ls_out-zpro = ls_output-atwrt.
-    CLEAR ls_output.
-    CLEAR lt_output.
+
     "物料小类编码
     SELECT SINGLE
       matkl
@@ -443,28 +540,6 @@ FORM getdata.
     INTO CORRESPONDING FIELDS OF ls_makt
     FROM makt
     WHERE makt~matnr = ls_mara-matkl.
-    "产品类型
-    CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
-      EXPORTING
-        matnr  = ls_all-matnr
-        atnam  = 'ZPROTYPE'
-      TABLES
-        output = lt_output.
-    READ TABLE lt_output INTO ls_output INDEX 1.
-    ls_out-zprotype = ls_output-atwrt.
-    CLEAR ls_output.
-    CLEAR lt_output.
-    "合作类型
-    CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
-      EXPORTING
-        matnr  = ls_all-matnr
-        atnam  = 'ZCOTYPE'
-      TABLES
-        output = lt_output.
-    READ TABLE lt_output INTO ls_output INDEX 1.
-    ls_out-zprotype = ls_output-atwrt.
-    CLEAR ls_output.
-    CLEAR lt_output.
     "基本计量数量
     IF ls_all-umzin IS NOT INITIAL.
       ls_out-number = ls_all-kwmeng * ( ls_all-umziz / ls_all-umzin ).
@@ -724,17 +799,21 @@ FORM getdata.
     ls_out-invoicenote = ls_lines-tdline.
     CLEAR ls_lines.
     CLEAR  lt_lines.
-    "批文属性
-    CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
-      EXPORTING
-        matnr  = ls_all-matnr
-        atnam  = 'ZAPPSOU'
-      TABLES
-        output = lt_output.
-    READ TABLE lt_output INTO ls_output INDEX 1.
-    ls_out-zappsou = ls_output-atwrt.
-    CLEAR ls_output.
-    CLEAR lt_output.
+    "订单类型取描述
+    READ TABLE lt_tvakt INTO ls_tvakt WITH KEY auart = ls_out-auart.
+    ls_out-auart = ls_tvakt-bezei.
+    "分销渠道取描述
+    READ TABLE lt_tvtwt INTO ls_tvtwt WITH KEY vtweg = ls_out-vtweg.
+    ls_out-vtweg = ls_tvtwt-vtext.
+    "销售渠道取描述
+    READ TABLE lt_tvv1t INTO ls_tvv1t WITH KEY kvgr1 = ls_out-kvgr1.
+    ls_out-kvgr1 = ls_tvv1t-bezei.
+    "出口国家取描述
+    READ TABLE lt_t005t INTO ls_t005t WITH KEY land1 = ls_out-zckgj.
+    ls_out-zckgj = ls_t005t-landx.
+    "二级部门取描述
+    READ TABLE lt_tvkbt INTO ls_tvkbt WITH KEY vkbur = ls_out-vkbur.
+    ls_out-vkbur = ls_tvkbt-bezei.
 
 
     "产品编码
@@ -745,6 +824,8 @@ FORM getdata.
     INTO CORRESPONDING FIELDS OF ls_mara
     FROM mara
     WHERE mara~matnr = ls_all-matnr.
+
+
     IF ls_mara-matkl = '501601'."组合装
       flag = 'X'.
     ENDIF.
@@ -842,10 +923,12 @@ FORM getdata.
 
       LOOP AT lt_stb INTO ls_stb.
         ls_out-matnr = ls_stb-idnrk."BOM的物料编码
+        ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-matnr i_out = 'X' ).
         APPEND ls_out TO lt_out." 输出BOM子件的行数
       ENDLOOP.
 *      APPEND ls_out to lt_out.
     ELSE.
+      ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-matnr i_out = 'X' ).
       APPEND ls_out TO lt_out."输出不含BOM的行数
     ENDIF.
 *    APPEND ls_out to lt_out.
@@ -881,7 +964,7 @@ FORM catalog.
   fieldcatset 'vkbur'   '二级部门' sy-tabix.
   fieldcatset 'saleman'   '业务员' sy-tabix.
   fieldcatset 'mc_name1'   '检索项' sy-tabix.
-  fieldcatset 'mandt'   '集团名称' sy-tabix.
+  fieldcatset 'werks'   '公司名称' sy-tabix.
   fieldcatset 'kunnr'   '售达方(客户名称)' sy-tabix.
   fieldcatset 'custname'   '实际客户名称' sy-tabix.
   fieldcatset 'kukla'   '实际客户等级' sy-tabix.

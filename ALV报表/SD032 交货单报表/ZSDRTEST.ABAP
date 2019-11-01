@@ -173,7 +173,8 @@ TYPES:
   umvkn       TYPE lips-umvkn, "分子
   umvkz       LIKE lips-umvkz, "分母
   vbeln_vbak  TYPE    vbak-vbeln,   "  销售订单
-  kwmeng      TYPE vbap-kwmeng, "订单数量
+  kwmeng      TYPE vbap-kwmeng, "销售订单数量
+  meins2      TYPE vbap-meins, "销售订单单位
   zernam      TYPE likp-ernam, "制单人
   posnr_vbap  TYPE    vbap-posnr.   "  销售订单
 
@@ -342,6 +343,8 @@ FORM getdata.
   vbap~kwmeng
   likp~ernam AS zernam
   likp~kunag
+  vbap~meins AS meins2
+
   INTO CORRESPONDING FIELDS OF TABLE lt_main
   FROM lips
   INNER JOIN likp
@@ -791,6 +794,18 @@ FORM getdata.
       ls_out-netwr = ls_out-price + ls_out-mwsbp."价税总计
       ls_out-discnum = ls_out-perprice * ls_out-lfimg - ls_out-netwr."折扣金额
       ls_out-pmatn = zcl_bc_public=>conv_by_ddic( i_input = ls_out-pmatn i_out = 'X' ).
+*&---------------------------------------------------------------------*
+*& 程序名：ZSDRTEST
+*&作者：Seashell Huang
+*&模块：
+*&创建日期：01.11.2019 13:42:34
+*&功能描述：
+*&---------------------------------------------------------------------*
+*&修改记录：修改销售订单数量和销售订单单位的取值
+*&
+*&---------------------------------------------------------------------*
+      ls_out-lfimg = ls_main-kwmeng."销售订单数量
+      ls_out-vrkme = ls_main-meins2."销售订单数量单位
       IF ls_out-zlfimg IS NOT INITIAL.
         " 当是铝盒装的时候：
         IF flag_b = 'X'.
@@ -924,20 +939,38 @@ FORM getdata.
 * Implement suitable error handling here
             ENDIF.
             LOOP AT lt_stb INTO ls_stb.
-              "子件
-              CLEAR ls_makt.
+*&---------------------------------------------------------------------*
+*& 程序名：ZSDRTEST
+*&作者：Seashell Huang
+*&模块：
+*&创建日期：01.11.2019 13:54:15
+*&功能描述：
+*&---------------------------------------------------------------------*
+*&修改记录：添加子件物料编码的判断，判断其是否是成品
+*&
+*&---------------------------------------------------------------------*
+              CLEAR LS_MARA.
               SELECT SINGLE
+                MTART
+              INTO CORRESPONDING FIELDS OF LS_MARA
+              FROM MARA
+              WHERE MARA~MATNR = ls_stb-idnrk.
+              IF LS_MARA-mtart = 'Z050'.
+                "子件
+                CLEAR ls_makt.
+                SELECT SINGLE
                 maktx
-              INTO ls_out2-zsondetail
-              FROM makt
-              WHERE makt~matnr = ls_stb-idnrk.
-              ls_stb-idnrk = zcl_bc_public=>conv_by_ddic( i_input = ls_stb-idnrk i_out = 'X' ).
-              ls_out2-zson = ls_stb-idnrk.
-              "礼合装子件销售数量
-              ls_out2-zsum = ( ls_stb-menge / ls_stko-bmeng ) * ls_out-baxssl.
-              MOVE-CORRESPONDING ls_out TO ls_out2.
-              APPEND ls_out2 TO lt_out2.
-              CLEAR ls_out2.
+                INTO ls_out2-zsondetail
+                FROM makt
+                WHERE makt~matnr = ls_stb-idnrk.
+                ls_stb-idnrk = zcl_bc_public=>conv_by_ddic( i_input = ls_stb-idnrk i_out = 'X' ).
+                ls_out2-zson = ls_stb-idnrk.
+                "礼合装子件销售数量
+                ls_out2-zsum = ( ls_stb-menge / ls_stko-bmeng ) * ls_out-baxssl.
+                MOVE-CORRESPONDING ls_out TO ls_out2.
+                APPEND ls_out2 TO lt_out2.
+                CLEAR ls_out2.
+              ENDIF.
             ENDLOOP.
             IF lt_stb IS INITIAL.
               MOVE-CORRESPONDING ls_out TO ls_out2.

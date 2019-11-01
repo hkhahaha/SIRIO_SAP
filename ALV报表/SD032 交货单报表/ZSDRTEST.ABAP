@@ -97,6 +97,7 @@ TYPES:BEGIN OF lv_out2.
         INCLUDE TYPE lv_out.
         TYPES:zson(20)       TYPE c, "子件
         zsondetail(20) TYPE c, "子件描述
+        zmeins         TYPE mara-meins, "子件的单位
         zsum(20)       TYPE c, "铝盒装子件销售数量
       END OF lv_out2.
 TYPES:BEGIN OF lv_main.
@@ -949,13 +950,14 @@ FORM getdata.
 *&修改记录：添加子件物料编码的判断，判断其是否是成品
 *&
 *&---------------------------------------------------------------------*
-              CLEAR LS_MARA.
+              CLEAR ls_mara.
               SELECT SINGLE
-                MTART
-              INTO CORRESPONDING FIELDS OF LS_MARA
-              FROM MARA
-              WHERE MARA~MATNR = ls_stb-idnrk.
-              IF LS_MARA-mtart = 'Z050'.
+                mtart
+                meins
+              INTO CORRESPONDING FIELDS OF ls_mara
+              FROM mara
+              WHERE mara~matnr = ls_stb-idnrk.
+              IF ls_mara-mtart = 'Z050'.
                 "子件
                 CLEAR ls_makt.
                 SELECT SINGLE
@@ -965,12 +967,14 @@ FORM getdata.
                 WHERE makt~matnr = ls_stb-idnrk.
                 ls_stb-idnrk = zcl_bc_public=>conv_by_ddic( i_input = ls_stb-idnrk i_out = 'X' ).
                 ls_out2-zson = ls_stb-idnrk.
+                ls_out2-zmeins = ls_mara-meins.
                 "礼合装子件销售数量
                 ls_out2-zsum = ( ls_stb-menge / ls_stko-bmeng ) * ls_out-baxssl.
                 MOVE-CORRESPONDING ls_out TO ls_out2.
                 APPEND ls_out2 TO lt_out2.
                 CLEAR ls_out2.
               ENDIF.
+              CLEAR ls_mara.
             ENDLOOP.
             IF lt_stb IS INITIAL.
               MOVE-CORRESPONDING ls_out TO ls_out2.
@@ -1117,6 +1121,7 @@ FORM catalog USING flag_b.
   IF flag_b = 'X'.
     fieldcatset   'ZSON'      '子件'    sy-tabix.
     fieldcatset   'ZSONDETAIL'      '子件描述'    sy-tabix.
+    fieldcatset   'ZMEINS'      '子件单位'    sy-tabix.
     fieldcatset   'ZSUM'      '铝合装子件销售数量'    sy-tabix.
   ENDIF.
 ENDFORM.

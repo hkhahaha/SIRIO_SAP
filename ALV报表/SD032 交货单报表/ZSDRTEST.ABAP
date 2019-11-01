@@ -650,8 +650,10 @@ FORM getdata.
 *          ENDIF.
 *        ENDLOOP.
 *      ENDIF.
+      CLEAR ls_out-kpsum.
       CLEAR lt_vbfa.
       CLEAR ls_vbfa.
+      CLEAR count.
       SELECT
         a~vbelv
         a~posnv
@@ -935,10 +937,12 @@ FORM getdata.
               ls_out2-zsum = ( ls_stb-menge / ls_stko-bmeng ) * ls_out-baxssl.
               MOVE-CORRESPONDING ls_out TO ls_out2.
               APPEND ls_out2 TO lt_out2.
+              CLEAR ls_out2.
             ENDLOOP.
             IF lt_stb IS INITIAL.
               MOVE-CORRESPONDING ls_out TO ls_out2.
               APPEND ls_out2 TO lt_out2.
+              CLEAR ls_out2.
             ENDIF.
 *            IF ls_out2-vbeln IS NOT INITIAL.
 *              APPEND ls_out2 TO lt_out2.
@@ -946,6 +950,7 @@ FORM getdata.
           ELSE.
             IF ls_out-vbeln IS NOT INITIAL.
               APPEND ls_out TO lt_out.
+              CLEAR ls_out.
             ENDIF.
 
 
@@ -979,6 +984,7 @@ FORM getdata.
         ENDIF.
         IF ls_out-vbeln IS NOT INITIAL.
           APPEND ls_out TO lt_out.
+          CLEAR ls_out.
         ENDIF.
 
       ENDIF.
@@ -994,6 +1000,7 @@ FORM getdata.
 *      IF ls_out-zuser IS INITIAL AND pkunnr IS NOT INITIAL.
 *        DELETE TABLE lt_out FROM ls_out.
 *      ENDIF.
+      CLEAR ls_main.
       CLEAR ls_out.
     ENDLOOP.
 
@@ -1024,7 +1031,7 @@ FORM catalog USING flag_b.
   fieldcatset   'WADAT'   '过账日期'    sy-tabix.
   fieldcatset   'MATNR'   '产品代号'    sy-tabix.
   fieldcatset   'ARKTX'   '产品名称'    sy-tabix.
-  fieldcatset   'LFIMG'   '销售数量'    sy-tabix.
+  fieldcatset   'LFIMG'   '销售订单数量'    sy-tabix.
   fieldcatset   'VRKME'   '销售单位'    sy-tabix.
   fieldcatset   'ZJIANS'      '件数'    sy-tabix.
   fieldcatset   'ZLXSL'     '零箱数量'    sy-tabix.

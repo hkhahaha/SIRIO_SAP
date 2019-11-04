@@ -116,7 +116,7 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret.
        ls_but000 TYPE but000.
 
 
-  DATA: lv_str  TYPE string,
+  DATA: lv_str  TYPE vbak-vbeln,
         lv_str2 LIKE lv_str.
 
   DATA:u_input_one  TYPE zdt_oa2sap_salesorder,
@@ -126,7 +126,8 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret.
   u_input_two = u_input-item.
   READ TABLE u_input_two INTO u_input_two2 INDEX 1.
   "获取查询的数据
-  lv_str = '%' && u_input-vbeln && '%'.
+  lv_str = u_input-vbeln .
+  lv_str = zcl_bc_public=>conv_by_ddic( i_input = lv_str ).
 
 *  修改开始，日期2019.9.3，修改人HK
 
@@ -135,7 +136,7 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret.
     *
   INTO CORRESPONDING FIELDS OF TABLE lt_vbak
   FROM vbak
-  WHERE vbak~vbeln LIKE lv_str.
+  WHERE vbak~vbeln = lv_str.
 
   IF lt_vbak IS NOT INITIAL.
 
@@ -564,6 +565,8 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret.
       c_output-message = '成功'.
       c_output-type = 'Y'.
     ENDIF.
-
+  ELSE.
+    c_output-message = '订单查询失败，可能是订单不存在'.
+    c_output-type = 'E'.
   ENDIF.
 ENDFORM.

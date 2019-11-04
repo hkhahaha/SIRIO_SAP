@@ -52,11 +52,14 @@ ENDFUNCTION.
 
 FORM frm_check_input_status USING  u_input TYPE zdt_oa2sap_salesorder2_header
 CHANGING lv_augru2.
+  DATA lv_str TYPE vbak-vbeln.
+  lv_str = u_input-vbeln.
+  lv_str = zcl_bc_public=>conv_by_ddic( i_input = lv_str ).
   SELECT SINGLE
     augru
   FROM vbak
   INTO lv_augru2
-  WHERE vbak~vbeln = u_input-vbeln.
+  WHERE vbak~vbeln = lv_str.
 ENDFORM.
 
 
@@ -96,7 +99,7 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret2.
 
 
 
-  DATA: lv_str  TYPE string,
+  DATA: lv_str  TYPE vbak-vbeln,
         lv_str2 LIKE lv_str,
         i_posnr TYPE string.
 
@@ -107,7 +110,8 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret2.
   READ TABLE u_input_two INTO u_input_two2 INDEX 1.
 *  u_input_two2-posnr
   "获取查询的数据
-  lv_str = '%' && u_input-vbeln && '%'.
+  lv_str =  u_input-vbeln.
+  lv_str = zcl_bc_public=>conv_by_ddic( i_input = lv_str ).
 
 *  修改开始，日期2019.9.3，修改人HK
 
@@ -116,7 +120,7 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret2.
     *
   INTO CORRESPONDING FIELDS OF TABLE lt_vbak
   FROM vbak
-  WHERE vbak~vbeln LIKE lv_str.
+  WHERE vbak~vbeln = lv_str.
 
   IF lt_vbak IS NOT INITIAL.
 
@@ -375,7 +379,9 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret2.
       c_output-message = '成功'.
       c_output-type = 'Y'.
     ENDIF.
-
+  ELSE.
+    c_output-message = '订单查询失败，可能是订单不存在'.
+    c_output-type = 'E'.
   ENDIF.
 
 

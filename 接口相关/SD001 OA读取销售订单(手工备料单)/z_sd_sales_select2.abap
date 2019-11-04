@@ -290,8 +290,17 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret2.
         ON a~kunnr = e~kunnr
         WHERE a~vbeln = ls_vbak-vbeln.
         ls_so-zywy = ls_but000-bu_sort1.
-
-
+*&---------------------------------------------------------------------*
+*& 程序名：LZSD001U04
+*&作者：Seashell Huang
+*&模块：
+*&创建日期：04.11.2019 13:10:10
+*&功能描述：
+*&---------------------------------------------------------------------*
+*&修改记录：订单号前置0
+*&
+*&---------------------------------------------------------------------*
+        ls_so-vbeln = zcl_bc_public=>conv_by_ddic( i_input = ls_vbak-vbeln ).
 
 
         "上面是抬头字段的信息

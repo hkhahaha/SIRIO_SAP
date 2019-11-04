@@ -51,7 +51,7 @@ ENDFORM.
 FORM frm_get_info_data USING    u_input TYPE zdt_oa2sap_salesorder_header
 CHANGING c_output TYPE zdt_oa2sap_salesorder_ret.
   TYPES: BEGIN OF ty_vbap1,
-           zcpms    TYPE mara-matkl, "物料描述
+           zcpms    TYPE makt-maktx, "物料描述
            vbeln    TYPE vbap-vbeln, "订单号
            posnr    TYPE  vbap-posnr, "行项目号
            zdjzsj   TYPE  kzwi1, "单价（主数据）
@@ -186,6 +186,17 @@ CHANGING c_output TYPE zdt_oa2sap_salesorder_ret.
     " 下面进行读内表插数据操作
     LOOP AT lt_vbak INTO ls_vbak.
       MOVE-CORRESPONDING ls_vbak TO ls_so.
+*&---------------------------------------------------------------------*
+*& 程序名：LZSD001U02
+*&作者：Seashell Huang
+*&模块：
+*&创建日期：04.11.2019 13:15:13
+*&功能描述：
+*&---------------------------------------------------------------------*
+*&修改记录：添加订单号前置0
+*&
+*&---------------------------------------------------------------------*
+      ls_so-vbeln = zcl_bc_public=>conv_by_ddic( i_input = ls_vbak-vbeln ).
       DATA: lt_lines LIKE TABLE OF tline,
             ls_lines LIKE tline,
             lt_knvv  TYPE TABLE OF knvv,

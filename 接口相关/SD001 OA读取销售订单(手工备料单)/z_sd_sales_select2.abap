@@ -20,19 +20,46 @@ FUNCTION z_sd_sales_select2.
 
   DATA:ls_output TYPE zdt_oa2sap_salesorder_ret2.
 
-
-
-
+*&---------------------------------------------------------------------*
+*& 程序名：LZSD001U04
+*&作者：Seashell Huang
+*&模块：
+*&创建日期：04.11.2019 11:04:32
+*&功能描述：
+*&---------------------------------------------------------------------*
+*&修改记录：先判断订单的状态，避免重复审批
+*&---------------------------------------------------------------------*
+  DATA:lv_augru TYPE vbak-augru.
+  PERFORM frm_check_input_status USING  ls_input2
+                                  CHANGING lv_augru.
+  IF lv_augru <> 'Z01'.
 *检查输入条件是否都满足
-  PERFORM frm_check_input_data2 USING    ls_input2
-                                CHANGING l_success.
+    PERFORM frm_check_input_data2 USING    ls_input2
+                                  CHANGING l_success.
 *  CHECK l_success IS INITIAL.
 
 *获取数据
-  PERFORM frm_get_info_data2 USING    ls_input2
-                             CHANGING ls_output.
-  output-mt_oa2sap_salesorder_ret2 = ls_output.
+    PERFORM frm_get_info_data2 USING    ls_input2
+                               CHANGING ls_output.
+    output-mt_oa2sap_salesorder_ret2 = ls_output.
+  ELSE.
+    output-mt_oa2sap_salesorder_ret2-type = 'E'.
+    output-mt_oa2sap_salesorder_ret2-message = '订单已审批，勿重复提交'.
+  ENDIF.
 ENDFUNCTION.
+
+
+
+FORM frm_check_input_status USING  u_input TYPE zdt_oa2sap_salesorder2_header
+CHANGING lv_augru2.
+  SELECT SINGLE
+    augru
+  FROM vbak
+  INTO lv_augru2
+  WHERE vbak~vbeln = u_input-vbeln.
+ENDFORM.
+
+
 
 FORM frm_check_input_data2  USING u_input TYPE zdt_oa2sap_salesorder2_header
 CHANGING c_success.

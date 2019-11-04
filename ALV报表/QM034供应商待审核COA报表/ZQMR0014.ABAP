@@ -76,7 +76,10 @@ DATA:lt_qals  TYPE TABLE OF qals,
      lt_mseg  TYPE TABLE OF mseg,
      ls_mseg  TYPE mseg,
      lt_mseg2 TYPE TABLE OF zmseg,
-     ls_mseg2 TYPE zmseg.
+     ls_mseg2 TYPE zmseg,
+     lt_mcha  TYPE TABLE OF mcha,
+     ls_mcha  TYPE mcha,
+     ls_mcha2 TYPE mcha.
 
 
 
@@ -142,7 +145,7 @@ FORM getdata.
 *s_mtart 物料类型
 *s_art 检验类型
 *s_charg SAP批号
-  SELECT
+  SELECT DISTINCT
   qals~matnr AS matnr
   qals~werk AS werk
   qals~enstehdat AS enstehdat
@@ -163,6 +166,7 @@ FORM getdata.
   AND qals~art IN s_art
   AND qals~charg IN s_charg
   AND mara~mtart IN s_mtart.
+  SORT lt_all BY matnr charg.
   LOOP AT lt_all INTO ls_all.
     input_matnr = ls_all-matnr.
     input_charg = ls_all-charg.
@@ -250,15 +254,64 @@ FORM getdata.
     WHERE mseg~mblnr = ls_all-mblnr
     AND mseg~mjahr = ls_all-mjahr
     AND mseg~zeile = ls_all-zeile.
-    ls_all-zflag = ls_mseg-answer.
+    IF ls_mseg-answer IS INITIAL OR ls_mseg-answer = 'N'.
+      ls_all-zflag = 'N'.
+    ELSEIF ls_mseg-answer = 'J'.
+      ls_all-zflag = 'Y'.
+    ENDIF.
 
     CLEAR ls_mseg.
     "是否供应商批次非首次
-    SELECT DISTINCT
-    charg
-    INTO CORRESPONDING FIELDS OF TABLE lt_mseg2
-    FROM mseg
-    WHERE mseg~matnr = ls_all-matnr.
+*&---------------------------------------------------------------------*
+*& 程序名：ZQMR0014
+*&作者：Seashell Huang
+*&模块：
+*&创建日期：30.10.2019 10:44:13
+*&功能描述：
+*&---------------------------------------------------------------------*
+*&修改记录：修改是否供应商批次非首次的取数逻辑：
+*    MCHA
+*    物料
+*    供应商批次
+*    创建日期排序
+*    最上面是首次到货
+*    下面是非首次
+*&---------------------------------------------------------------------*
+    "判断供应商批次是否为空的，如果是空的，“是否供应商批次非首次”留空
+    IF ls_all-zlicha IS INITIAL.
+      ls_all-zflag2 = ''.
+    ELSE.
+      "如果供应商批次不为空的话
+      "首先先从MCHA取出所有物料、供应商批次对应的数据，按照创建日期进行排序
+      SELECT
+        ersda
+        charg
+      INTO CORRESPONDING FIELDS OF TABLE lt_mcha
+      FROM mcha
+      WHERE mcha~matnr = ls_all-matnr
+        AND mcha~licha = ls_all-zlicha
+      ORDER BY ersda charg.
+      "然后检查对应的物料、SAP批次和工厂，然后和上面的内表中的第一条数据进行对比，如果相等的话是首次，否则是非首次
+      READ TABLE lt_mcha INTO ls_mcha2 INDEX 1.
+      SELECT SINGLE
+        ersda
+        charg
+      INTO CORRESPONDING FIELDS OF ls_mcha
+      FROM mcha
+      WHERE mcha~matnr = ls_all-matnr
+        AND mcha~werks = ls_all-werk
+        AND mcha~charg = ls_all-charg.
+      IF ls_mcha-ersda = ls_mcha2-ersda AND ls_mcha-charg = ls_mcha2-charg.
+        ls_all-zflag2 = '首次'.
+      ELSE.
+        ls_all-zflag2 = '非首次'.
+      ENDIF.
+    ENDIF.
+*    SELECT DISTINCT
+*    charg
+*    INTO CORRESPONDING FIELDS OF TABLE lt_mseg2
+*    FROM mseg
+*    WHERE mseg~matnr = ls_all-matnr.
 
 *    LOOP AT lt_mseg2 INTO ls_mseg2.
 *      "检查其他批次的批次属性供应商批号
@@ -305,26 +358,30 @@ FORM getdata.
 *        MODIFY TABLE lt_mseg2 FROM ls_mseg2.
 *      ENDIF.
 *    ENDLOOP.
-    CLEAR output.
-    CLEAR ls_output.
-    CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
-      EXPORTING
-        matnr  = ls_all-matnr
-        atnam  = 'ZLICHA'
-      TABLES
-        output = output.
-    LOOP AT output INTO ls_output.
-      IF ls_output-atwrt = ls_all-zlicha.
-        ls_all-zflag2 = '非首次'.
-      ELSE.
-        ls_all-zflag2 = '首次'.
-      ENDIF.
-    ENDLOOP.
-    IF output IS INITIAL.
-      ls_all-zflag2 = '首次'.
-    ENDIF.
+
+*    CLEAR output.
+*    CLEAR ls_output.
+*    CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
+*      EXPORTING
+*        matnr  = ls_all-matnr
+*        atnam  = 'ZLICHA'
+*      TABLES
+*        output = output.
+*    LOOP AT output INTO ls_output.
+*      IF ls_output-atwrt = ls_all-zlicha.
+*        ls_all-zflag2 = '非首次'.
+*      ELSE.
+*        ls_all-zflag2 = '首次'.
+*      ENDIF.
+*    ENDLOOP.
+*    IF output IS INITIAL.
+*      ls_all-zflag2 = '首次'.
+*    ENDIF.
+
+
 *    READ TABLE lt_mseg2 INTO ls_mseg2 WITH KEY zlicha = ls_all-zlicha.
     "是否已审核
+    CLEAR ls_all-zflag3.
     IF ls_all-zflag2 = '非首次'.
       ls_all-zflag3 = '已审核'.
     ELSE.
@@ -344,6 +401,7 @@ FORM getdata.
     MODIFY lt_all FROM ls_all.
     CLEAR ls_all.
   ENDLOOP.
+
   LOOP AT lt_all INTO ls_all.
     IF flag_a = 'X'.
       IF ls_all-zflag3 = '已审核'.
@@ -355,9 +413,22 @@ FORM getdata.
         MOVE-CORRESPONDING ls_all TO ls_out.
       ENDIF.
     ENDIF.
+*&---------------------------------------------------------------------*
+*& 程序名：ZQMR0014
+*&作者：Seashell Huang
+*&模块：
+*&创建日期：01.11.2019 16:35:15
+*&功能描述：
+*&---------------------------------------------------------------------*
+*&修改记录：去掉前导0
+*&
+*&---------------------------------------------------------------------*
+    ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-matnr i_out = 'X' ).
     APPEND ls_out TO lt_out.
   ENDLOOP.
+  SORT lt_all BY matnr.
   DELETE lt_out WHERE matnr IS INITIAL.
+  DELETE ADJACENT DUPLICATES FROM lt_out COMPARING ALL FIELDS.
 ENDFORM.
 
 FORM catalog.

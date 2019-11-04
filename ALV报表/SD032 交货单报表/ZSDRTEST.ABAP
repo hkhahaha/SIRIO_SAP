@@ -774,10 +774,40 @@ FORM getdata.
       ls_out-arktx = ls_main-arktx ."  产品名称
       ls_out-lfimg = ls_main-lfimg ."  销售数量
       ls_out-vrkme = ls_main-vrkme ."  销售单位
+      CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+        EXPORTING
+          input          = ls_main-vrkme
+          language       = sy-langu
+        IMPORTING
+          long_text      = ls_out-vrkme
+*         OUTPUT         =
+*         SHORT_TEXT     =
+        EXCEPTIONS
+          unit_not_found = 1
+          OTHERS         = 2.
+      IF sy-subrc <> 0.
+* Implement suitable error handling here
+      ENDIF.
+
       ls_out-zjians  = ls_main-zjians  ."  件数
       ls_out-zlxsl = ls_main-zlxsl ."  零箱数量
       ls_out-zlfimg  = ls_main-lfimg  ."  实发销售数量
       ls_out-meins = ls_main-meins ."  基本计量单位
+      CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+        EXPORTING
+          input          = ls_main-meins
+          language       = sy-langu
+        IMPORTING
+          long_text      = ls_out-meins
+*         OUTPUT         =
+*         SHORT_TEXT     =
+        EXCEPTIONS
+          unit_not_found = 1
+          OTHERS         = 2.
+      IF sy-subrc <> 0.
+* Implement suitable error handling here
+      ENDIF.
+
       ls_out-wbsta = ls_main-wbsta ."  交货单状态
       ls_out-charg = ls_main-charg ."  批量流水
       ls_out-zfhqd = ls_main-zfhqd ."  是否特殊发货清单
@@ -807,6 +837,21 @@ FORM getdata.
 *&---------------------------------------------------------------------*
       ls_out-lfimg = ls_main-kwmeng."销售订单数量
       ls_out-vrkme = ls_main-meins2."销售订单数量单位
+      CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+        EXPORTING
+          input          = ls_main-meins2
+          language       = sy-langu
+        IMPORTING
+          long_text      = ls_out-vrkme
+*         OUTPUT         =
+*         SHORT_TEXT     =
+        EXCEPTIONS
+          unit_not_found = 1
+          OTHERS         = 2.
+      IF sy-subrc <> 0.
+* Implement suitable error handling here
+      ENDIF.
+
       IF ls_out-zlfimg IS NOT INITIAL.
         " 当是铝盒装的时候：
         IF flag_b = 'X'.
@@ -968,6 +1013,21 @@ FORM getdata.
                 ls_stb-idnrk = zcl_bc_public=>conv_by_ddic( i_input = ls_stb-idnrk i_out = 'X' ).
                 ls_out2-zson = ls_stb-idnrk.
                 ls_out2-zmeins = ls_mara-meins.
+                CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+                  EXPORTING
+                    input          = ls_mara-meins
+                    language       = sy-langu
+                  IMPORTING
+                    long_text      = ls_out2-zmeins
+*                   OUTPUT         =
+*                   SHORT_TEXT     =
+                  EXCEPTIONS
+                    unit_not_found = 1
+                    OTHERS         = 2.
+                IF sy-subrc <> 0.
+* Implement suitable error handling here
+                ENDIF.
+
                 "礼合装子件销售数量
                 ls_out2-zsum = ( ls_stb-menge / ls_stko-bmeng ) * ls_out-baxssl.
                 MOVE-CORRESPONDING ls_out TO ls_out2.

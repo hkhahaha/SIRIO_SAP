@@ -165,6 +165,8 @@ DATA: lt_out TYPE TABLE OF ty_out, "用于存储ALV内表的数据
 SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001.
 SELECT-OPTIONS:
 sauart    FOR   vbak-auart  ,"  订单类型
+svbeln FOR vbap-vbeln,"订单号
+sposnr FOR vbap-posnr,"行号
 pvkorg    FOR   vbak-vkorg  NO INTERVALS,"  销售组织
 svtweg    FOR   vbak-vtweg  ,"  分销渠道
 sspart    FOR   vbak-spart  ,"  产品组
@@ -324,7 +326,7 @@ FORM getdata.
   zsfxkh    "  新客户
   vbak~spart     "  产品组
   vbak~erdat     "  创建日期
-  vbap~objnr     " 抬头对象编号
+  vbak~objnr     " 抬头对象编号
   vbap~umziz     "转换因子
   vbap~umzin     "转换因子
   INTO CORRESPONDING FIELDS OF TABLE lt_all
@@ -333,13 +335,17 @@ FORM getdata.
   ON vbak~vbeln = vbap~vbeln
   WHERE vbap~matnr IN smatnr
     AND vbap~werks IN swerks
+    AND vbap~vbeln IN svbeln
+    AND vbap~posnr IN sposnr
     AND vbak~auart IN sauart
     AND vbak~vkorg IN pvkorg
     AND vbak~vtweg IN svtweg
     AND vbak~spart IN sspart
     AND vbak~kunnr IN skunnr
     AND vbak~ernam IN sernam
+*    AND vbak~vbeln = '0200000829'
     AND vbak~erdat IN serdat.
+
   "上面获取到的是所有有关VBAP和VBAK的数据
 
   "将物料编码转类型
@@ -359,7 +365,7 @@ FORM getdata.
 
   "将一部分可以直接插入的数据插入到内表中
   LOOP AT lt_all INTO ls_all.
-
+    CLEAR ls_ausp.
     READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
                                              atinn = '0000000075'.
     ls_out-zappsou = ls_ausp-atwrt.
@@ -540,6 +546,10 @@ FORM getdata.
     INTO CORRESPONDING FIELDS OF ls_makt
     FROM makt
     WHERE makt~matnr = ls_mara-matkl.
+
+
+
+
     "基本计量数量
     IF ls_all-umzin IS NOT INITIAL.
       ls_out-number = ls_all-kwmeng * ( ls_all-umziz / ls_all-umzin ).
@@ -637,11 +647,12 @@ FORM getdata.
       ls_out-zphyq = '否'.
     ENDIF.
     "最早投料日期
-    IF ls_all-zzztl = 'X'.
-      ls_out-zzztl = '是'.
-    ELSE.
-      ls_out-zzztl = '否'.
-    ENDIF.
+*    IF ls_all-zzztl = 'X'.
+*      ls_out-zzztl = '是'.
+*    ELSE.
+*      ls_out-zzztl = '否'.
+*    ENDIF.
+    ls_out-zzwtl = ls_all-zzztl.
     "生产相关文本
     DATA: i_name LIKE thead-tdname.
     i_name = ls_all-vbeln.

@@ -29,6 +29,7 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         vkbur    TYPE    string  , "  二级部门
         mandt    TYPE    vbak-mandt  , "  集团名称
         kunnr    TYPE    string      , "  售达方
+        kunnr2   TYPE    vbak-kunnr      , "  售达方
         zckgj    TYPE    string  , "  出口国家
         waerk    TYPE    vbak-waerk  , "  订单币种
         matnr    TYPE    vbap-matnr  , "  产品编码
@@ -43,7 +44,7 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         zypsl    TYPE    vbap-zypsl  , "  样品数量
         vrkme    TYPE    vbap-vrkme  , "  销售单位
         mwsbp    TYPE    vbap-mwsbp  , "  销项税额
-        netpr    TYPE    vbap-netpr  , "  不含税金额
+        netwr    TYPE    vbap-netwr  , "  不含税金额
         zdytk    TYPE    vbap-zdytk  , "  短溢条款
         zysjhq   TYPE    vbap-zysjhq , "  客户要求交货日期
         zatpdfrq TYPE    vbap-zatpdfrq , "  ATP答复日期
@@ -92,6 +93,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         mc_name1    TYPE    but000-mc_name1, "检索项
         mandt       TYPE    vbak-mandt  , "  集团名称
         kunnr       TYPE    vbak-kunnr  , "  售达方(客户名称)
+        kunnr2      TYPE    vbak-kunnr  , "  售达方(客户名称)
         custname    TYPE    string      , "  实际客户名称
         kukla       TYPE    kna1-kukla  , "  实际客户等级
         zterm       TYPE    vbkd-zterm  , "  付款方式
@@ -122,10 +124,10 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         vrkme       TYPE    vbap-vrkme  , "  销售单位
         kbetr       TYPE    string      , "  含税单价
         kwert       TYPE    string      , "  折扣率
-        mwsbp       TYPE    vbap-mwsbp  , "  折扣金额
-        kwertdis    TYPE    string      , "  税率
-        mwsbp2      TYPE    vbap-mwsbp  , "  销项税额
-        netpr       TYPE    vbap-netpr  , "  不含税金额
+        mwsbp2      TYPE    vbap-mwsbp  , "  折扣金额
+        kwertdis    TYPE    p DECIMALS 2     , "  税率
+        mwsbp       TYPE    vbap-mwsbp  , "  销项税额
+        netwr       TYPE    vbap-netwr  , "  不含税金额
         priceall    TYPE    string      , "  价税合计
         zdytk       TYPE    vbap-zdytk  , "  短溢条款
         zysjhq      TYPE    vbap-zysjhq , "  客户要求交货日期
@@ -307,7 +309,7 @@ FORM getdata.
   zypsl     "  样品数量
   vrkme     "  销售单位
   mwsbp     "  销项税额
-  netpr     "  不含税金额
+  vbap~netwr     "  不含税金额
   zdytk     "  短溢条款
   zysjhq    "  客户要求交货日期
   zatpdfrq  "  ATP答复日期
@@ -365,6 +367,7 @@ FORM getdata.
 
   "将一部分可以直接插入的数据插入到内表中
   LOOP AT lt_all INTO ls_all.
+
     CLEAR ls_ausp.
     READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
                                              atinn = '0000000075'.
@@ -384,6 +387,8 @@ FORM getdata.
 
     "因为TY_OUT的结构包含了TY_ALL的结构，所以直接MOVE
     MOVE-CORRESPONDING ls_all TO ls_out.
+    "售达方编号
+    ls_out-kunnr2 = ls_all-kunnr.
     "订单状态
     SELECT SINGLE
       stat
@@ -568,7 +573,7 @@ FORM getdata.
     ls_out-kbetr = ls_prcd_elements-kbetr.
 
     "折扣金额
-    ls_out-mwsbp = ls_prcd_elements-kwert - ls_all-netpr - ls_all-mwsbp.
+    ls_out-mwsbp2 = ls_prcd_elements-kwert - ls_all-netwr - ls_all-mwsbp.
     "折扣率
     IF ls_prcd_elements-kwert IS NOT INITIAL.
       ls_out-kwert = ls_out-mwsbp / ls_prcd_elements-kwert.
@@ -577,16 +582,17 @@ FORM getdata.
     "税率
     CLEAR ls_prcd_elements.
     SELECT SINGLE
-      kwert
+      kbetr
     INTO CORRESPONDING FIELDS OF ls_prcd_elements
     FROM prcd_elements
     INNER JOIN vbak
     ON vbak~knumv = prcd_elements~knumv
     WHERE vbak~vbeln = ls_all-vbeln
-    AND prcd_elements~kschl = 'MWST'.
-    ls_out-kwertdis = ls_prcd_elements-kwert / 10 .
+    AND prcd_elements~kschl = 'MWSI'
+    AND prcd_elements~kposn = ls_out-posnr.
+    ls_out-kwertdis = ls_prcd_elements-kbetr .
     "价格合计
-    ls_out-priceall = ls_all-netpr + ls_all-mwsbp.
+    ls_out-priceall = ls_all-netwr + ls_all-mwsbp.
     "入库量
     SELECT SINGLE
       kalab
@@ -836,6 +842,28 @@ FORM getdata.
     FROM mara
     WHERE mara~matnr = ls_all-matnr.
 
+    "单位的转换
+    DEFINE changemeins.
+      CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+      EXPORTING
+        input          = &1
+        language       = sy-langu
+      IMPORTING
+*       LONG_TEXT      =
+        output         = &2
+*       SHORT_TEXT     =
+      EXCEPTIONS
+        unit_not_found = 1
+        OTHERS         = 2.
+      IF sy-subrc <> 0.
+* Implement suitable error handling here
+      ENDIF.
+    END-OF-DEFINITION.
+
+    changemeins ls_out-meins ls_out-meins.
+    changemeins ls_out-vrkme ls_out-vrkme.
+
+
 
     IF ls_mara-matkl = '501601'."组合装
       flag = 'X'.
@@ -977,6 +1005,7 @@ FORM catalog.
   fieldcatset 'mc_name1'   '检索项' sy-tabix.
   fieldcatset 'werks'   '公司名称' sy-tabix.
   fieldcatset 'kunnr'   '售达方(客户名称)' sy-tabix.
+  fieldcatset 'kunnr2'   '售达方(编号)' sy-tabix.
   fieldcatset 'custname'   '实际客户名称' sy-tabix.
   fieldcatset 'kukla'   '实际客户等级' sy-tabix.
   fieldcatset 'zterm'   '付款方式' sy-tabix.
@@ -1007,10 +1036,10 @@ FORM catalog.
   fieldcatset 'vrkme'   '销售单位' sy-tabix.
   fieldcatset 'kbetr'   '含税单价' sy-tabix.
   fieldcatset 'kwert'   '折扣率' sy-tabix.
-  fieldcatset 'mwsbp'   '折扣金额' sy-tabix.
+  fieldcatset 'mwsbp2'   '折扣金额' sy-tabix.
   fieldcatset 'kwertdis'   '税率' sy-tabix.
-  fieldcatset 'mwsbp2'   '销项税额' sy-tabix.
-  fieldcatset 'netpr'   '不含税金额' sy-tabix.
+  fieldcatset 'mwsbp'   '销项税额' sy-tabix.
+  fieldcatset 'netwr'   '不含税金额' sy-tabix.
   fieldcatset 'priceall'   '价税合计' sy-tabix.
   fieldcatset 'zdytk'   '短溢条款' sy-tabix.
   fieldcatset 'zysjhq'   '客户要求交货日期' sy-tabix.

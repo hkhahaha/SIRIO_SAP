@@ -296,7 +296,7 @@
       ls_log-MESSAGE = lr_root->get_text( ).
     ENDTRY.
 
-    INSERT zbctintlog2 FROM ls_log.
+
 
 
 
@@ -327,6 +327,7 @@
     ENDTRY.
     IF lv_error <> 'E'.
       MESSAGE '数据下发成功！' TYPE 'S'.
+      INSERT zbctintlog2 FROM ls_log.
     ENDIF.
 
   ENDIF.

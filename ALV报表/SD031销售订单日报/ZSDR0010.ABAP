@@ -29,7 +29,7 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         vkbur    TYPE    string  , "  二级部门
         mandt    TYPE    vbak-mandt  , "  集团名称
         kunnr    TYPE    string      , "  售达方
-        kunnr2   TYPE    vbak-kunnr      , "  售达方
+        kunnr2   TYPE    vbak-kunnr      , "  售达方编号
         zckgj    TYPE    string  , "  出口国家
         waerk    TYPE    vbak-waerk  , "  订单币种
         matnr    TYPE    vbap-matnr  , "  产品编码
@@ -93,10 +93,11 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         mc_name1    TYPE    but000-mc_name1, "检索项
         mandt       TYPE    vbak-mandt  , "  集团名称
         kunnr       TYPE    vbak-kunnr  , "  售达方(客户名称)
-        kunnr2      TYPE    vbak-kunnr  , "  售达方(客户名称)
+        kunnr2      TYPE    vbak-kunnr  , "  售达方(编号)
         custname    TYPE    string      , "  实际客户名称
+        custname2   TYPE    string      , "  实际客户编号
         kukla       TYPE    kna1-kukla  , "  实际客户等级
-        zterm       TYPE    vbkd-zterm  , "  付款方式
+        zterm       TYPE    string  , "  付款方式
         zckgj       TYPE    string  , "  出口国家
         bstkd_e     TYPE    vbkd-bstkd_e, "  客户PO
         waerk       TYPE    vbak-waerk  , "  订单币种
@@ -122,7 +123,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         kwmeng      TYPE    vbap-kwmeng , "  销售数量
         zypsl       TYPE    vbap-zypsl  , "  样品数量
         vrkme       TYPE    vbap-vrkme  , "  销售单位
-        kbetr       TYPE    string      , "  含税单价
+        kbetr       TYPE    p DECIMALS 2     , "  含税单价
         kwert       TYPE    string      , "  折扣率
         mwsbp2      TYPE    vbap-mwsbp  , "  折扣金额
         kwertdis    TYPE    p DECIMALS 2     , "  税率
@@ -464,6 +465,7 @@ FORM getdata.
     "集团名称
     "实际客户名称
     SELECT SINGLE
+    partner
     name_org1
     name_org2
     name_org3
@@ -476,6 +478,7 @@ FORM getdata.
     AND vbpa~vbeln = ls_all-vbeln
     AND vbpa~posnr = ''.
     ls_out-custname = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
+    ls_out-custname2 = ls_but000-partner.
     CLEAR ls_but000.
     "实际客户等级
     SELECT SINGLE
@@ -488,8 +491,16 @@ FORM getdata.
       AND vbpa~vbeln = ls_all-vbeln
       AND vbpa~posnr = ''.
     ls_out-kukla = ls_kna1-kukla.
+    IF ls_out-kukla IS NOT INITIAL.
+      SELECT SINGLE
+        vtext
+      INTO ls_out-kukla
+      FROM tkukt
+      WHERE tkukt~spras = '1'
+      AND tkukt~kukla = ls_out-kukla.
+    ENDIF.
     CLEAR ls_kna1.
-    "客户PO、付款方式
+    "客户PO、付款方式、汇率
     SELECT SINGLE
       bstkd_e
       kursk
@@ -514,11 +525,28 @@ FORM getdata.
       WHERE vbkd~posnr = ''
       AND vbkd~vbeln = ls_all-vbeln.
     ENDIF.
-    "付款方式
-    ls_out-zterm = ls_vbkd-zterm.
+    IF ls_vbkd-kursk IS INITIAL.
+      SELECT SINGLE
+      kursk
+      INTO CORRESPONDING FIELDS OF ls_vbkd
+      FROM vbkd
+      WHERE vbkd~posnr = ''
+      AND vbkd~vbeln = ls_all-vbeln.
+    ENDIF.
+    "付款方式、客户PO
+*    ls_out-zterm = ls_vbkd-zterm.
+    IF ls_vbkd-zterm IS NOT INITIAL.
+      SELECT SINGLE
+        text1
+      INTO ls_out-zterm
+      FROM t052u
+      WHERE t052u~spras = '1'
+      AND t052u~zterm = ls_vbkd-zterm.
+    ENDIF.
     ls_out-bstkd_e = ls_vbkd-bstkd_e.
     "汇率
     ls_out-kursk = ls_vbkd-kursk.
+
 
     " 定价参考物料编码
     SELECT SINGLE
@@ -527,6 +555,16 @@ FORM getdata.
     FROM mvke
     WHERE mvke~matnr = ls_all-matnr.
     ls_out-pmatn = zcl_bc_public=>conv_by_ddic( i_input = ls_mvke-pmatn i_out = 'X' ).
+    CLEAR ls_all2-matnr90.
+    CLEAR ls_out-zappsou.
+    ls_all2-matnr90 = ls_out-pmatn.
+    SELECT SINGLE
+      atwrt
+    INTO ls_out-zappsou
+    FROM  ausp
+    WHERE ausp~atinn  = '0000000075'
+    AND ausp~objek = ls_all2-matnr90.
+
 *    ls_out-pmatn = ls_mvke-pmatn.
     IF ls_mvke-pmatn IS NOT INITIAL.
       SELECT SINGLE
@@ -547,11 +585,11 @@ FORM getdata.
     "物料小类名称
     CLEAR ls_makt.
     SELECT SINGLE
-      maktx
-    INTO CORRESPONDING FIELDS OF ls_makt
-    FROM makt
-    WHERE makt~matnr = ls_mara-matkl.
-
+      wgbez
+    INTO ls_out-maktxs
+    FROM t023t
+    WHERE t023t~matkl = ls_mara-matkl
+    AND t023t~spras = '1'.
 
 
 
@@ -569,14 +607,15 @@ FORM getdata.
     INNER JOIN vbak
     ON vbak~knumv = prcd_elements~knumv
     WHERE vbak~vbeln = ls_all-vbeln
-    AND prcd_elements~kschl IN ( 'ZP00','ZP02' ).
+    AND prcd_elements~kschl IN ( 'ZP00','ZP02' )
+    AND prcd_elements~kinak = ''.
     ls_out-kbetr = ls_prcd_elements-kbetr.
 
     "折扣金额
     ls_out-mwsbp2 = ls_prcd_elements-kwert - ls_all-netwr - ls_all-mwsbp.
     "折扣率
-    IF ls_prcd_elements-kwert IS NOT INITIAL.
-      ls_out-kwert = ls_out-mwsbp / ls_prcd_elements-kwert.
+    IF ls_prcd_elements-kwert IS NOT INITIAL AND ls_all-kwmeng IS NOT INITIAL.
+      ls_out-kwert = ls_out-mwsbp2 / ( ls_prcd_elements-kwert * ls_all-kwmeng ).
     ENDIF.
 
     "税率
@@ -593,7 +632,7 @@ FORM getdata.
     ls_out-kwertdis = ls_prcd_elements-kbetr .
     "价格合计
     ls_out-priceall = ls_all-netwr + ls_all-mwsbp.
-    "入库量
+    "入库量（当前库存）
     SELECT SINGLE
       kalab
       kains
@@ -607,6 +646,10 @@ FORM getdata.
       AND mska~posnr = ls_all-posnr
       AND mska~matnr = ls_all-matnr.
     ls_out-innum = ls_mska-kalab + ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
+    IF ls_out-number IS NOT INITIAL AND ls_out-kwmeng IS NOT INITIAL.
+      ls_out-innum = ls_out-innum / ( ls_out-number / ls_out-kwmeng  ).
+    ENDIF.
+
     "出库量
     SELECT
       rfmng
@@ -615,7 +658,7 @@ FORM getdata.
     FROM vbfa
     WHERE vbfa~vbelv = ls_all-vbeln
       AND vbfa~posnv = ls_all-posnr
-      AND vbfa~vbtyp_v IN ( 'R','H' ).
+      AND vbfa~vbtyp_n IN ( 'R','h' ).
     LOOP AT lt_vbfa INTO ls_vbfa.
       ls_out-outnum = ls_out-outnum + ls_vbfa-rfmng.
     ENDLOOP.
@@ -961,9 +1004,16 @@ FORM getdata.
       ENDIF.
 
       LOOP AT lt_stb INTO ls_stb.
-        ls_out-matnr = ls_stb-idnrk."BOM的物料编码
-        ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-matnr i_out = 'X' ).
-        APPEND ls_out TO lt_out." 输出BOM子件的行数
+        SELECT SINGLE
+          mtart
+        INTO ls_mara-mtart
+        FROM mara
+        WHERE mara~matnr = ls_stb-idnrk.
+        IF ls_mara-mtart = 'Z050'.
+          ls_out-matnr = ls_stb-idnrk."BOM的物料编码
+          ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-matnr i_out = 'X' ).
+          APPEND ls_out TO lt_out." 输出BOM子件的行数
+        ENDIF.
       ENDLOOP.
 *      APPEND ls_out to lt_out.
     ELSE.
@@ -1007,6 +1057,7 @@ FORM catalog.
   fieldcatset 'kunnr'   '售达方(客户名称)' sy-tabix.
   fieldcatset 'kunnr2'   '售达方(编号)' sy-tabix.
   fieldcatset 'custname'   '实际客户名称' sy-tabix.
+  fieldcatset 'custname2'   '实际客户编号' sy-tabix.
   fieldcatset 'kukla'   '实际客户等级' sy-tabix.
   fieldcatset 'zterm'   '付款方式' sy-tabix.
   fieldcatset 'zckgj'   '出口国家' sy-tabix.
@@ -1045,7 +1096,7 @@ FORM catalog.
   fieldcatset 'zysjhq'   '客户要求交货日期' sy-tabix.
   fieldcatset 'zatpdfrq'   'ATP答复日期' sy-tabix.
   fieldcatset 'znbjhq'   '实际交货日期' sy-tabix.
-  fieldcatset 'innum'   '入库量' sy-tabix.
+  fieldcatset 'innum'   '当前库存' sy-tabix.
   fieldcatset 'outnum'   '出库量' sy-tabix.
   fieldcatset 'invoic'   '开票量' sy-tabix.
   fieldcatset 'invoiced'   '开票日期' sy-tabix.

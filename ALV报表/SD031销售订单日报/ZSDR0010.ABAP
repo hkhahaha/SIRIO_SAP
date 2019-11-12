@@ -18,7 +18,7 @@ DATA:fieldcat TYPE lvc_t_fcat WITH HEADER LINE, "调用系统存在的FIELDCAT�
      w_repid  TYPE sy-repid. "记录系统当前的程序名
 TABLES:vbap,vbak."定义系统存在的透明标
 TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部字段
-        zapszt   TYPE    vbap-zapszt , "  APS状态
+        zapszt   TYPE    string , "  APS状态
         vbeln    TYPE    vbak-vbeln  , "  单据号
         posnr    TYPE    vbap-posnr  , "  行号
         ernam    TYPE    vbak-ernam  , "  制单人
@@ -75,9 +75,10 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         umziz    TYPE    vbap-umziz  , "转换因子（分子）
         umzin    TYPE    vbap-umzin  ,  "转换因此（分母）
         knumv    TYPE vbak-knumv, "凭证条件号
+        zyfkqk   TYPE vbak-zyfkqk, "预付款
       END OF ty_all.
 TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
-        zapszt      TYPE    vbap-zapszt , "  APS状态
+        zapszt      TYPE    string , "  APS状态
         state       TYPE    string      , "  订单状态
         vbeln       TYPE    vbak-vbeln  , "  单据号
         posnr       TYPE    vbap-posnr  , "  行号
@@ -107,7 +108,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zstdname    TYPE    string      , "  标准名称
         zkhwl       TYPE    vbap-zkhwl  , "  客户产品编码
         zkhwlms     TYPE    vbap-zkhwlms, "  客户产品名称
-        pmatn       TYPE    mvke-pmatn  , "  定价参考物料编码
+        pmatn       TYPE    vbap-matnr  , "  定价参考物料编码
         maktx       TYPE    makt-maktx  , "  品名
         zpro        TYPE    string      , "  是否益生菌
         matkl       TYPE    mara-matkl  , "  物料小类编码
@@ -157,6 +158,8 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         salenot     TYPE    string      , "  销售文本
         voicenot    TYPE    string      , "  发票文本
         invoicenote TYPE string         , "  开票文本
+        ddpprice    TYPE p DECIMALS 2, "DDP价格
+        zyfkqk      TYPE  vbak-zyfkqk, "预付款
       END OF ty_out.
 
 ***********  ALV 定义 **********************************************
@@ -228,6 +231,8 @@ FORM getdata.
        ls_tvtwt         TYPE tvtwt,
        lt_tvv1t         TYPE TABLE OF tvv1t,
        ls_tvv1t         TYPE tvv1t,
+       lt_dd07v         TYPE TABLE OF dd07v,
+       ls_dd07v         TYPE dd07v,
        lt_t005t         TYPE TABLE OF t005t,
        ls_t005t         TYPE t005t,
        lt_tvkbt         TYPE TABLE OF tvkbt,
@@ -333,6 +338,7 @@ FORM getdata.
   vbap~umziz     "转换因子
   vbap~umzin     "转换因子
   vbak~zckgj     "出口国家
+  vbak~zyfkqk    "预付款
   INTO CORRESPONDING FIELDS OF TABLE lt_all
   FROM vbak
   INNER JOIN vbap
@@ -374,18 +380,23 @@ FORM getdata.
     READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
                                              atinn = '0000000075'.
     ls_out-zappsou = ls_ausp-atwrt.
+    CLEAR ls_ausp.
     READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
                                              atinn = '0000000052'.
     ls_out-zcotype = ls_ausp-atwrt.
+    CLEAR ls_ausp.
     READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
                                              atinn = '0000000074'.
     ls_out-zprotype = ls_ausp-atwrt.
-    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
-                                             atinn = '0000000067'.
-    ls_out-zpro = ls_ausp-atwrt.
+    CLEAR ls_ausp.
     READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
                                              atinn = '0000000035'.
     ls_out-zstdname = ls_ausp-atwrt.
+    CLEAR ls_ausp.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
+                                             atinn = '0000000067'.
+    ls_out-zpro = ls_ausp-atwrt.
+    CLEAR ls_ausp.
 
     "因为TY_OUT的结构包含了TY_ALL的结构，所以直接MOVE
     MOVE-CORRESPONDING ls_all TO ls_out.
@@ -457,10 +468,11 @@ FORM getdata.
       name_org2
       name_org3
       name_org4
+      bu_sort1
     INTO CORRESPONDING FIELDS OF ls_but000
     FROM but000
     WHERE but000~partner = ls_all-kunnr.
-    ls_out-mc_name1 = ls_but000-mc_name1.
+    ls_out-mc_name1 = ls_but000-bu_sort1.
     "客户名称
     ls_out-kunnr = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
     "集团名称
@@ -558,14 +570,13 @@ FORM getdata.
     ls_out-pmatn = zcl_bc_public=>conv_by_ddic( i_input = ls_mvke-pmatn i_out = 'X' ).
     CLEAR ls_all2-matnr90.
     CLEAR ls_out-zappsou.
-    ls_all2-matnr90 = ls_out-pmatn.
+    ls_all2-matnr90 = zcl_bc_public=>conv_by_ddic( i_input = ls_out-pmatn ).
     SELECT SINGLE
       atwrt
     INTO ls_out-zappsou
     FROM  ausp
     WHERE ausp~atinn  = '0000000075'
     AND ausp~objek = ls_all2-matnr90.
-
 *    ls_out-pmatn = ls_mvke-pmatn.
     IF ls_mvke-pmatn IS NOT INITIAL.
       SELECT SINGLE
@@ -876,6 +887,77 @@ FORM getdata.
     READ TABLE lt_tvkbt INTO ls_tvkbt WITH KEY vkbur = ls_out-vkbur.
     ls_out-vkbur = ls_tvkbt-bezei.
 
+    "是否新产品
+    IF ls_out-zsfxcp = 'Y'.
+      ls_out-zsfxcp = '是'.
+    ELSEIF ls_out-zsfxcp = 'N'.
+      ls_out-zsfxcp =  '否'.
+    ENDIF.
+
+    "是否有备料协议
+    IF ls_out-zblxy = 'Y'.
+      ls_out-zblxy = '是'.
+    ELSEIF ls_out-zblxy = 'N'.
+      ls_out-zblxy = '否'.
+    ENDIF.
+
+    "预付款情况zyfkqk
+    IF ls_out-zyfkqk = '1'.
+      ls_out-zyfkqk = '有'.
+    ELSEIF ls_out-zyfkqk = '2'.
+      ls_out-zyfkqk = '无'.
+    ELSEIF ls_out-zyfkqk = '3'.
+      ls_out-zyfkqk = '不需要'.
+    ENDIF.
+    "新客户
+    IF ls_out-zsfxkh = 'Y'.
+      ls_out-zsfxkh = '是'.
+    ELSEIF ls_out-zsfxkh = 'N'.
+      ls_out-zsfxkh = '否'.
+    ENDIF.
+
+    "aps装填zapszt
+    IF ls_out-zapszt = 'A'.
+      ls_out-zapszt = '下达状态'.
+    ENDIF.
+
+    SELECT
+      ddtext
+      valpos
+      domname
+    INTO CORRESPONDING FIELDS OF TABLE lt_dd07v
+    FROM dd07v
+      WHERE dd07v~ddlanguage = '1'
+      AND dd07v~domname IN ( 'ZD_DYTK','ZD_SFXBZ','ZD_XFLAG','ZD_ZDSCQY','ZD_PHYQ','ZD_BHCL' ).
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_BHCL' valpos = ls_out-zbhcl."备货策略
+    ls_out-zbhcl = ls_dd07v-ddtext.
+    CLEAR ls_dd07v.
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_SFXBZ' valpos = ls_out-zsfxbz."是否新包装
+    ls_out-zsfxbz = ls_dd07v-ddtext.
+    CLEAR ls_dd07v.
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_DYTK' valpos = ls_out-zdytk."短溢条款
+    ls_out-zdytk = ls_dd07v-ddtext.
+    CLEAR ls_dd07v.
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = ' ' valpos = ''.
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = ' ' valpos = ''.
+
+
+
+
+
+
+    "DDP价格
+    CLEAR ls_prcd_elements.
+    SELECT SINGLE
+    kbetr
+    INTO CORRESPONDING FIELDS OF ls_prcd_elements
+    FROM  prcd_elements
+    INNER JOIN vbak
+    ON prcd_elements~knumv = vbak~knumv
+    WHERE prcd_elements~kschl = 'Z100'
+    AND prcd_elements~kposn = ls_all-posnr
+    AND vbak~vbeln = ls_all-vbeln.
+    ls_out-ddpprice =  ls_prcd_elements-kbetr.
 
     "产品编码
     DATA flag TYPE c. "用于标记物料是否为大M码，如果为大M码的话，这个字段标记为'X‘
@@ -1054,7 +1136,7 @@ FORM catalog.
   fieldcatset 'vkbur'   '二级部门' sy-tabix.
   fieldcatset 'saleman'   '业务员' sy-tabix.
   fieldcatset 'mc_name1'   '检索项' sy-tabix.
-  fieldcatset 'werks'   '公司名称' sy-tabix.
+*  fieldcatset 'werks'   '公司名称' sy-tabix.
   fieldcatset 'kunnr'   '售达方(客户名称)' sy-tabix.
   fieldcatset 'kunnr2'   '售达方(编号)' sy-tabix.
   fieldcatset 'custname'   '实际客户名称' sy-tabix.
@@ -1120,6 +1202,10 @@ FORM catalog.
   fieldcatset 'salenot'   '销售文本' sy-tabix.
   fieldcatset 'voicenot'   '发票文本' sy-tabix.
   fieldcatset 'invoicenote' '开票文本' sy-tabix.
+  fieldcatset 'ddpprice' 'DDP价格' sy-tabix.
+  fieldcatset 'zyfkqk' '预付款' sy-tabix.
+  fieldcatset 'zkhwl' '客户物料编码' sy-tabix.
+  fieldcatset 'zkhwlms' '客户物料描述' sy-tabix.
 ENDFORM.
 
 FORM alvshow.

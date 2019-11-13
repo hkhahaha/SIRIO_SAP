@@ -43,6 +43,8 @@ DATA:lt_likp          TYPE TABLE OF likp,
      ls_vbpa          TYPE vbpa,
      lt_knvv          TYPE TABLE OF knvv,
      ls_knvv          TYPE knvv,
+     lt_dd07v         TYPE TABLE OF dd07v,
+     ls_dd07v         TYPE dd07v,
      lt_vbrk          TYPE TABLE OF vbrk,
      ls_vbrk          TYPE vbrk.
 " 下面定义的是当报表类型是铝的时候的字段（内表）
@@ -187,6 +189,7 @@ FORM getdata.
     kna1~kukla,
     vbak~ernam AS ernam2,
     vbak~knumv,
+    vbak~zckgj,
     vbak~vtweg
     INTO TABLE @DATA(lt_main2)
           FROM vbak
@@ -227,6 +230,14 @@ FORM getdata.
         ls_main-sortl = ls_main2-sortl.
         ls_main-kukla = ls_main2-kukla.
         ls_main-vtweg = ls_main2-vtweg.
+        ls_main-zckgj = ls_main2-zckgj.
+        "出口构架取描述
+        SELECT SINGLE
+          landx
+        INTO ls_main-zckgj
+        FROM t005t
+        WHERE t005t~land1 = ls_main-zckgj
+        AND t005t~spras = '1'.
         IF ls_main-kunnr IS INITIAL.
           DELETE TABLE lt_main FROM ls_main.
           CONTINUE.
@@ -273,7 +284,8 @@ FORM getdata.
       ENDIF.
 
       ls_out-zcustom = ls_main-kunag.
-
+      "出口国家
+      ls_out-zckgj = ls_main-zckgj.
       "实际客户
       SELECT SINGLE
       name_org1
@@ -393,15 +405,15 @@ FORM getdata.
       ENDIF.
       "客户合同单号
       SELECT SINGLE
-      bstkd
-      INTO ls_out-bstkd
+      bstkd_e
+      INTO ls_out-bstkd_e
       FROM vbkd
       WHERE vbkd~vbeln = ls_main-vbeln_vbak
       AND vbkd~posnr = ls_main-posnr_vbap.
-      IF ls_out-bstkd IS INITIAL.
+      IF ls_out-bstkd_e IS INITIAL.
         SELECT SINGLE
-        bstkd
-        INTO ls_out-bstkd
+        bstkd_e
+        INTO ls_out-bstkd_e
         FROM vbkd
         WHERE vbkd~vbeln = ls_main-vbeln_vbak.
       ENDIF.
@@ -497,6 +509,8 @@ FORM getdata.
 
       lv_name = ls_main-vbeln_likp.
       "备注
+      CLEAR lines.
+      CLEAR ls_out-z004.
       CLEAR ls_lines-tdline.
       CALL FUNCTION 'READ_TEXT'
         EXPORTING
@@ -537,7 +551,13 @@ FORM getdata.
       ON adrp~persnumber = usr21~persnumber
       WHERE usr21~bname = ls_main-zernam.
 
-
+      "实际客户等级转成描述
+      SELECT SINGLE
+        vtext
+      INTO ls_main-kukla
+      FROM tkukt
+      WHERE tkukt~spras = '1'
+      AND tkukt~kukla = ls_main-kukla.
 
 
       "上面是对尚未完善的数据进行添加操作
@@ -618,6 +638,39 @@ FORM getdata.
       ls_out-netwr = ls_out-price + ls_out-mwsbp."价税总计
       ls_out-discnum = ls_out-perprice * ls_out-lfimg - ls_out-netwr."折扣金额
       ls_out-pmatn = zcl_bc_public=>conv_by_ddic( i_input = ls_out-pmatn i_out = 'X' ).
+
+      "修改部分字段取域的描述
+      SELECT
+        domname
+        valpos
+        ddtext
+        domvalue_l
+      INTO CORRESPONDING FIELDS OF TABLE lt_dd07v
+      FROM dd07v
+      WHERE dd07v~ddlanguage = '1'
+        AND dd07v~domname IN ('STATV','ZD_XFLAG','ZD_WMSZT').
+      READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'STATV'
+                                                 domvalue_l = ls_out-wbsta.
+      ls_out-wbsta = ls_dd07v-ddtext.
+      CLEAR ls_dd07v.
+      READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_XFLAG'
+                                                 domvalue_l = ls_out-zfhqd.
+      ls_out-zfhqd = ls_dd07v-ddtext.
+      CLEAR ls_dd07v.
+      READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_XFLAG'
+                                                 domvalue_l = ls_out-zshcoa.
+      ls_out-zshcoa = ls_dd07v-ddtext.
+      CLEAR ls_dd07v.
+      READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_XFLAG'
+                                                 domvalue_l = ls_out-zsfxcp.
+      ls_out-zsfxcp = ls_dd07v-ddtext.
+      CLEAR ls_dd07v.
+      READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_WMSZT'
+                                                 domvalue_l = ls_out-zwmszt.
+      ls_out-zwmszt = ls_dd07v-ddtext.
+      CLEAR ls_dd07v.
+
+
 *&---------------------------------------------------------------------*
 *& 程序名：ZSDRTEST
 *&作者：Seashell Huang
@@ -931,7 +984,7 @@ FORM catalog USING flag_b.
   fieldcatset   'CHARG'   '批量流水'    sy-tabix.
   fieldcatset   'BAXSSL'      '基本计量数量'    sy-tabix.
   fieldcatset   'ZFHQD'     '是否特殊发货清单'    sy-tabix.
-  fieldcatset   'ZSHCOA'      '是否需要随货'    sy-tabix.
+  fieldcatset   'ZSHCOA'      '是否需要随货COA'    sy-tabix.
   fieldcatset   'ZFHSX'     '发货顺序'    sy-tabix.
   fieldcatset   'ZWMSZT'      '是否传输WMS'   sy-tabix.
   fieldcatset   'ZUSER'     '业务员'   sy-tabix.
@@ -957,7 +1010,7 @@ FORM catalog USING flag_b.
 *  fieldcatset    '待定'      保质期   sy-tabix.
 *  fieldcatset    '待定'      失效日期    sy-tabix.
 *  fieldcatset   'SVBELN'      '销售订单号'   sy-tabix.
-  fieldcatset   'BSTKD'     '客户合同单号'    sy-tabix.
+  fieldcatset   'BSTKD_E'     '客户合同单号'    sy-tabix.
   fieldcatset   'KPSUM'     '开票数量'    sy-tabix.
   fieldcatset   'DDPPRICE'      'DDP价格'   sy-tabix.
   fieldcatset   'PERPRICE'      '含税单价'    sy-tabix.
@@ -970,6 +1023,7 @@ FORM catalog USING flag_b.
   fieldcatset   'WAERK'     '订单币别'    sy-tabix.
   fieldcatset   'ZPACK_CHARG'     '打印批号'    sy-tabix.
   fieldcatset   'Z004'      '备注'    sy-tabix.
+  fieldcatset   'ZCKGJ'      '出口国家'    sy-tabix.
 
   IF flag_b = 'X'.
     fieldcatset   'ZSON'      '子件'    sy-tabix.

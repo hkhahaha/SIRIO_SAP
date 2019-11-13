@@ -43,13 +43,13 @@ TYPES:BEGIN OF lv_out,
         zlxsl           TYPE    lips-zlxsl  , "  零箱数量
         zlfimg          TYPE    lips-lfimg  , "  实发销售数量
         meins           TYPE    lips-meins  , "  基本计量单位
-        wbsta           TYPE    lips-wbsta  , "  交货单状态
+        wbsta           TYPE    string  , "  交货单状态
         charg           TYPE    lips-charg  , "  批量流水
         baxssl          TYPE    lips-lfimg , "  基本计量数量
-        zfhqd           TYPE    likp-zfhqd  , "  是否特殊发货清单
-        zshcoa          TYPE    likp-zshcoa , "  是否需要随货COA
+        zfhqd           TYPE    string  , "  是否特殊发货清单
+        zshcoa          TYPE    string , "  是否需要随货COA
         zfhsx           TYPE    lips-zfhsx  , "  发货顺序
-        zwmszt          TYPE    likp-zwmszt , "  是否传输WMS
+        zwmszt          TYPE    string , "  是否传输WMS
         zuser           TYPE    but000-name_org1  , "  业务员
         zcustom         TYPE    but000-name_org1  , "  客户
         zruserno        TYPE vbpa-kunnr, "实际客户编号
@@ -65,13 +65,13 @@ TYPES:BEGIN OF lv_out,
         matkl           TYPE    mara-matkl  , "  物料小类编号
         wgbez           TYPE    t023t-wgbez , "  物料小类描述
         zpspe(40)       TYPE    c , "  包装规格
-        zsfxcp          TYPE    vbap-zsfxcp , "  新产品
+        zsfxcp          TYPE    string , "  新产品
         zypsl           TYPE    vbap-zypsl  , "  样品数量
         zhsdat          TYPE    likp-wadat_ist , "  生产日期
 *待定    TYPE    C ,"  保质期
 *待定    TYPE    C ,"  失效日期
 *        svbeln          TYPE    vbak-vbeln  , "  销售订单号
-        bstkd           TYPE    vbkd-bstkd  , "  客户合同单号
+        bstkd_e         TYPE    vbkd-bstkd_e  , "  客户合同单号
         kpsum           TYPE    vbfa-rfmng , "  开票数量
         ddpprice        TYPE    p DECIMALS 2, "  DDP价格
         perprice        TYPE    vbap-mwsbp , "  含税单价
@@ -83,6 +83,7 @@ TYPES:BEGIN OF lv_out,
         netwr           TYPE    vbap-netwr , "  价税总计
         waerk           TYPE    vbak-waerk  , "  订单币别
         ernam           TYPE likp-ernam, "制单人
+        zckgj           TYPE string, "出口国家
         zpack_charg(40) TYPE    c , "  打印批号
         zcustomertext   TYPE string, "客户描述
         z004(40)        TYPE    c , "  备注
@@ -115,13 +116,13 @@ TYPES:
   zlxsl       TYPE    lips-zlxsl  , "  零箱数量
   zlfimg      TYPE    lips-lfimg  , "  实发销售数量
   meins       TYPE    lips-meins  , "  基本计量单位
-  wbsta       TYPE    lips-wbsta  , "  交货单状态
+  wbsta       TYPE    string  , "  交货单状态
   charg       TYPE    lips-charg  , "  批量流水
   baxssl      TYPE    string  , "  基本计量数量
-  zfhqd       TYPE    likp-zfhqd  , "  是否特殊发货清单
-  zshcoa      TYPE    likp-zshcoa , "  是否需要随货COA
+  zfhqd       TYPE    string  , "  是否特殊发货清单
+  zshcoa      TYPE    string , "  是否需要随货COA
   zfhsx       TYPE    lips-zfhsx  , "  发货顺序
-  zwmszt      TYPE    likp-zwmszt , "  是否传输WMS
+  zwmszt      TYPE    string , "  是否传输WMS
   zuser       TYPE    but000-name_org1  , "  业务员
   zcustom     TYPE    but000-name_org1  , "  客户
   zruser      TYPE    but000-name_org1  , "  实际客户
@@ -136,13 +137,13 @@ TYPES:
   matkl       TYPE    mara-matkl  , "  物料小类编号
   wgbez       TYPE    t023t-wgbez , "  物料小类描述
   zpspe       TYPE    string  , "  包装规格
-  zsfxcp      TYPE    vbap-zsfxcp , "  新产品
+  zsfxcp      TYPE    string , "  新产品
   zypsl       TYPE    vbap-zypsl  , "  样品数量
   zhsdat      TYPE    string  , "  生产日期
 *  待定   TYPE    C ,"  保质期
 *  待定   TYPE    C ,"  失效日期
   svbeln      TYPE    vbak-vbeln  , "  销售订单号
-  bstkd       TYPE    vbkd-bstkd  , "  客户合同单号
+  bstkd_e     TYPE    vbkd-bstkd_e  , "  客户合同单号
   kpsum       TYPE    string  , "  开票数量
   ddpprice    TYPE    string  , "  DDP价格
   perprice    TYPE    string  , "  含税单价
@@ -171,6 +172,7 @@ TYPES:
   kwmeng      TYPE vbap-kwmeng, "销售订单数量
   meins2      TYPE vbap-meins, "销售订单单位
   zernam      TYPE likp-ernam, "制单人
+  zckgj       TYPE string, "出口国家
   posnr_vbap  TYPE    vbap-posnr.   "  销售订单
 
 TYPES:END OF lv_main.

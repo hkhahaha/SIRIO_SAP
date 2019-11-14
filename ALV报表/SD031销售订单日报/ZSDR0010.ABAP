@@ -17,6 +17,14 @@ DATA:fieldcat TYPE lvc_t_fcat WITH HEADER LINE, "调用系统存在的FIELDCAT�
      "FIELDCAT用于ALV的结构定义，LAYOUT用于定义ALV的输出格式，后者可以覆盖前者，后者是可选的
      w_repid  TYPE sy-repid. "记录系统当前的程序名
 TABLES:vbap,vbak."定义系统存在的透明标
+"定义合作类型描述相关的字段
+TYPES:BEGIN OF ty_zco,
+        atinn TYPE cawn-atinn, "内部特性号
+        atzhl TYPE cawn-atzhl, "内部计数器值
+        atwrt TYPE cawn-atwrt, "特性值
+        atwtb TYPE cawnt-atwtb, "特性值描述
+      END OF ty_zco.
+
 TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部字段
         zapszt   TYPE    string , "  APS状态
         vbeln    TYPE    vbak-vbeln  , "  单据号
@@ -237,7 +245,9 @@ FORM getdata.
        ls_t005t         TYPE t005t,
        lt_tvkbt         TYPE TABLE OF tvkbt,
        ls_tvkbt         TYPE tvkbt,
-       ls_kna1          TYPE kna1.
+       ls_kna1          TYPE kna1,
+       lt_zco           TYPE TABLE OF ty_zco,
+       ls_zco           TYPE ty_zco.
   DATA: lt_lines LIKE TABLE OF tline,
         ls_lines LIKE tline.
   DATA:lt_all2 TYPE TABLE OF ty_all2,
@@ -397,6 +407,24 @@ FORM getdata.
                                              atinn = '0000000067'.
     ls_out-zpro = ls_ausp-atwrt.
     CLEAR ls_ausp.
+
+    "合作类型取描述
+    SELECT
+      cawnt~atwtb
+      cawn~atinn
+      cawn~atzhl
+      cawn~atwrt
+    INTO CORRESPONDING FIELDS OF TABLE lt_zco
+    FROM cawnt
+    INNER JOIN cawn
+    ON cawn~atinn = cawnt~atinn
+    AND cawn~atzhl = cawnt~atzhl
+    WHERE cawnt~spras = '1'
+    AND cawnt~atinn = '0000000052'.
+    CLEAR ls_zco.
+    READ TABLE lt_zco INTO ls_zco WITH KEY atwrt = ls_out-zcotype.
+    ls_out-zcotype = LS_ZCO-atwtb.
+
 
     "因为TY_OUT的结构包含了TY_ALL的结构，所以直接MOVE
     MOVE-CORRESPONDING ls_all TO ls_out.
@@ -1222,7 +1250,7 @@ FORM alvshow.
 *     I_CALLBACK_HTML_END_OF_LIST       = ' '
 *     I_STRUCTURE_NAME         =
 *     I_BACKGROUND_ID          = ' '
-      i_grid_title             = '打印取样单'
+      i_grid_title             = '销售订单日报表'
 *     I_GRID_SETTINGS          =
       is_layout_lvc            = layout
       it_fieldcat_lvc          = fieldcat[]

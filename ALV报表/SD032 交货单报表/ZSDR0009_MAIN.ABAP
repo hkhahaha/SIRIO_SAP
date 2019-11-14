@@ -132,6 +132,10 @@ FORM getdata.
   likp~ernam AS zernam
   likp~kunag
   vbap~meins AS meins2
+  likp~zzqzt
+  likp~cmgst
+  likp~sdabw
+  vbap~zkhwl
 
   INTO CORRESPONDING FIELDS OF TABLE lt_main
   FROM lips
@@ -234,7 +238,7 @@ FORM getdata.
         "出口构架取描述
         SELECT SINGLE
           landx
-        INTO ls_main-zckgj
+        INTO ls_main-zckgjt
         FROM t005t
         WHERE t005t~land1 = ls_main-zckgj
         AND t005t~spras = '1'.
@@ -265,8 +269,7 @@ FORM getdata.
       ON but000~partner = vbpa~kunnr
       WHERE vbpa~vbeln = ls_main-vbeln_likp
       AND vbpa~posnr = ''
-      AND vbpa~parvw = 'Z3'
-      AND vbpa~kunnr IN puser.
+      AND vbpa~parvw = 'Z3'.
       "客户
 *      SELECT SINGLE
 *      name_org1
@@ -282,14 +285,17 @@ FORM getdata.
       IF sy-subrc = 0.
         ls_out-zcustomertext = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
       ENDIF.
-
+      "贷方
+      ls_out-cmgst = ls_main-cmgst.
       ls_out-zcustom = ls_main-kunag.
       "出口国家
       ls_out-zckgj = ls_main-zckgj.
+      ls_out-zckgjt = ls_main-zckgjt.
       "实际客户
       SELECT SINGLE
       name_org1
-      INTO ls_out-zruser
+      bu_sort1
+      INTO (ls_out-zruser,ls_out-bu_sort1)
       FROM but000
       INNER JOIN vbpa
       ON but000~partner = vbpa~kunnr
@@ -370,7 +376,8 @@ FORM getdata.
 *      READ TABLE lt_material INTO ls_material INDEX 1.
       SELECT SINGLE
         hsdat
-        INTO ls_out-zhsdat
+        vfdat
+        INTO (ls_out-zhsdat,ls_out-vfdat)
         FROM mcha
         WHERE mcha~matnr = ls_main-matnr
         AND mcha~charg = ls_main-charg
@@ -396,17 +403,19 @@ FORM getdata.
       FROM mara
       WHERE mara~matnr = ls_main-matnr.
       MOVE-CORRESPONDING ls_mara TO ls_out.
+      ls_out-matkl = ls_out-matkl+0(4)."物料小类编码取前4位
       IF ls_mara IS NOT INITIAL.
         SELECT SINGLE
         wgbez
         INTO ls_out-wgbez
         FROM t023t
-        WHERE t023t~matkl = ls_mara-matkl.
+        WHERE t023t~matkl = ls_out-matkl.
       ENDIF.
       "客户合同单号
       SELECT SINGLE
       bstkd_e
-      INTO ls_out-bstkd_e
+      kursk
+      INTO (ls_out-bstkd_e,ls_out-kursk)
       FROM vbkd
       WHERE vbkd~vbeln = ls_main-vbeln_vbak
       AND vbkd~posnr = ls_main-posnr_vbap.
@@ -414,6 +423,13 @@ FORM getdata.
         SELECT SINGLE
         bstkd_e
         INTO ls_out-bstkd_e
+        FROM vbkd
+        WHERE vbkd~vbeln = ls_main-vbeln_vbak.
+      ENDIF.
+      IF ls_out-kursk IS INITIAL.
+        SELECT SINGLE
+        kursk
+        INTO ls_out-kursk
         FROM vbkd
         WHERE vbkd~vbeln = ls_main-vbeln_vbak.
       ENDIF.
@@ -478,7 +494,7 @@ FORM getdata.
       LOOP AT lt_vbfa INTO ls_vbfa.
         count = count + ls_vbfa-rfmng.
       ENDLOOP.
-      ls_out-kpsum = count.
+      ls_out-kpsum = ( ls_main-umvkn / ls_main-umvkz ) * count.
       " 折扣率和折扣金额
       SELECT SINGLE
       kwert
@@ -498,6 +514,7 @@ FORM getdata.
       ENDIF.
 
       " 税率
+      CLEAR ls_prcd_elements-kbetr.
       SELECT SINGLE
       kbetr
       INTO CORRESPONDING FIELDS OF ls_prcd_elements
@@ -558,6 +575,13 @@ FORM getdata.
       FROM tkukt
       WHERE tkukt~spras = '1'
       AND tkukt~kukla = ls_main-kukla.
+
+      "贷方
+*      SELECT SINGLE
+*        cmgst
+*      into ls_out-cmgst
+*      FROM VBUK
+*      WHERE VBUK~vbeln = LS_MAIN-vbeln_vbak.
 
 
       "上面是对尚未完善的数据进行添加操作
@@ -620,7 +644,16 @@ FORM getdata.
       IF sy-subrc <> 0.
 * Implement suitable error handling here
       ENDIF.
+      ls_out-zkhwl = ls_main-zkhwl."客户物料编码
+      SELECT SINGLE
+        bezei
+      INTO ls_out-sdabw
+      FROM tvsakt
+      WHERE tvsakt~spras = '1'
+        AND tvsakt~sdabw = ls_main-sdabw.
+*      ls_out-sdabw = ls_main-sdabw.
 
+      ls_out-zzqzt = ls_main-zzqzt."账期审批状态
       ls_out-wbsta = ls_main-wbsta ."  交货单状态
       ls_out-charg = ls_main-charg ."  批量流水
       ls_out-zfhqd = ls_main-zfhqd ."  是否特殊发货清单
@@ -634,6 +667,7 @@ FORM getdata.
 *      ls_out-netwr = ls_main-netwr."不含税金额
 
         ls_out-price = ls_main-netwr / ls_main-kwmeng * ls_out-lfimg. "不含税金额
+        ls_out-price2 = ls_out-price * ls_out-kursk."不含税金额CNY
       ENDIF.
       ls_out-netwr = ls_out-price + ls_out-mwsbp."价税总计
       ls_out-discnum = ls_out-perprice * ls_out-lfimg - ls_out-netwr."折扣金额
@@ -648,7 +682,7 @@ FORM getdata.
       INTO CORRESPONDING FIELDS OF TABLE lt_dd07v
       FROM dd07v
       WHERE dd07v~ddlanguage = '1'
-        AND dd07v~domname IN ('STATV','ZD_XFLAG','ZD_WMSZT').
+        AND dd07v~domname IN ('STATV','ZD_XFLAG','ZD_WMSZT','ZD_ZQZT','CMGST').
       READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'STATV'
                                                  domvalue_l = ls_out-wbsta.
       ls_out-wbsta = ls_dd07v-ddtext.
@@ -669,6 +703,14 @@ FORM getdata.
                                                  domvalue_l = ls_out-zwmszt.
       ls_out-zwmszt = ls_dd07v-ddtext.
       CLEAR ls_dd07v.
+      READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_ZQZT'
+                                                 domvalue_l = ls_out-zzqzt.
+      ls_out-zzqzt = ls_dd07v-ddtext.
+      CLEAR ls_dd07v.
+      READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'CMGST'
+                                                 domvalue_l = ls_out-cmgst.
+      ls_out-cmgst = ls_dd07v-ddtext.
+      CLEAR ls_dd07v.
 
 
 *&---------------------------------------------------------------------*
@@ -682,21 +724,21 @@ FORM getdata.
 *&
 *&---------------------------------------------------------------------*
       ls_out-lfimg = ls_main-kwmeng."销售订单数量
-      ls_out-vrkme = ls_main-meins2."销售订单数量单位
-      CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
-        EXPORTING
-          input          = ls_main-meins2
-          language       = sy-langu
-        IMPORTING
-          long_text      = ls_out-vrkme
-*         OUTPUT         =
-*         SHORT_TEXT     =
-        EXCEPTIONS
-          unit_not_found = 1
-          OTHERS         = 2.
-      IF sy-subrc <> 0.
-* Implement suitable error handling here
-      ENDIF.
+*      ls_out-vrkme = ls_main-meins2."销售订单数量单位
+*      CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+*        EXPORTING
+*          input          = ls_main-meins2
+*          language       = sy-langu
+*        IMPORTING
+*          long_text      = ls_out-vrkme
+**         OUTPUT         =
+**         SHORT_TEXT     =
+*        EXCEPTIONS
+*          unit_not_found = 1
+*          OTHERS         = 2.
+*      IF sy-subrc <> 0.
+** Implement suitable error handling here
+*      ENDIF.
 
       IF ls_out-zlfimg IS NOT INITIAL.
         " 当是铝盒装的时候：
@@ -962,74 +1004,83 @@ FORM catalog USING flag_b.
     APPEND fieldcat.
   END-OF-DEFINITION.
 
-  fieldcatset   'VBELN'   '交货单'   sy-tabix.
+  fieldcatset   'VBELN'   '交货单Serial Number'   sy-tabix.
   fieldcatset   'POSNR'   '行项目'   sy-tabix.
-  fieldcatset   'VGBEL'   '销售订单'    sy-tabix.
+  fieldcatset   'VGBEL'   '销售订单Order Number'    sy-tabix.
   fieldcatset   'VGPOS'   '行项目'   sy-tabix.
   fieldcatset   'VKORG'   '销售组织'    sy-tabix.
-  fieldcatset   'WERKS'   '工厂'    sy-tabix.
+  fieldcatset   'WERKS'   '工厂Factory'    sy-tabix.
   fieldcatset   'LGORT'   '库存地址'    sy-tabix.
-  fieldcatset   'ERDAT'   '创建日期'    sy-tabix.
+  fieldcatset   'ERDAT'   '创建日期Date'    sy-tabix.
   fieldcatset   'ZFHRQ'   '发货日期'    sy-tabix.
   fieldcatset   'WADAT'   '过账日期'    sy-tabix.
-  fieldcatset   'MATNR'   '产品代号'    sy-tabix.
-  fieldcatset   'ARKTX'   '产品名称'    sy-tabix.
-  fieldcatset   'LFIMG'   '销售订单数量'    sy-tabix.
-  fieldcatset   'VRKME'   '销售单位'    sy-tabix.
-  fieldcatset   'ZJIANS'      '件数'    sy-tabix.
+  fieldcatset   'MATNR'   '产品代号Product ID'    sy-tabix.
+  fieldcatset   'ARKTX'   '产品名称Product Name'    sy-tabix.
+  fieldcatset   'LFIMG'   '销售订单数量Marketing QTY'    sy-tabix.
+  fieldcatset   'VRKME'   '销售单位Marketing Unit'    sy-tabix.
+  fieldcatset   'ZJIANS'      '件数Number of Packages'    sy-tabix.
   fieldcatset   'ZLXSL'     '零箱数量'    sy-tabix.
-  fieldcatset   'ZLFIMG'      '实发销售数量'    sy-tabix.
-  fieldcatset   'MEINS'   '基本计量单位'    sy-tabix.
+  fieldcatset   'ZLFIMG'      '实发销售数量Actual Marketing QTY'    sy-tabix.
+  fieldcatset   'MEINS'   '基本计量单位Unit'    sy-tabix.
   fieldcatset   'WBSTA'   '交货单状态'   sy-tabix.
-  fieldcatset   'CHARG'   '批量流水'    sy-tabix.
-  fieldcatset   'BAXSSL'      '基本计量数量'    sy-tabix.
+  fieldcatset   'CHARG'   '批量流水Batch Serial Number'    sy-tabix.
+  fieldcatset   'BAXSSL'      '基本计量数量QTY'    sy-tabix.
   fieldcatset   'ZFHQD'     '是否特殊发货清单'    sy-tabix.
   fieldcatset   'ZSHCOA'      '是否需要随货COA'    sy-tabix.
   fieldcatset   'ZFHSX'     '发货顺序'    sy-tabix.
   fieldcatset   'ZWMSZT'      '是否传输WMS'   sy-tabix.
-  fieldcatset   'ZUSER'     '业务员'   sy-tabix.
-  fieldcatset   'ZCUSTOM'     '客户'    sy-tabix.
+  fieldcatset   'ZUSER'     '业务员Sales'   sy-tabix.
+  fieldcatset   'ZCUSTOM'     '客户Customer'    sy-tabix.
   fieldcatset   'ZCUSTOMERTEXT'     '客户中文描述'    sy-tabix.
 
   fieldcatset   'ZRUSERNO'      '实际客户编号'    sy-tabix.
-  fieldcatset   'ZRUSER'      '实际客户'    sy-tabix.
-  fieldcatset   'ERNAM'     '制单人'   sy-tabix.
+  fieldcatset   'ZRUSER'      '实际客户Actual Customer'    sy-tabix.
+  fieldcatset   'ERNAM'     '制单人Prepared by'   sy-tabix.
   fieldcatset   'SORTL'     '检索项'   sy-tabix.
-  fieldcatset   'KUKLA'     '实际客户等级'    sy-tabix.
-  fieldcatset   'BEZEI'     '销售渠道/客户类型'   sy-tabix.
+  fieldcatset   'KUKLA'     '实际客户等级Classification'    sy-tabix.
+  fieldcatset   'BEZEI'     '销售渠道/客户类型Sales Channel'   sy-tabix.
   fieldcatset   'PMATN'     '定价参考物料'    sy-tabix.
   fieldcatset   'MAKTX'     '定价参考物料描述'    sy-tabix.
   fieldcatset   'ZSTDNAME'      '标准名称'    sy-tabix.
-  fieldcatset   'GROES'     '规格型号'    sy-tabix.
-  fieldcatset   'MATKL'     '物料小类编号'    sy-tabix.
-  fieldcatset   'WGBEZ'     '物料小类描述'    sy-tabix.
-  fieldcatset   'ZPSPE'     '包装规格'    sy-tabix.
-  fieldcatset   'ZSFXCP'      '新产品'   sy-tabix.
-  fieldcatset   'ZYPSL'     '样品数量'    sy-tabix.
-  fieldcatset   'ZHSDAT'      '生产日期'    sy-tabix.
+  fieldcatset   'GROES'     '规格型号Filling Weight'    sy-tabix.
+  fieldcatset   'MATKL'     '物料中类编号'    sy-tabix.
+  fieldcatset   'WGBEZ'     '物料中类描述'    sy-tabix.
+  fieldcatset   'ZPSPE'     '包装规格Packing Specification'    sy-tabix.
+  fieldcatset   'ZSFXCP'      '新产品New Product'   sy-tabix.
+  fieldcatset   'ZYPSL'     '样品数量Sample QTY'    sy-tabix.
+  fieldcatset   'ZHSDAT'      '生产日期MFG Date'    sy-tabix.
 *  fieldcatset    '待定'      保质期   sy-tabix.
 *  fieldcatset    '待定'      失效日期    sy-tabix.
 *  fieldcatset   'SVBELN'      '销售订单号'   sy-tabix.
-  fieldcatset   'BSTKD_E'     '客户合同单号'    sy-tabix.
-  fieldcatset   'KPSUM'     '开票数量'    sy-tabix.
-  fieldcatset   'DDPPRICE'      'DDP价格'   sy-tabix.
-  fieldcatset   'PERPRICE'      '含税单价'    sy-tabix.
-  fieldcatset   'DISCLV'      '折扣率'   sy-tabix.
-  fieldcatset   'DISCNUM'     '折扣金额'    sy-tabix.
-  fieldcatset   'KBETR'     '税率(%)'    sy-tabix.
+  fieldcatset   'BSTKD_E'     '客户合同单号PO Number'    sy-tabix.
+  fieldcatset   'KPSUM'     '开票数量Invoice QTY'    sy-tabix.
+  fieldcatset   'DDPPRICE'      'DDP价格DDP Price'   sy-tabix.
+  fieldcatset   'PERPRICE'      '含税单价Unit price'    sy-tabix.
+  fieldcatset   'DISCLV'      '折扣率Discount Rate'   sy-tabix.
+  fieldcatset   'DISCNUM'     '折扣金额Discount'    sy-tabix.
+  fieldcatset   'KBETR'     '税率(%)Tax Rate'    sy-tabix.
   fieldcatset   'MWSBP'     '销项税额'    sy-tabix.
-  fieldcatset   'PRICE'     '不含税金额'   sy-tabix.
-  fieldcatset   'NETWR'     '价税总计'    sy-tabix.
-  fieldcatset   'WAERK'     '订单币别'    sy-tabix.
-  fieldcatset   'ZPACK_CHARG'     '打印批号'    sy-tabix.
-  fieldcatset   'Z004'      '备注'    sy-tabix.
-  fieldcatset   'ZCKGJ'      '出口国家'    sy-tabix.
-
+  fieldcatset   'PRICE'     '不含税金额Amount（Tax excluding）'   sy-tabix.
+  fieldcatset   'PRICE2'     '不含税金额CNY Amount（Tax excluding）'   sy-tabix.
+  fieldcatset   'NETWR'     '价税总计Amount(Tax Including)'    sy-tabix.
+  fieldcatset   'WAERK'     '订单币别Order Currency'    sy-tabix.
+  fieldcatset   'ZPACK_CHARG'     '打印批号Bactch Number'    sy-tabix.
+  fieldcatset   'Z004'      '备注Comment'    sy-tabix.
+  fieldcatset   'ZCKGJ'      '出口国家简称'    sy-tabix.
+  fieldcatset   'ZCKGJT'      '出口国家Country'    sy-tabix.
+  fieldcatset   'VFDAT'      '货架寿命到期日'    sy-tabix.
+  fieldcatset   'KURSK'      '汇率'    sy-tabix.
+  fieldcatset   'BU_SORT1'      '实际客户的检索项'    sy-tabix.
+  fieldcatset   'ZZQZT'      '账期审批状态'    sy-tabix.
+  fieldcatset   'CMGST'      '贷方'    sy-tabix.
+  fieldcatset   'SDABW'      '特殊处理标'    sy-tabix.
+  fieldcatset   'ZKHWL'      '客户物料编码'    sy-tabix.
   IF flag_b = 'X'.
     fieldcatset   'ZSON'      '子件'    sy-tabix.
     fieldcatset   'ZSONDETAIL'      '子件描述'    sy-tabix.
     fieldcatset   'ZMEINS'      '子件单位'    sy-tabix.
     fieldcatset   'ZSUM'      '铝合装子件销售数量'    sy-tabix.
+
   ENDIF.
 ENDFORM.
 

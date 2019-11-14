@@ -51,6 +51,7 @@ TYPES:BEGIN OF lv_out,
         zfhsx           TYPE    lips-zfhsx  , "  发货顺序
         zwmszt          TYPE    string , "  是否传输WMS
         zuser           TYPE    but000-name_org1  , "  业务员
+        bu_sort1        TYPE but000-bu_sort1, "实际客户的检索项
         zcustom         TYPE    but000-name_org1  , "  客户
         zruserno        TYPE vbpa-kunnr, "实际客户编号
         zruser          TYPE    but000-name_org1  , "  实际客户
@@ -80,13 +81,21 @@ TYPES:BEGIN OF lv_out,
         kbetr           TYPE    p DECIMALS 2 , "  税率
         mwsbp           TYPE    vbap-mwsbp  , "  销项税额
         price           TYPE    vbap-netwr  , "  不含税金额
+        price2          TYPE    vbap-netwr  , "  不含税金额
         netwr           TYPE    vbap-netwr , "  价税总计
         waerk           TYPE    vbak-waerk  , "  订单币别
         ernam           TYPE likp-ernam, "制单人
         zckgj           TYPE string, "出口国家
+        zckgjt          TYPE string, "出口国家
         zpack_charg(40) TYPE    c , "  打印批号
         zcustomertext   TYPE string, "客户描述
         z004(40)        TYPE    c , "  备注
+        vfdat           TYPE mcha-vfdat, "货架到期日
+        kursk           TYPE vbkd-kursk, "汇率
+        zzqzt           TYPE string, "账期审批状态
+        cmgst           TYPE string, "贷方
+        sdabw           TYPE string, "特殊处理标
+        zkhwl           TYPE string, "客户物料编码
       END OF lv_out.
 TYPES:BEGIN OF lv_out2.
         INCLUDE TYPE lv_out.
@@ -134,6 +143,7 @@ TYPES:
   maktx       TYPE    makt-maktx  , "  定价参考物料描述
   zstdname    TYPE    string  , "  标准名称
   groes       TYPE    mara-groes  , "  规格型号
+  zckgjt      TYPE string, "出口国家
   matkl       TYPE    mara-matkl  , "  物料小类编号
   wgbez       TYPE    t023t-wgbez , "  物料小类描述
   zpspe       TYPE    string  , "  包装规格
@@ -173,6 +183,12 @@ TYPES:
   meins2      TYPE vbap-meins, "销售订单单位
   zernam      TYPE likp-ernam, "制单人
   zckgj       TYPE string, "出口国家
+  vfdat       TYPE mcha-vfdat, "货架到期日
+  kursk       TYPE vbkd-kursk, "汇率
+  zzqzt       TYPE string, "账期审批状态
+  cmgst       TYPE string, "贷方
+  sdabw       TYPE string, "特殊处理标
+  zkhwl       TYPE string, "客户物料编码
   posnr_vbap  TYPE    vbap-posnr.   "  销售订单
 
 TYPES:END OF lv_main.

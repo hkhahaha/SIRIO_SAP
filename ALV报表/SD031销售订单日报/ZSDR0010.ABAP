@@ -26,160 +26,170 @@ TYPES:BEGIN OF ty_zco,
       END OF ty_zco.
 
 TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部字段
-        zapszt   TYPE    string , "  APS状态
-        vbeln    TYPE    vbak-vbeln  , "  单据号
-        posnr    TYPE    vbap-posnr  , "  行号
-        ernam    TYPE    vbak-ernam  , "  制单人
-        vkorg    TYPE    vbak-vkorg  , "  销售组织
-        auart    TYPE    string  , "  订单类型
-        vtweg    TYPE    string , "  分销渠道
-        werks    TYPE    vbap-werks  , "  工厂
-        vkbur    TYPE    string  , "  二级部门
-        mandt    TYPE    vbak-mandt  , "  集团名称
-        kunnr    TYPE    string      , "  售达方
-        kunnr2   TYPE    vbak-kunnr      , "  售达方编号
-        zckgj    TYPE    string  , "  出口国家简称
-        zckgj2   TYPE    string  , "  出口国家
-        waerk    TYPE    vbak-waerk  , "  订单币种
-        matnr    TYPE    vbap-matnr  , "  产品编码
-        arktx    TYPE    vbap-arktx  , "  产品名称
+        zapszt         TYPE    string , "  APS状态
+        vbeln          TYPE    vbak-vbeln  , "  单据号
+        posnr          TYPE    vbap-posnr  , "  行号
+        ernam          TYPE    vbak-ernam  , "  制单人
+        vkorg          TYPE    vbak-vkorg  , "  销售组织
+        auart          TYPE    string  , "  订单类型
+        vtweg          TYPE    string , "  分销渠道
+        werks          TYPE    vbap-werks  , "  工厂
+        vkbur          TYPE    string  , "  二级部门
+        mandt          TYPE    vbak-mandt  , "  集团名称
+        kunnr          TYPE    string      , "  售达方
+        kunnr2         TYPE    vbak-kunnr      , "  售达方编号
+        zckgj          TYPE    string  , "  出口国家简称
+        zckgj2         TYPE    string  , "  出口国家
+        waerk          TYPE    vbak-waerk  , "  订单币种
+        matnr          TYPE    vbap-matnr  , "  产品编码
+        arktx          TYPE    vbap-arktx  , "  产品名称
 *        matwa    TYPE    vbap-matwa  , "  产品名称
-        zkhwl    TYPE    vbap-zkhwl  , "  客户产品编码
-        zkhwlms  TYPE    vbap-zkhwlms  , "  客户产品名称
-        zcpgg    TYPE    vbap-zcpgg  , "  规格型号
-        zbzgg    TYPE    vbap-zbzgg  , "  包装规格
-        meins    TYPE    vbap-meins  , "  基本计量单位
-        kwmeng   TYPE    vbap-kwmeng , "  销售数量
-        zypsl    TYPE    vbap-zypsl  , "  样品数量
-        vrkme    TYPE    vbap-vrkme  , "  销售单位
-        mwsbp    TYPE    vbap-mwsbp  , "  销项税额
-        netwr    TYPE    vbap-netwr  , "  不含税金额
-        zdytk    TYPE    vbap-zdytk  , "  短溢条款
-        zysjhq   TYPE    vbap-zysjhq , "  客户要求交货日期
-        zatpdfrq TYPE    vbap-zatpdfrq , "  ATP答复日期
-        znbjhq   TYPE    vbap-znbjhq , "  实际交货日期
-        zsfxbz   TYPE    vbap-zsfxbz , "  新包装
-        zsfxcp   TYPE    vbap-zsfxcp , "  新产品
-        zsfbj    TYPE    vbap-zsfbj  , "  是否报检
-        zphyq    TYPE    vbap-zphyq  , "  批号要求
-        zzztl    TYPE    vbap-zzztl  , "  最早投料日期
-        zzwtl    TYPE    vbap-zzwtl  , "  最晚投料日期
-        zzzbz    TYPE    vbap-zzzbz  , "  最早包装时间
-        zzwbz    TYPE    vbap-zzwbz  , "  最晚包装时间
-        zbhcl    TYPE    string  , "  备货策略
-        zbomqq   TYPE    vbap-zbomqq , "  BOM欠缺物料
-        zblxy    TYPE    vbak-zblxy  , "  是否有备料协议
-        zsfxkh   TYPE    vbak-zsfxkh , "  新客户
+        zkhwl          TYPE    vbap-zkhwl  , "  客户产品编码
+        zkhwlms        TYPE    vbap-zkhwlms  , "  客户产品名称
+        zcpgg          TYPE    vbap-zcpgg  , "  规格型号
+        zbzgg          TYPE    vbap-zbzgg  , "  包装规格
+        meins          TYPE    vbap-meins  , "  基本计量单位
+        kwmeng         TYPE    vbap-kwmeng , "  销售数量
+        zypsl          TYPE    vbap-zypsl  , "  样品数量
+        vrkme          TYPE    vbap-vrkme  , "  销售单位
+        mwsbp          TYPE    vbap-mwsbp  , "  销项税额
+        netwr          TYPE    vbap-netwr  , "  不含税金额
+        zdytk          TYPE    vbap-zdytk  , "  短溢条款
+        zysjhq         TYPE    vbap-zysjhq , "  客户要求交货日期
+        zatpdfrq       TYPE    vbap-zatpdfrq , "  ATP答复日期
+        znbjhq         TYPE    vbap-znbjhq , "  实际交货日期
+        zsfxbz         TYPE    vbap-zsfxbz , "  新包装
+        zsfxcp         TYPE    vbap-zsfxcp , "  新产品
+        zsfbj          TYPE    vbap-zsfbj  , "  是否报检
+        zphyq          TYPE    vbap-zphyq  , "  批号要求
+        zzztl          TYPE    vbap-zzztl  , "  最早投料日期
+        zzwtl          TYPE    vbap-zzwtl  , "  最晚投料日期
+        zzzbz          TYPE    vbap-zzzbz  , "  最早包装时间
+        zzwbz          TYPE    vbap-zzwbz  , "  最晚包装时间
+        zbhcl          TYPE    string  , "  备货策略
+        zbomqq         TYPE    vbap-zbomqq , "  BOM欠缺物料
+        zblxy          TYPE    vbak-zblxy  , "  是否有备料协议
+        zsfxkh         TYPE    vbak-zsfxkh , "  新客户
 *        auart    TYPE    vbak-auart  , "  订单类型
 *        vkorg    TYPE    vbak-vkorg  , "  销售组织
 *        vtweg    TYPE    vbak-vtweg  , "  分销渠道
-        spart    TYPE    vbak-spart  , "  产品组
+        spart          TYPE    vbak-spart  , "  产品组
 *        werks    TYPE    vbap-werks  , "  工厂
 *        kunnr    TYPE    vbak-kunnr  , "  客户
 *        ernam    TYPE    vbak-ernam  , "  创建人
-        erdat    TYPE    vbak-erdat  , "  创建日期
+        erdat          TYPE    vbak-erdat  , "  创建日期
 *        matnr    TYPE    vbap-matnr  , "  物料编码
-        objnr    TYPE    vbap-objnr  , " 对象编号
-        kvgr1    TYPE    string  , "  销售渠道/客户类型
-        umziz    TYPE    vbap-umziz  , "转换因子（分子）
-        umzin    TYPE    vbap-umzin  ,  "转换因此（分母）
-        knumv    TYPE vbak-knumv, "凭证条件号
-        zyfkqk   TYPE vbak-zyfkqk, "预付款
-        augru    TYPE string, "订货原因
-        price2   TYPE vbap-netwr, "不含税金额CNY
-        ettyp    TYPE vbep-ettyp, "计划行类别
-        bu_sort1 TYPE string, "实际客户的检索项
-        partner  TYPE string, "实际客户的业务员
+        objnr          TYPE    vbap-objnr  , " 对象编号
+        kvgr1          TYPE    string  , "  销售渠道/客户类型
+        umziz          TYPE    vbap-umziz  , "转换因子（分子）
+        umzin          TYPE    vbap-umzin  ,  "转换因此（分母）
+        knumv          TYPE vbak-knumv, "凭证条件号
+        zyfkqk         TYPE vbak-zyfkqk, "预付款
+        augru          TYPE string, "订货原因
+        price2         TYPE vbap-netwr, "不含税金额CNY
+        ettyp          TYPE vbep-ettyp, "计划行类别
+        bu_sort1       TYPE string, "实际客户的检索项
+        zson           TYPE vbap-matnr, "子件
+        zsondetail(20) TYPE c, "子件描述
+        zmeins         TYPE mara-meins, "子件的单位
+        zsum(20)       TYPE c, "铝盒装子件销售数量
+        partner        TYPE string, "实际客户的业务员
+        zsum2          TYPE string, "礼合装基本子件数量
       END OF ty_all.
 TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
-        zapszt      TYPE    string , "  APS状态
-        state       TYPE    string      , "  订单状态
-        vbeln       TYPE    vbak-vbeln  , "  单据号
-        posnr       TYPE    vbap-posnr  , "  行号
-        ernam       TYPE    string      , "  制单人
-        vkorg       TYPE    vbak-vkorg  , "  销售组织
-        auart       TYPE    string  , "  订单类型
-        vtweg       TYPE    string  , "  分销渠道
-        kvgr1       TYPE    string  , "  销售渠道/客户类型
-        werks       TYPE    vbap-werks  , "  工厂
-        lgort       TYPE    lips-lgort  , "  库存地点
-        vkbur       TYPE    string  , "  二级部门
-        saleman     TYPE    string      , "  业务员
-        mc_name1    TYPE    but000-mc_name1, "检索项
-        mandt       TYPE    vbak-mandt  , "  集团名称
-        kunnr       TYPE    vbak-kunnr  , "  售达方(客户名称)
-        kunnr2      TYPE    vbak-kunnr  , "  售达方(编号)
-        custname    TYPE    string      , "  实际客户名称
-        custname2   TYPE    string      , "  实际客户编号
-        kukla       TYPE    kna1-kukla  , "  实际客户等级
-        zterm       TYPE    string  , "  付款方式
-        zckgj       TYPE    string  , "  出口国家简称
-        zckgj2      TYPE    string  , "  出口国家
-        bstkd_e     TYPE    vbkd-bstkd_e, "  客户PO
-        waerk       TYPE    vbak-waerk  , "  订单币种
-        kursk       TYPE    vbkd-kursk  , "  汇率
-        matnr       TYPE    vbap-matnr  , "  产品编码
-        arktx       TYPE    vbap-arktx  , "  产品名称
-        zstdname    TYPE    string      , "  标准名称
-        zkhwl       TYPE    vbap-zkhwl  , "  客户产品编码
-        zkhwlms     TYPE    vbap-zkhwlms, "  客户产品名称
-        pmatn       TYPE    vbap-matnr  , "  定价参考物料编码
-        maktx       TYPE    makt-maktx  , "  品名
-        zpro        TYPE    string      , "  是否益生菌
-        matkl       TYPE    mara-matkl  , "  物料小类编码
-        maktxs      TYPE    makt-maktx  , "  物料小类名称
-        zcpgg       TYPE    vbap-zcpgg  , "  规格型号
-        zbzgg       TYPE    vbap-zbzgg  , "  包装规格
-        zpwsx       TYPE    zsdt0013    , "  批文属性
-        zprotype    TYPE    string      , "  产品类型
-        zappsou     TYPE    string      , "  批文来源
-        zcotype     TYPE    string      , "  合作类型
-        meins       TYPE    vbap-meins  , "  基本计量单位
-        number      TYPE    string      , "  基本计量数量
-        kwmeng      TYPE    vbap-kwmeng , "  销售数量
-        zypsl       TYPE    vbap-zypsl  , "  样品数量
-        vrkme       TYPE    vbap-vrkme  , "  销售单位
-        kbetr       TYPE    p DECIMALS 2     , "  含税单价
-        kwert       TYPE    string      , "  折扣率
-        mwsbp2      TYPE    vbap-mwsbp  , "  折扣金额
-        kwertdis    TYPE    p DECIMALS 2     , "  税率
-        mwsbp       TYPE    vbap-mwsbp  , "  销项税额
-        netwr       TYPE    vbap-netwr  , "  不含税金额
-        priceall    TYPE    string      , "  价税合计
-        zdytk       TYPE    vbap-zdytk  , "  短溢条款
-        zysjhq      TYPE    vbap-zysjhq , "  客户要求交货日期
-        zatpdfrq    TYPE    vbap-zatpdfrq, "  ATP答复日期
-        znbjhq      TYPE    vbap-znbjhq , "  实际交货日期
-        innum       TYPE    string      , "  入库量
-        outnum      TYPE    string      , "  出库量
-        invoice     TYPE    string      , "  开票量
-        invoiced    TYPE    string      , "  开票日期
-        zsfxbz      TYPE    vbap-zsfxbz , "  新包装
-        zsfxcp      TYPE    vbap-zsfxcp , "  新产品
-        zsfbj       TYPE    vbap-zsfbj  , "  是否报检
-        zphyq       TYPE    vbap-zphyq  , "  批号要求
-        zzztl       TYPE    vbap-zzztl  , "  最早投料日期
-        zzwtl       TYPE    vbap-zzwtl  , "  最晚投料日期
-        zzzbz       TYPE    vbap-zzzbz  , "  最早包装时间
-        zzwbz       TYPE    vbap-zzwbz  , "  最晚包装时间
-        bstkd_e2    TYPE    vbkd-bstkd_e, "  客户合同单号
-        posex_e     TYPE    vbkd-posex_e, "  客户合同分录
-        note        TYPE    string      , "  生产行项目备注
-        zbhcl       TYPE    string  , "  备货策略
-        zbomqq      TYPE    vbap-zbomqq , "  BOM欠缺物料
-        zblxy       TYPE    vbak-zblxy  , "  是否有备料协议
-        zsfxkh      TYPE    vbak-zsfxkh , "  新客户
-        pronote     TYPE    string      , "  生产相关文本
-        salenot     TYPE    string      , "  销售文本
-        voicenot    TYPE    string      , "  发票文本
-        invoicenote TYPE string         , "  开票文本
-        augru       TYPE string, "订货原因
-        ddpprice    TYPE p DECIMALS 2, "DDP价格
-        zyfkqk      TYPE  vbak-zyfkqk, "预付款
-        price2      TYPE vbap-netwr, "不含税金额CNY
-        ettyp       TYPE vbep-ettyp, "计划行类别
-        bu_sort1    TYPE string, "实际客户的检索项
-        partner     TYPE string, "实际客户的业务员
+        zapszt         TYPE    string , "  APS状态
+        state          TYPE    string      , "  订单状态
+        vbeln          TYPE    vbak-vbeln  , "  单据号
+        posnr          TYPE    vbap-posnr  , "  行号
+        ernam          TYPE    string      , "  制单人
+        vkorg          TYPE    vbak-vkorg  , "  销售组织
+        auart          TYPE    string  , "  订单类型
+        vtweg          TYPE    string  , "  分销渠道
+        kvgr1          TYPE    string  , "  销售渠道/客户类型
+        werks          TYPE    vbap-werks  , "  工厂
+        lgort          TYPE    lips-lgort  , "  库存地点
+        vkbur          TYPE    string  , "  二级部门
+        saleman        TYPE    string      , "  业务员
+        mc_name1       TYPE    but000-mc_name1, "检索项
+        mandt          TYPE    vbak-mandt  , "  集团名称
+        kunnr          TYPE    vbak-kunnr  , "  售达方(客户名称)
+        kunnr2         TYPE    vbak-kunnr  , "  售达方(编号)
+        custname       TYPE    string      , "  实际客户名称
+        custname2      TYPE    string      , "  实际客户编号
+        kukla          TYPE    kna1-kukla  , "  实际客户等级
+        zterm          TYPE    string  , "  付款方式
+        zckgj          TYPE    string  , "  出口国家简称
+        zckgj2         TYPE    string  , "  出口国家
+        bstkd_e        TYPE    vbkd-bstkd_e, "  客户PO
+        waerk          TYPE    vbak-waerk  , "  订单币种
+        kursk          TYPE    vbkd-kursk  , "  汇率
+        matnr          TYPE    vbap-matnr  , "  产品编码
+        arktx          TYPE    vbap-arktx  , "  产品名称
+        zstdname       TYPE    string      , "  标准名称
+        zkhwl          TYPE    vbap-zkhwl  , "  客户产品编码
+        zkhwlms        TYPE    vbap-zkhwlms, "  客户产品名称
+        pmatn          TYPE    vbap-matnr  , "  定价参考物料编码
+        maktx          TYPE    makt-maktx  , "  品名
+        zpro           TYPE    string      , "  是否益生菌
+        matkl          TYPE    mara-matkl  , "  物料小类编码
+        maktxs         TYPE    makt-maktx  , "  物料小类名称
+        zcpgg          TYPE    vbap-zcpgg  , "  规格型号
+        zbzgg          TYPE    vbap-zbzgg  , "  包装规格
+        zpwsx          TYPE    zsdt0013    , "  批文属性
+        zprotype       TYPE    string      , "  产品类型
+        zappsou        TYPE    string      , "  批文来源
+        zcotype        TYPE    string      , "  合作类型
+        meins          TYPE    vbap-meins  , "  基本计量单位
+        number         TYPE    string      , "  基本计量数量
+        kwmeng         TYPE    vbap-kwmeng , "  销售数量
+        zypsl          TYPE    vbap-zypsl  , "  样品数量
+        vrkme          TYPE    vbap-vrkme  , "  销售单位
+        kbetr          TYPE    p DECIMALS 2     , "  含税单价
+        kwert          TYPE    string      , "  折扣率
+        mwsbp2         TYPE    vbap-mwsbp  , "  折扣金额
+        kwertdis       TYPE    p DECIMALS 2     , "  税率
+        mwsbp          TYPE    vbap-mwsbp  , "  销项税额
+        netwr          TYPE    vbap-netwr  , "  不含税金额
+        priceall       TYPE    string      , "  价税合计
+        zdytk          TYPE    vbap-zdytk  , "  短溢条款
+        zysjhq         TYPE    vbap-zysjhq , "  客户要求交货日期
+        zatpdfrq       TYPE    vbap-zatpdfrq, "  ATP答复日期
+        znbjhq         TYPE    vbap-znbjhq , "  实际交货日期
+        innum          TYPE    string      , "  入库量
+        outnum         TYPE    string      , "  出库量
+        invoice        TYPE    string      , "  开票量
+        invoiced       TYPE    string      , "  开票日期
+        zsfxbz         TYPE    vbap-zsfxbz , "  新包装
+        zsfxcp         TYPE    vbap-zsfxcp , "  新产品
+        zsfbj          TYPE    vbap-zsfbj  , "  是否报检
+        zphyq          TYPE    vbap-zphyq  , "  批号要求
+        zzztl          TYPE    vbap-zzztl  , "  最早投料日期
+        zzwtl          TYPE    vbap-zzwtl  , "  最晚投料日期
+        zzzbz          TYPE    vbap-zzzbz  , "  最早包装时间
+        zzwbz          TYPE    vbap-zzwbz  , "  最晚包装时间
+        bstkd_e2       TYPE    vbkd-bstkd_e, "  客户合同单号
+        posex_e        TYPE    vbkd-posex_e, "  客户合同分录
+        note           TYPE    string      , "  生产行项目备注
+        zbhcl          TYPE    string  , "  备货策略
+        zbomqq         TYPE    vbap-zbomqq , "  BOM欠缺物料
+        zblxy          TYPE    vbak-zblxy  , "  是否有备料协议
+        zsfxkh         TYPE    vbak-zsfxkh , "  新客户
+        pronote        TYPE    string      , "  生产相关文本
+        salenot        TYPE    string      , "  销售文本
+        voicenot       TYPE    string      , "  发票文本
+        invoicenote    TYPE string         , "  开票文本
+        augru          TYPE string, "订货原因
+        ddpprice       TYPE p DECIMALS 2, "DDP价格
+        zyfkqk         TYPE  vbak-zyfkqk, "预付款
+        price2         TYPE vbap-netwr, "不含税金额CNY
+        ettyp          TYPE vbep-ettyp, "计划行类别
+        bu_sort1       TYPE string, "实际客户的检索项
+        partner        TYPE string, "实际客户的业务员
+        zson           TYPE vbap-matnr, "子件
+        zsondetail(20) TYPE c, "子件描述
+        zmeins         TYPE mara-meins, "子件的单位
+        zsum(20)       TYPE c, "礼盒装子件销售数量
+        zsum2          TYPE string, "礼合装基本子件数量
       END OF ty_out.
 
 ***********  ALV 定义 **********************************************
@@ -201,6 +211,16 @@ skunnr    FOR   vbak-kunnr  ,"  客户
 sernam    FOR   vbak-ernam  ,"  创建人
 serdat    FOR   vbak-erdat  ,"  创建日期
 smatnr    FOR   vbap-matnr  ."  物料编码
+
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN COMMENT 1(20) TEXT-002.
+SELECTION-SCREEN POSITION 23.
+PARAMETERS flag_a RADIOBUTTON GROUP rg1 DEFAULT 'X'.
+SELECTION-SCREEN COMMENT 24(8) TEXT-003 FOR FIELD flag_a.
+SELECTION-SCREEN POSITION 44.
+PARAMETERS flag_b RADIOBUTTON GROUP rg1.
+SELECTION-SCREEN COMMENT 48(8) TEXT-004 FOR FIELD flag_b.
+SELECTION-SCREEN END OF LINE.
 SELECTION-SCREEN END OF BLOCK blk.
 
 
@@ -245,6 +265,10 @@ FORM getdata.
        ls_mska          TYPE mska,
        lt_ausp          TYPE TABLE OF ausp,
        ls_ausp          TYPE ausp,
+       lt_mast          TYPE TABLE OF mast,
+       ls_mast          TYPE mast,
+       lt_stko          TYPE TABLE OF stko,
+       ls_stko          TYPE stko,
        lt_tvakt         TYPE TABLE OF tvakt,
        ls_tvakt         TYPE tvakt,
        lt_tvtwt         TYPE TABLE OF tvtwt,
@@ -1080,7 +1104,32 @@ FORM getdata.
     DATA: lt_stb LIKE TABLE OF stpox,
           ls_stb LIKE LINE OF lt_stb.
 
-    IF flag = 'X'.
+    IF flag = 'X' AND flag_b = 'X'.
+      "获取对应的物料清单
+      CLEAR ls_mast.
+      SELECT SINGLE
+      stlnr
+      INTO CORRESPONDING FIELDS OF ls_mast
+      FROM mast AS a
+      WHERE a~matnr = ls_all-matnr
+      AND a~werks = ls_all-werks
+      AND a~stlan = '1'
+      AND a~stlal = '01'.
+      "BOM的基本数量
+      CLEAR ls_stko.
+      SELECT SINGLE
+      bmeng
+      INTO CORRESPONDING FIELDS OF ls_stko
+      FROM stko AS a
+      WHERE a~stlty = 'M'
+      AND a~stlal = '01'
+      AND a~stlnr = ls_mast-stlnr.
+
+
+
+
+
+
 
       CALL FUNCTION 'CS_BOM_EXPL_MAT_V2'
         EXPORTING
@@ -1170,19 +1219,52 @@ FORM getdata.
       ENDIF.
 
       LOOP AT lt_stb INTO ls_stb.
+        CLEAR ls_mara.
         SELECT SINGLE
           mtart
-        INTO ls_mara-mtart
+          meins
+        INTO CORRESPONDING FIELDS OF ls_mara
         FROM mara
         WHERE mara~matnr = ls_stb-idnrk.
         IF ls_mara-mtart = 'Z050'.
-          ls_out-matnr = ls_stb-idnrk."BOM的物料编码
           ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-matnr i_out = 'X' ).
+          ls_out-zson = ls_stb-idnrk."BOM的物料编码
+          ls_out-zson = zcl_bc_public=>conv_by_ddic( i_input = ls_out-zson i_out = 'X' ).
+          "子件的单位
+          CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+            EXPORTING
+              input          = ls_mara-meins
+              language       = sy-langu
+            IMPORTING
+              long_text      = ls_out-zmeins
+*             OUTPUT         =
+*             SHORT_TEXT     =
+            EXCEPTIONS
+              unit_not_found = 1
+              OTHERS         = 2.
+          IF sy-subrc <> 0.
+* Implement suitable error handling here
+          ENDIF.
+          "子件的描述
+          CLEAR ls_makt.
+          SELECT SINGLE
+          maktx
+          INTO ls_out-zsondetail
+          FROM makt
+          WHERE makt~matnr = ls_stb-idnrk.
+
+          "礼合装子件销售数量
+          ls_out-zsum = ( ls_stb-menge / ls_stko-bmeng ) * ls_out-number.
+          "礼合装子件基本数量
+          ls_out-zsum2 =  ( ls_stb-menge / ls_stko-bmeng ) * ls_out-kwmeng.
+
           APPEND ls_out TO lt_out." 输出BOM子件的行数
         ENDIF.
+        CLEAR ls_stb.
       ENDLOOP.
+      CLEAR lt_stb.
 *      APPEND ls_out to lt_out.
-    ELSE.
+    ELSEIF flag_a = 'X'.
       ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-matnr i_out = 'X' ).
       APPEND ls_out TO lt_out."输出不含BOM的行数
     ENDIF.
@@ -1190,6 +1272,7 @@ FORM getdata.
     CLEAR ls_out.
     CLEAR ls_all.
   ENDLOOP.
+  SORT lt_out BY vbeln posnr.
 ENDFORM.
 
 FORM catalog.
@@ -1205,96 +1288,103 @@ FORM catalog.
     fieldcat-col_pos = &3."列位置
     APPEND fieldcat.
   END-OF-DEFINITION.
-  fieldcatset 'zapszt'   'APS状态' sy-tabix.
-  fieldcatset 'state'   '订单状态' sy-tabix.
-  fieldcatset 'augru'   '订单原因' sy-tabix.
-  fieldcatset 'vbeln'   '单据号' sy-tabix.
-  fieldcatset 'posnr'   '行号' sy-tabix.
-  fieldcatset 'ernam'   '制单人' sy-tabix.
-  fieldcatset 'vkorg'   '销售组织' sy-tabix.
-  fieldcatset 'auart'   '订单类型' sy-tabix.
-  fieldcatset 'vtweg'   '分销渠道' sy-tabix.
-  fieldcatset 'kvgr1'   '销售渠道/客户类型' sy-tabix.
-  fieldcatset 'werks'   '工厂' sy-tabix.
-  fieldcatset 'lgort'   '库存地点' sy-tabix.
-  fieldcatset 'vkbur'   '二级部门' sy-tabix.
-  fieldcatset 'saleman'   '业务员' sy-tabix.
-  fieldcatset 'mc_name1'   '检索项' sy-tabix.
+  fieldcatset 'ZAPSZt'   'APS状态' sy-tabix.
+  fieldcatset 'STATE'   '订单状态' sy-tabix.
+  fieldcatset 'AUGRU'   '订单原因' sy-tabix.
+  fieldcatset 'VBELN'   '单据号' sy-tabix.
+  fieldcatset 'POSNR'   '行号' sy-tabix.
+  fieldcatset 'ERNAM'   '制单人' sy-tabix.
+  fieldcatset 'VKORG'   '销售组织' sy-tabix.
+  fieldcatset 'AUART'   '订单类型' sy-tabix.
+  fieldcatset 'VTWEG'   '分销渠道' sy-tabix.
+  fieldcatset 'KVGR1'   '销售渠道/客户类型' sy-tabix.
+  fieldcatset 'WERKS'   '工厂' sy-tabix.
+  fieldcatset 'LGORT'   '库存地点' sy-tabix.
+  fieldcatset 'VKBUR'   '二级部门' sy-tabix.
+  fieldcatset 'SALEMAN'   '业务员' sy-tabix.
+  fieldcatset 'MC_NAME1'   '检索项' sy-tabix.
 *  fieldcatset 'werks'   '公司名称' sy-tabix.
-  fieldcatset 'kunnr'   '售达方(客户名称)' sy-tabix.
-  fieldcatset 'kunnr2'   '售达方(编号)' sy-tabix.
-  fieldcatset 'custname'   '实际客户名称' sy-tabix.
-  fieldcatset 'custname2'   '实际客户编号' sy-tabix.
-  fieldcatset 'kukla'   '实际客户等级' sy-tabix.
-  fieldcatset 'zterm'   '付款方式' sy-tabix.
-  fieldcatset 'zckgj'   '出口国家简称' sy-tabix.
-  fieldcatset 'zckgj2'   '出口国家' sy-tabix.
-  fieldcatset 'bstkd_e'   '客户PO' sy-tabix.
-  fieldcatset 'waerk'   '订单币种' sy-tabix.
-  fieldcatset 'kursk'   '汇率' sy-tabix.
-  fieldcatset 'matnr'   '产品编码' sy-tabix.
-  fieldcatset 'arktx'   '产品名称' sy-tabix.
-  fieldcatset 'zstdname'   '标准名称' sy-tabix.
-  fieldcatset 'zkhwl'   '客户产品编码' sy-tabix.
-  fieldcatset 'zkhwlms'   '客户产品名称' sy-tabix.
-  fieldcatset 'pmatn'   '定价参考物料编码' sy-tabix.
-  fieldcatset 'maktx'   '品名' sy-tabix.
-  fieldcatset 'zpro'   '是否益生菌' sy-tabix.
-  fieldcatset 'matkl'   '物料中类编码' sy-tabix.
-  fieldcatset 'maktxs'   '物料中类名称' sy-tabix.
-  fieldcatset 'zcpgg'   '规格型号' sy-tabix.
-  fieldcatset 'zbzgg'   '包装规格' sy-tabix.
-*  fieldcatset 'zpwsx'   '批文属性' sy-tabix.
-  fieldcatset 'zprotype'   '产品类型' sy-tabix.
-  fieldcatset 'zappsou'   '批文来源' sy-tabix.
-  fieldcatset 'zcotype'   '合作类型' sy-tabix.
-  fieldcatset 'meins'   '基本计量单位' sy-tabix.
-  fieldcatset 'number'   '基本计量数量' sy-tabix.
-  fieldcatset 'kwmeng'   '销售数量' sy-tabix.
-  fieldcatset 'zypsl'   '样品数量' sy-tabix.
-  fieldcatset 'vrkme'   '销售单位' sy-tabix.
-  fieldcatset 'kbetr'   '含税单价' sy-tabix.
-  fieldcatset 'kwert'   '折扣率' sy-tabix.
-  fieldcatset 'mwsbp2'   '折扣金额' sy-tabix.
-  fieldcatset 'kwertdis'   '税率' sy-tabix.
-  fieldcatset 'mwsbp'   '销项税额' sy-tabix.
-  fieldcatset 'netwr'   '不含税金额' sy-tabix.
-  fieldcatset 'price2'     '不含税金额CNY'   sy-tabix.
-  fieldcatset 'priceall'   '价税合计' sy-tabix.
-  fieldcatset 'zdytk'   '短溢条款' sy-tabix.
-  fieldcatset 'zysjhq'   '客户要求交货日期' sy-tabix.
-  fieldcatset 'zatpdfrq'   'ATP答复日期' sy-tabix.
-  fieldcatset 'znbjhq'   '实际交货日期' sy-tabix.
-  fieldcatset 'innum'   '当前库存' sy-tabix.
-  fieldcatset 'outnum'   '出库量' sy-tabix.
-  fieldcatset 'invoic'   '开票量' sy-tabix.
-  fieldcatset 'invoiced'   '开票日期' sy-tabix.
-  fieldcatset 'zsfxbz'   '新包装' sy-tabix.
-  fieldcatset 'zsfxcp'   '新产品' sy-tabix.
-  fieldcatset 'zsfbj'   '是否报检' sy-tabix.
-  fieldcatset 'zphyq'   '批号要求' sy-tabix.
-  fieldcatset 'zzztl'   '最早投料日期' sy-tabix.
-  fieldcatset 'zzwtl'   '最晚投料日期' sy-tabix.
-  fieldcatset 'zzzbz'   '最早包装时间' sy-tabix.
-  fieldcatset 'zzwbz'   '最晚包装时间' sy-tabix.
-  fieldcatset 'bstkd_e2'   '客户合同单号' sy-tabix.
-  fieldcatset 'posex_e'   '客户合同分录' sy-tabix.
-  fieldcatset 'note'   '生产行项目备注' sy-tabix.
-  fieldcatset 'zbhcl'   '备货策略' sy-tabix.
-  fieldcatset 'zbomqq'   'BOM欠缺物料' sy-tabix.
-  fieldcatset 'zblxy'   '是否有备料协议' sy-tabix.
-  fieldcatset 'zsfxkh'   '新客户 ' sy-tabix.
-  fieldcatset 'pronote'   '生产相关文本' sy-tabix.
-  fieldcatset 'salenot'   '销售文本' sy-tabix.
-  fieldcatset 'voicenot'   '发票文本' sy-tabix.
-  fieldcatset 'invoicenote' '开票文本' sy-tabix.
-  fieldcatset 'ddpprice' 'DDP价格' sy-tabix.
-  fieldcatset 'zyfkqk' '预付款' sy-tabix.
-  fieldcatset 'zkhwl' '客户物料编码' sy-tabix.
-  fieldcatset 'zkhwlms' '客户物料描述' sy-tabix.
-  fieldcatset 'ettyp' '计划行类别' sy-tabix.
+  fieldcatset 'KUNNR'   '售达方(客户名称)' sy-tabix.
+  fieldcatset 'KUNNR2'   '售达方(编号)' sy-tabix.
+  fieldcatset 'CUSTNAME'   '实际客户名称' sy-tabix.
+  fieldcatset 'CUSTNAME2'   '实际客户编号' sy-tabix.
+  fieldcatset 'KUKLA'   '实际客户等级' sy-tabix.
+  fieldcatset 'ZTERM'   '付款方式' sy-tabix.
+  fieldcatset 'ZCKGJ'   '出口国家简称' sy-tabix.
+  fieldcatset 'ZCKGJ2'   '出口国家' sy-tabix.
+  fieldcatset 'BSTKD_E'   '客户PO' sy-tabix.
+  fieldcatset 'WAERK'   '订单币种' sy-tabix.
+  fieldcatset 'KURSK'   '汇率' sy-tabix.
+  fieldcatset 'MATNR'   '产品编码' sy-tabix.
+  fieldcatset 'ARKTX'   '产品名称' sy-tabix.
+  fieldcatset 'ZSTDNAME'   '标准名称' sy-tabix.
+  fieldcatset 'ZKHWL'   '客户产品编码' sy-tabix.
+  fieldcatset 'ZKHWLMS'   '客户产品名称' sy-tabix.
+  fieldcatset 'PMATN'   '定价参考物料编码' sy-tabix.
+  fieldcatset 'MAKTX'   '品名' sy-tabix.
+  fieldcatset 'ZPRO'   '是否益生菌' sy-tabix.
+  fieldcatset 'MATKL'   '物料中类编码' sy-tabix.
+  fieldcatset 'MAKTXS'   '物料中类名称' sy-tabix.
+  fieldcatset 'ZCPGG'   '规格型号' sy-tabix.
+  fieldcatset 'ZBZGG'   '包装规格' sy-tabix.
+*  fieldcatset 'ZPWSX'   '批文属性' sy-tabix.
+  fieldcatset 'ZPROTYPE'   '产品类型' sy-tabix.
+  fieldcatset 'ZAPPSOU'   '批文来源' sy-tabix.
+  fieldcatset 'ZCOTYPE'   '合作类型' sy-tabix.
+  fieldcatset 'MEINS'   '基本计量单位' sy-tabix.
+  fieldcatset 'NUMBER'   '基本计量数量' sy-tabix.
+  fieldcatset 'KWMENG'   '销售数量' sy-tabix.
+  fieldcatset 'ZYPSL'   '样品数量' sy-tabix.
+  fieldcatset 'VRKME'   '销售单位' sy-tabix.
+  fieldcatset 'KBETR'   '含税单价' sy-tabix.
+  fieldcatset 'KWERT'   '折扣率' sy-tabix.
+  fieldcatset 'MWSBP2'   '折扣金额' sy-tabix.
+  fieldcatset 'KWERTDIS'   '税率' sy-tabix.
+  fieldcatset 'MWSBP'   '销项税额' sy-tabix.
+  fieldcatset 'NETWR'   '不含税金额' sy-tabix.
+  fieldcatset 'PRICE2'     '不含税金额CNY'   sy-tabix.
+  fieldcatset 'PRICEALL'   '价税合计' sy-tabix.
+  fieldcatset 'ZDYTK'   '短溢条款' sy-tabix.
+  fieldcatset 'ZYSJHQ'   '客户要求交货日期' sy-tabix.
+  fieldcatset 'ZATPDFRQ'   'ATP答复日期' sy-tabix.
+  fieldcatset 'ZNBJHQ'   '实际交货日期' sy-tabix.
+  fieldcatset 'INNUM'   '当前库存' sy-tabix.
+  fieldcatset 'OUTNUM'   '出库量' sy-tabix.
+  fieldcatset 'INVOIC'   '开票量' sy-tabix.
+  fieldcatset 'INVOICED'   '开票日期' sy-tabix.
+  fieldcatset 'ZSFXBZ'   '新包装' sy-tabix.
+  fieldcatset 'ZSFXCP'   '新产品' sy-tabix.
+  fieldcatset 'ZSFBJ'   '是否报检' sy-tabix.
+  fieldcatset 'ZPHYQ'   '批号要求' sy-tabix.
+  fieldcatset 'ZZZTL'   '最早投料日期' sy-tabix.
+  fieldcatset 'ZZWTL'   '最晚投料日期' sy-tabix.
+  fieldcatset 'ZZZBZ'   '最早包装时间' sy-tabix.
+  fieldcatset 'ZZWBZ'   '最晚包装时间' sy-tabix.
+  fieldcatset 'BSTKD_E2'   '客户合同单号' sy-tabix.
+  fieldcatset 'POSEX_E'   '客户合同分录' sy-tabix.
+  fieldcatset 'NOTE'   '生产行项目备注' sy-tabix.
+  fieldcatset 'ZBHCL'   '备货策略' sy-tabix.
+  fieldcatset 'ZBOMQQ'   'BOM欠缺物料' sy-tabix.
+  fieldcatset 'ZBLXY'   '是否有备料协议' sy-tabix.
+  fieldcatset 'ZSFXKH'   '新客户 ' sy-tabix.
+  fieldcatset 'PRONOTE'   '生产相关文本' sy-tabix.
+  fieldcatset 'SALENOT'   '销售文本' sy-tabix.
+  fieldcatset 'VOICENOT'   '发票文本' sy-tabix.
+  fieldcatset 'INVOICENOTE' '开票文本' sy-tabix.
+  fieldcatset 'DDPPRICE' 'DDP价格' sy-tabix.
+  fieldcatset 'ZYFKQK' '预付款' sy-tabix.
+  fieldcatset 'ZKHWL' '客户物料编码' sy-tabix.
+  fieldcatset 'ZKHWLMS' '客户物料描述' sy-tabix.
+  fieldcatset 'ETTYP' '计划行类别' sy-tabix.
   fieldcatset 'BU_SORT1'      '实际客户的检索项'    sy-tabix.
-  fieldcatset 'partner'      '实际客户的业务员'    sy-tabix.
+  fieldcatset 'PARTNER'      '实际客户的业务员'    sy-tabix.
+  IF flag_b = 'X'.
+    fieldcatset   'ZSON'      '子件'    sy-tabix.
+    fieldcatset   'ZSONDETAIL'      '子件描述'    sy-tabix.
+    fieldcatset   'ZMEINS'      '子件单位'    sy-tabix.
+    fieldcatset   'ZSUM'      '礼合装子件销售数量'    sy-tabix.
+    fieldcatset   'ZSUM2'      '礼合装子件基本数量'    sy-tabix.
+  ENDIF.
 ENDFORM.
 
 FORM alvshow.

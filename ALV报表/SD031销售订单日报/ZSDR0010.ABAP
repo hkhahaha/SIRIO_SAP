@@ -678,7 +678,7 @@ FORM getdata.
       wgbez
     INTO ls_out-maktxs
     FROM t023t
-    WHERE t023t~matkl = ls_mara-matkl
+    WHERE t023t~matkl = ls_out-matkl
     AND t023t~spras = '1'.
 
 

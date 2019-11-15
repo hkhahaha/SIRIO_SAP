@@ -38,7 +38,8 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         mandt    TYPE    vbak-mandt  , "  集团名称
         kunnr    TYPE    string      , "  售达方
         kunnr2   TYPE    vbak-kunnr      , "  售达方编号
-        zckgj    TYPE    string  , "  出口国家
+        zckgj    TYPE    string  , "  出口国家简称
+        zckgj2   TYPE    string  , "  出口国家
         waerk    TYPE    vbak-waerk  , "  订单币种
         matnr    TYPE    vbap-matnr  , "  产品编码
         arktx    TYPE    vbap-arktx  , "  产品名称
@@ -65,7 +66,7 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         zzwtl    TYPE    vbap-zzwtl  , "  最晚投料日期
         zzzbz    TYPE    vbap-zzzbz  , "  最早包装时间
         zzwbz    TYPE    vbap-zzwbz  , "  最晚包装时间
-        zbhcl    TYPE    vbap-zbhcl  , "  备货策略
+        zbhcl    TYPE    string  , "  备货策略
         zbomqq   TYPE    vbap-zbomqq , "  BOM欠缺物料
         zblxy    TYPE    vbak-zblxy  , "  是否有备料协议
         zsfxkh   TYPE    vbak-zsfxkh , "  新客户
@@ -84,6 +85,11 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         umzin    TYPE    vbap-umzin  ,  "转换因此（分母）
         knumv    TYPE vbak-knumv, "凭证条件号
         zyfkqk   TYPE vbak-zyfkqk, "预付款
+        augru    TYPE string, "订货原因
+        price2   TYPE vbap-netwr, "不含税金额CNY
+        ettyp    TYPE vbep-ettyp, "计划行类别
+        bu_sort1 TYPE string, "实际客户的检索项
+        partner  TYPE string, "实际客户的业务员
       END OF ty_all.
 TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zapszt      TYPE    string , "  APS状态
@@ -107,7 +113,8 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         custname2   TYPE    string      , "  实际客户编号
         kukla       TYPE    kna1-kukla  , "  实际客户等级
         zterm       TYPE    string  , "  付款方式
-        zckgj       TYPE    string  , "  出口国家
+        zckgj       TYPE    string  , "  出口国家简称
+        zckgj2      TYPE    string  , "  出口国家
         bstkd_e     TYPE    vbkd-bstkd_e, "  客户PO
         waerk       TYPE    vbak-waerk  , "  订单币种
         kursk       TYPE    vbkd-kursk  , "  汇率
@@ -158,7 +165,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         bstkd_e2    TYPE    vbkd-bstkd_e, "  客户合同单号
         posex_e     TYPE    vbkd-posex_e, "  客户合同分录
         note        TYPE    string      , "  生产行项目备注
-        zbhcl       TYPE    vbap-zbhcl  , "  备货策略
+        zbhcl       TYPE    string  , "  备货策略
         zbomqq      TYPE    vbap-zbomqq , "  BOM欠缺物料
         zblxy       TYPE    vbak-zblxy  , "  是否有备料协议
         zsfxkh      TYPE    vbak-zsfxkh , "  新客户
@@ -166,8 +173,13 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         salenot     TYPE    string      , "  销售文本
         voicenot    TYPE    string      , "  发票文本
         invoicenote TYPE string         , "  开票文本
+        augru       TYPE string, "订货原因
         ddpprice    TYPE p DECIMALS 2, "DDP价格
         zyfkqk      TYPE  vbak-zyfkqk, "预付款
+        price2      TYPE vbap-netwr, "不含税金额CNY
+        ettyp       TYPE vbep-ettyp, "计划行类别
+        bu_sort1    TYPE string, "实际客户的检索项
+        partner     TYPE string, "实际客户的业务员
       END OF ty_out.
 
 ***********  ALV 定义 **********************************************
@@ -349,6 +361,7 @@ FORM getdata.
   vbap~umzin     "转换因子
   vbak~zckgj     "出口国家
   vbak~zyfkqk    "预付款
+  augru     "订货原因
   INTO CORRESPONDING FIELDS OF TABLE lt_all
   FROM vbak
   INNER JOIN vbap
@@ -408,6 +421,7 @@ FORM getdata.
     ls_out-zpro = ls_ausp-atwrt.
     CLEAR ls_ausp.
 
+
     "合作类型取描述
     SELECT
       cawnt~atwtb
@@ -423,13 +437,31 @@ FORM getdata.
     AND cawnt~atinn = '0000000052'.
     CLEAR ls_zco.
     READ TABLE lt_zco INTO ls_zco WITH KEY atwrt = ls_out-zcotype.
-    ls_out-zcotype = LS_ZCO-atwtb.
+    ls_out-zcotype = ls_zco-atwtb.
 
-
+    "订货原因取描述
+    IF ls_all-augru IS NOT INITIAL.
+      SELECT SINGLE
+        bezei
+      INTO ls_all-augru
+      FROM tvaut
+      WHERE tvaut~spras  = '1'
+        AND tvaut~augru = ls_all-augru.
+    ENDIF.
     "因为TY_OUT的结构包含了TY_ALL的结构，所以直接MOVE
     MOVE-CORRESPONDING ls_all TO ls_out.
+    "计划行类别
+    SELECT SINGLE
+    ettyp
+    INTO ls_out-ettyp
+    FROM vbep
+    WHERE vbep~vbeln = ls_all-vbeln
+    AND vbep~posnr = ls_all-posnr.
+
+
     "售达方编号
     ls_out-kunnr2 = ls_all-kunnr.
+    CLEAR ls_jest.
     "订单状态
     SELECT SINGLE
       stat
@@ -504,8 +536,9 @@ FORM getdata.
     "客户名称
     ls_out-kunnr = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
     "集团名称
-    "实际客户名称
+    "实际客户名称、实际客户的检索项字段
     SELECT SINGLE
+    bu_sort1
     partner
     name_org1
     name_org2
@@ -518,8 +551,22 @@ FORM getdata.
     WHERE vbpa~parvw = 'Z1'
     AND vbpa~vbeln = ls_all-vbeln
     AND vbpa~posnr = ''.
+    ls_out-bu_sort1 = ls_but000-bu_sort1."实际客户的检索项字段
     ls_out-custname = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
     ls_out-custname2 = ls_but000-partner.
+    "实际客户对应的业务员
+    SELECT SINGLE
+      name_org1
+    INTO ls_out-partner
+    FROM but000
+    INNER JOIN knvp
+    ON but000~partner = knvp~kunn2
+    WHERE knvp~kunnr  = ls_but000-partner
+      AND knvp~vkorg = ls_all-vkorg
+      AND knvp~vtweg = ls_all-vtweg
+      AND knvp~spart = ls_all-spart
+      AND knvp~parvw = 'Z3'.
+
     CLEAR ls_but000.
     "实际客户等级
     SELECT SINGLE
@@ -587,6 +634,9 @@ FORM getdata.
     ls_out-bstkd_e = ls_vbkd-bstkd_e.
     "汇率
     ls_out-kursk = ls_vbkd-kursk.
+    "不含税金额CNY
+    ls_out-price2 = ls_out-netwr * ls_out-kursk."不含税金额CNY
+
 
 
     " 定价参考物料编码
@@ -902,18 +952,23 @@ FORM getdata.
     "订单类型取描述
     READ TABLE lt_tvakt INTO ls_tvakt WITH KEY auart = ls_out-auart.
     ls_out-auart = ls_tvakt-bezei.
+    CLEAR ls_tvakt.
     "分销渠道取描述
     READ TABLE lt_tvtwt INTO ls_tvtwt WITH KEY vtweg = ls_out-vtweg.
     ls_out-vtweg = ls_tvtwt-vtext.
+    CLEAR ls_tvtwt.
     "销售渠道取描述
     READ TABLE lt_tvv1t INTO ls_tvv1t WITH KEY kvgr1 = ls_out-kvgr1.
     ls_out-kvgr1 = ls_tvv1t-bezei.
+    CLEAR ls_tvv1t.
     "出口国家取描述
     READ TABLE lt_t005t INTO ls_t005t WITH KEY land1 = ls_out-zckgj.
-    ls_out-zckgj = ls_t005t-landx.
+    ls_out-zckgj2 = ls_t005t-landx.
+    CLEAR ls_t005t.
     "二级部门取描述
     READ TABLE lt_tvkbt INTO ls_tvkbt WITH KEY vkbur = ls_out-vkbur.
     ls_out-vkbur = ls_tvkbt-bezei.
+    CLEAR ls_tvkbt.
 
     "是否新产品
     IF ls_out-zsfxcp = 'Y'.
@@ -1018,7 +1073,7 @@ FORM getdata.
     changemeins ls_out-vrkme ls_out-vrkme.
 
 
-
+    CLEAR flag.
     IF ls_mara-matkl = '501601'."组合装
       flag = 'X'.
     ENDIF.
@@ -1152,6 +1207,7 @@ FORM catalog.
   END-OF-DEFINITION.
   fieldcatset 'zapszt'   'APS状态' sy-tabix.
   fieldcatset 'state'   '订单状态' sy-tabix.
+  fieldcatset 'augru'   '订单原因' sy-tabix.
   fieldcatset 'vbeln'   '单据号' sy-tabix.
   fieldcatset 'posnr'   '行号' sy-tabix.
   fieldcatset 'ernam'   '制单人' sy-tabix.
@@ -1171,7 +1227,8 @@ FORM catalog.
   fieldcatset 'custname2'   '实际客户编号' sy-tabix.
   fieldcatset 'kukla'   '实际客户等级' sy-tabix.
   fieldcatset 'zterm'   '付款方式' sy-tabix.
-  fieldcatset 'zckgj'   '出口国家' sy-tabix.
+  fieldcatset 'zckgj'   '出口国家简称' sy-tabix.
+  fieldcatset 'zckgj2'   '出口国家' sy-tabix.
   fieldcatset 'bstkd_e'   '客户PO' sy-tabix.
   fieldcatset 'waerk'   '订单币种' sy-tabix.
   fieldcatset 'kursk'   '汇率' sy-tabix.
@@ -1183,8 +1240,8 @@ FORM catalog.
   fieldcatset 'pmatn'   '定价参考物料编码' sy-tabix.
   fieldcatset 'maktx'   '品名' sy-tabix.
   fieldcatset 'zpro'   '是否益生菌' sy-tabix.
-  fieldcatset 'matkl'   '物料小类编码' sy-tabix.
-  fieldcatset 'maktxs'   '物料小类名称' sy-tabix.
+  fieldcatset 'matkl'   '物料中类编码' sy-tabix.
+  fieldcatset 'maktxs'   '物料中类名称' sy-tabix.
   fieldcatset 'zcpgg'   '规格型号' sy-tabix.
   fieldcatset 'zbzgg'   '包装规格' sy-tabix.
 *  fieldcatset 'zpwsx'   '批文属性' sy-tabix.
@@ -1202,6 +1259,7 @@ FORM catalog.
   fieldcatset 'kwertdis'   '税率' sy-tabix.
   fieldcatset 'mwsbp'   '销项税额' sy-tabix.
   fieldcatset 'netwr'   '不含税金额' sy-tabix.
+  fieldcatset 'price2'     '不含税金额CNY'   sy-tabix.
   fieldcatset 'priceall'   '价税合计' sy-tabix.
   fieldcatset 'zdytk'   '短溢条款' sy-tabix.
   fieldcatset 'zysjhq'   '客户要求交货日期' sy-tabix.
@@ -1234,6 +1292,9 @@ FORM catalog.
   fieldcatset 'zyfkqk' '预付款' sy-tabix.
   fieldcatset 'zkhwl' '客户物料编码' sy-tabix.
   fieldcatset 'zkhwlms' '客户物料描述' sy-tabix.
+  fieldcatset 'ettyp' '计划行类别' sy-tabix.
+  fieldcatset 'BU_SORT1'      '实际客户的检索项'    sy-tabix.
+  fieldcatset 'partner'      '实际客户的业务员'    sy-tabix.
 ENDFORM.
 
 FORM alvshow.

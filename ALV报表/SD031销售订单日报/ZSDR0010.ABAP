@@ -146,7 +146,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zypsl          TYPE    vbap-zypsl  , "  样品数量
         vrkme          TYPE    vbap-vrkme  , "  销售单位
         kbetr          TYPE    p DECIMALS 2     , "  含税单价
-        kwert          TYPE    string      , "  折扣率
+        kwert          TYPE    P DECIMALS 3      , "  折扣率
         mwsbp2         TYPE    vbap-mwsbp  , "  折扣金额
         kwertdis       TYPE    p DECIMALS 2     , "  税率
         mwsbp          TYPE    vbap-mwsbp  , "  销项税额
@@ -619,6 +619,7 @@ FORM getdata.
     ENDIF.
     CLEAR ls_kna1.
     "客户PO、付款方式、汇率
+    clear ls_vbkd.
     SELECT SINGLE
       bstkd_e
       kursk
@@ -726,9 +727,12 @@ FORM getdata.
     FROM prcd_elements
     INNER JOIN vbak
     ON vbak~knumv = prcd_elements~knumv
+    INNER JOIN vbap
+    ON vbap~posnr = prcd_elements~kposn
     WHERE vbak~vbeln = ls_all-vbeln
     AND prcd_elements~kschl IN ( 'ZP00','ZP02' )
-    AND prcd_elements~kinak = ''.
+    AND prcd_elements~kinak = ''
+    AND VBAP~posnr = LS_ALL-posnr.
     ls_out-kbetr = ls_prcd_elements-kbetr.
 
     "折扣金额
@@ -770,6 +774,7 @@ FORM getdata.
 *    ls_out-innum = ls_mska-kalab + ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
     ls_out-innum = ls_mska-kalab.
     ls_out-innum2 = ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
+    
     IF ls_out-number IS NOT INITIAL AND ls_out-kwmeng IS NOT INITIAL.
       ls_out-innum = ls_out-innum / ( ls_out-number / ls_out-kwmeng  ).
       ls_out-innum2 = ls_out-innum2 / ( ls_out-number / ls_out-kwmeng  ).

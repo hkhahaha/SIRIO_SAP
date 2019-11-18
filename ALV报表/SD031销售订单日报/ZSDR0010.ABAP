@@ -146,7 +146,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zypsl          TYPE    vbap-zypsl  , "  样品数量
         vrkme          TYPE    vbap-vrkme  , "  销售单位
         kbetr          TYPE    p DECIMALS 2     , "  含税单价
-        kwert          TYPE    P DECIMALS 3      , "  折扣率
+        kwert          TYPE    p DECIMALS 3      , "  折扣率
         mwsbp2         TYPE    vbap-mwsbp  , "  折扣金额
         kwertdis       TYPE    p DECIMALS 2     , "  税率
         mwsbp          TYPE    vbap-mwsbp  , "  销项税额
@@ -156,8 +156,8 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zysjhq         TYPE    vbap-zysjhq , "  客户要求交货日期
         zatpdfrq       TYPE    vbap-zatpdfrq, "  ATP答复日期
         znbjhq         TYPE    vbap-znbjhq , "  实际交货日期
-        innum          TYPE    p DECIMALS 3, "  入库量
-        innum2         TYPE    p DECIMALS 3, "  入库量
+        innum          TYPE    mska-kalab, "  入库量
+        innum2         TYPE    mska-kalab, "  入库量
         outnum         TYPE    string      , "  出库量
         invoice        TYPE    string      , "  开票量
         invoiced       TYPE    string      , "  开票日期
@@ -264,6 +264,7 @@ FORM getdata.
        ls_makt          TYPE makt,
        lt_vbfa          TYPE TABLE OF vbfa,
        ls_vbfa          TYPE vbfa,
+       lt_mska          TYPE TABLE OF mska,
        ls_mara          TYPE mara,
        ls_prcd_elements TYPE prcd_elements,
        ls_mska          TYPE mska,
@@ -619,7 +620,7 @@ FORM getdata.
     ENDIF.
     CLEAR ls_kna1.
     "客户PO、付款方式、汇率
-    clear ls_vbkd.
+    CLEAR ls_vbkd.
     SELECT SINGLE
       bstkd_e
       kursk
@@ -732,7 +733,7 @@ FORM getdata.
     WHERE vbak~vbeln = ls_all-vbeln
     AND prcd_elements~kschl IN ( 'ZP00','ZP02' )
     AND prcd_elements~kinak = ''
-    AND VBAP~posnr = LS_ALL-posnr.
+    AND vbap~posnr = ls_all-posnr.
     ls_out-kbetr = ls_prcd_elements-kbetr.
 
     "折扣金额
@@ -758,23 +759,33 @@ FORM getdata.
     ls_out-priceall = ls_all-netwr + ls_all-mwsbp.
     "入库量（当前库存）
     CLEAR ls_mska.
+    CLEAR lt_mska.
     CLEAR ls_out-innum.
-    SELECT SINGLE
-      kalab
-      kains
-      kaspe
-      kavla
-      kavin
-      kavsp
-    INTO CORRESPONDING FIELDS OF ls_mska
+    DATA:lv_value1 TYPE mska-kalab,
+         lv_value2 TYPE mska-kains.
+    CLEAR LV_VALUE1.
+    CLEAR LV_VALUE2.
+    SELECT
+    kalab
+    kains
+    kaspe
+    kavla
+    kavin
+    kavsp
+    INTO CORRESPONDING FIELDS OF TABLE lt_mska
     FROM mska
     WHERE mska~vbeln = ls_all-vbeln
-      AND mska~posnr = ls_all-posnr
-    AND mska~matnr = ls_all-matnr.
+    AND mska~posnr = ls_all-posnr
+    AND mska~matnr = ls_all-matnr
+    and mska~lgort IN ('1040','2040','3040','1070','2070','3070').
+    LOOP AT lt_mska INTO ls_mska.
 *    ls_out-innum = ls_mska-kalab + ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
-    ls_out-innum = ls_mska-kalab.
-    ls_out-innum2 = ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
-    
+      lv_value1 = lv_value1 + ls_mska-kalab.
+      lv_value2 = lv_value2 + ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
+      CLEAR ls_mska.
+    ENDLOOP.
+    ls_out-innum = lv_value1.
+    ls_out-innum2 = lv_value2.
     IF ls_out-number IS NOT INITIAL AND ls_out-kwmeng IS NOT INITIAL.
       ls_out-innum = ls_out-innum / ( ls_out-number / ls_out-kwmeng  ).
       ls_out-innum2 = ls_out-innum2 / ( ls_out-number / ls_out-kwmeng  ).
@@ -1309,70 +1320,70 @@ FORM catalog.
   fieldcatset 'ZAPSZt'   'APS状态' sy-tabix.
   fieldcatset 'STATE'   '订单状态' sy-tabix.
   fieldcatset 'AUGRU'   '订单原因' sy-tabix.
-  fieldcatset 'VBELN'   '单据号' sy-tabix.
+  fieldcatset 'VBELN'   '单据号Serial Number' sy-tabix.
   fieldcatset 'POSNR'   '行号' sy-tabix.
-  fieldcatset 'ERNAM'   '制单人' sy-tabix.
+  fieldcatset 'ERNAM'   '制单人Prepared by' sy-tabix.
   fieldcatset 'VKORG'   '销售组织' sy-tabix.
   fieldcatset 'AUART'   '订单类型' sy-tabix.
-  fieldcatset 'VTWEG'   '分销渠道' sy-tabix.
-  fieldcatset 'KVGR1'   '销售渠道/客户类型' sy-tabix.
-  fieldcatset 'WERKS'   '工厂' sy-tabix.
+  fieldcatset 'VTWEG'   '分销渠道Area' sy-tabix.
+  fieldcatset 'KVGR1'   '销售渠道/客户类型Sales Channel' sy-tabix.
+  fieldcatset 'WERKS'   '工厂Factory' sy-tabix.
   fieldcatset 'LGORT'   '库存地点' sy-tabix.
   fieldcatset 'VKBUR'   '二级部门' sy-tabix.
-  fieldcatset 'SALEMAN'   '业务员' sy-tabix.
+  fieldcatset 'SALEMAN'   '业务员Sales' sy-tabix.
   fieldcatset 'MC_NAME1'   '检索项' sy-tabix.
 *  fieldcatset 'werks'   '公司名称' sy-tabix.
-  fieldcatset 'KUNNR'   '售达方(客户名称)' sy-tabix.
+  fieldcatset 'KUNNR'   '售达方(客户名称)Customer' sy-tabix.
   fieldcatset 'KUNNR2'   '售达方(编号)' sy-tabix.
-  fieldcatset 'CUSTNAME'   '实际客户名称' sy-tabix.
+  fieldcatset 'CUSTNAME'   '实际客户名称Actual Customer' sy-tabix.
   fieldcatset 'CUSTNAME2'   '实际客户编号' sy-tabix.
-  fieldcatset 'KUKLA'   '实际客户等级' sy-tabix.
-  fieldcatset 'ZTERM'   '付款方式' sy-tabix.
+  fieldcatset 'KUKLA'   '实际客户等级Classification' sy-tabix.
+  fieldcatset 'ZTERM'   '付款方式Terms of Payment' sy-tabix.
   fieldcatset 'ZCKGJ'   '出口国家简称' sy-tabix.
-  fieldcatset 'ZCKGJ2'   '出口国家' sy-tabix.
-  fieldcatset 'BSTKD_E'   '客户PO' sy-tabix.
-  fieldcatset 'WAERK'   '订单币种' sy-tabix.
-  fieldcatset 'KURSK'   '汇率' sy-tabix.
-  fieldcatset 'MATNR'   '产品编码' sy-tabix.
-  fieldcatset 'ARKTX'   '产品名称' sy-tabix.
+  fieldcatset 'ZCKGJ2'   '出口国家Country' sy-tabix.
+  fieldcatset 'BSTKD_E'   '客户PO PO' sy-tabix.
+  fieldcatset 'WAERK'   '订单币种Currency' sy-tabix.
+  fieldcatset 'KURSK'   '汇率Exchange Rate' sy-tabix.
+  fieldcatset 'MATNR'   '产品编码Product ID' sy-tabix.
+  fieldcatset 'ARKTX'   '产品名称Product Name' sy-tabix.
   fieldcatset 'ZSTDNAME'   '标准名称' sy-tabix.
-  fieldcatset 'ZKHWL'   '客户产品编码' sy-tabix.
-  fieldcatset 'ZKHWLMS'   '客户产品名称' sy-tabix.
+  fieldcatset 'ZKHWL'   '客户产品编码Customer Product Code' sy-tabix.
+  fieldcatset 'ZKHWLMS'   '客户产品名称Customer Product Name' sy-tabix.
   fieldcatset 'PMATN'   '定价参考物料编码' sy-tabix.
   fieldcatset 'MAKTX'   '品名' sy-tabix.
   fieldcatset 'ZPRO'   '是否益生菌' sy-tabix.
   fieldcatset 'MATKL'   '物料中类编码' sy-tabix.
   fieldcatset 'MAKTXS'   '物料中类名称' sy-tabix.
-  fieldcatset 'ZCPGG'   '规格型号' sy-tabix.
-  fieldcatset 'ZBZGG'   '包装规格' sy-tabix.
+  fieldcatset 'ZCPGG'   '规格型号Filling Weight' sy-tabix.
+  fieldcatset 'ZBZGG'   '包装规格Packing Specification' sy-tabix.
 *  fieldcatset 'ZPWSX'   '批文属性' sy-tabix.
   fieldcatset 'ZPROTYPE'   '产品类型' sy-tabix.
   fieldcatset 'ZAPPSOU'   '批文来源' sy-tabix.
   fieldcatset 'ZCOTYPE'   '合作类型' sy-tabix.
-  fieldcatset 'MEINS'   '基本计量单位' sy-tabix.
-  fieldcatset 'NUMBER'   '基本计量数量' sy-tabix.
-  fieldcatset 'KWMENG'   '销售数量' sy-tabix.
-  fieldcatset 'ZYPSL'   '样品数量' sy-tabix.
-  fieldcatset 'VRKME'   '销售单位' sy-tabix.
-  fieldcatset 'KBETR'   '含税单价' sy-tabix.
-  fieldcatset 'KWERT'   '折扣率' sy-tabix.
-  fieldcatset 'MWSBP2'   '折扣金额' sy-tabix.
-  fieldcatset 'KWERTDIS'   '税率' sy-tabix.
+  fieldcatset 'MEINS'   '基本计量单位Unit' sy-tabix.
+  fieldcatset 'NUMBER'   '基本计量数量QTY' sy-tabix.
+  fieldcatset 'KWMENG'   '销售数量Marketing QTY' sy-tabix.
+  fieldcatset 'ZYPSL'   '样品数量Sample QTY' sy-tabix.
+  fieldcatset 'VRKME'   '销售单位Marketing Unit' sy-tabix.
+  fieldcatset 'KBETR'   '含税单价Unit price' sy-tabix.
+  fieldcatset 'KWERT'   '折扣率Discount Rate' sy-tabix.
+  fieldcatset 'MWSBP2'   '折扣金额Discount' sy-tabix.
+  fieldcatset 'KWERTDIS'   '税率Tax Rate' sy-tabix.
   fieldcatset 'MWSBP'   '销项税额' sy-tabix.
-  fieldcatset 'NETWR'   '不含税金额' sy-tabix.
+  fieldcatset 'NETWR'   '不含税金额Amount（Tax excluding）' sy-tabix.
   fieldcatset 'PRICE2'     '不含税金额CNY'   sy-tabix.
-  fieldcatset 'PRICEALL'   '价税合计' sy-tabix.
+  fieldcatset 'PRICEALL'   '价税合计Amount(Tax Including)' sy-tabix.
   fieldcatset 'ZDYTK'   '短溢条款' sy-tabix.
   fieldcatset 'ZYSJHQ'   '客户要求交货日期' sy-tabix.
   fieldcatset 'ZATPDFRQ'   'ATP答复日期' sy-tabix.
-  fieldcatset 'ZNBJHQ'   '实际交货日期' sy-tabix.
+  fieldcatset 'ZNBJHQ'   '实际交货日期Actual Delivery Date' sy-tabix.
   fieldcatset 'INNUM'   '非限制库存' sy-tabix.
   fieldcatset 'INNUM2'   '其它库存' sy-tabix.
   fieldcatset 'OUTNUM'   '出库量' sy-tabix.
   fieldcatset 'INVOIC'   '开票量' sy-tabix.
-  fieldcatset 'INVOICED'   '开票日期' sy-tabix.
-  fieldcatset 'ZSFXBZ'   '新包装' sy-tabix.
-  fieldcatset 'ZSFXCP'   '新产品' sy-tabix.
+  fieldcatset 'INVOICED'   '开票日期Invoice Date' sy-tabix.
+  fieldcatset 'ZSFXBZ'   '新包装New Package?' sy-tabix.
+  fieldcatset 'ZSFXCP'   '新产品New Product' sy-tabix.
   fieldcatset 'ZSFBJ'   '是否报检' sy-tabix.
   fieldcatset 'ZPHYQ'   '批号要求' sy-tabix.
   fieldcatset 'ZZZTL'   '最早投料日期' sy-tabix.
@@ -1385,13 +1396,13 @@ FORM catalog.
   fieldcatset 'ZBHCL'   '备货策略' sy-tabix.
   fieldcatset 'ZBOMQQ'   'BOM欠缺物料' sy-tabix.
   fieldcatset 'ZBLXY'   '是否有备料协议' sy-tabix.
-  fieldcatset 'ZSFXKH'   '新客户 ' sy-tabix.
-  fieldcatset 'PRONOTE'   '生产相关文本' sy-tabix.
+  fieldcatset 'ZSFXKH'   '新客户 New Customer?' sy-tabix.
+  fieldcatset 'PRONOTE'   '生产相关文本Comment' sy-tabix.
   fieldcatset 'SALENOT'   '销售文本' sy-tabix.
   fieldcatset 'VOICENOT'   '发票文本' sy-tabix.
   fieldcatset 'INVOICENOTE' '开票文本' sy-tabix.
-  fieldcatset 'DDPPRICE' 'DDP价格' sy-tabix.
-  fieldcatset 'ZYFKQK' '预付款' sy-tabix.
+  fieldcatset 'DDPPRICE' 'DDP价格DDP Price' sy-tabix.
+  fieldcatset 'ZYFKQK' '预付款Prepayment' sy-tabix.
   fieldcatset 'ZKHWL' '客户物料编码' sy-tabix.
   fieldcatset 'ZKHWLMS' '客户物料描述' sy-tabix.
   fieldcatset 'ETTYP' '计划行类别' sy-tabix.

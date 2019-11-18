@@ -1268,7 +1268,7 @@ FORM getdata.
       ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-matnr i_out = 'X' ).
       APPEND ls_out TO lt_out."输出不含BOM的行数
     ENDIF.
-*    APPEND ls_out to lt_out.
+    APPEND ls_out to lt_out.
     CLEAR ls_out.
     CLEAR ls_all.
   ENDLOOP.

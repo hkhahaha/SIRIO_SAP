@@ -47,6 +47,7 @@ DATA:lt_likp          TYPE TABLE OF likp,
      ls_dd07v         TYPE dd07v,
      lt_vbrk          TYPE TABLE OF vbrk,
      ls_vbrk          TYPE vbrk.
+DATA gv_sel_error TYPE flag.
 " 下面定义的是当报表类型是铝的时候的字段（内表）
 DATA: lt_zlv        TYPE TABLE OF zaluminium,
       ls_zlv        TYPE zaluminium,
@@ -68,7 +69,8 @@ DATA: g_total  TYPE i,
       lt_main2 TYPE TABLE OF lv_main,
       ls_main  TYPE lv_main.
 *当筛选界面客户为空时，检索项不为空时，根据检索项获取KNA1对应的客户号KNA1-KUNNR
-
+PERFORM frm_authority_check.
+CHECK gv_sel_error IS INITIAL."权限检查标识
 PERFORM getdata.
 PERFORM catalog USING flag_b.
 PERFORM alvshow USING flag_b.
@@ -1030,8 +1032,8 @@ FORM catalog USING flag_b.
   fieldcatset   'ZFHSX'     '发货顺序'    sy-tabix.
   fieldcatset   'ZWMSZT'      '是否传输WMS'   sy-tabix.
   fieldcatset   'ZUSER'     '业务员Sales'   sy-tabix.
-  fieldcatset   'ZCUSTOM'     '客户Customer'    sy-tabix.
-  fieldcatset   'ZCUSTOMERTEXT'     '客户中文描述'    sy-tabix.
+  fieldcatset   'ZCUSTOM'     '客户编码'    sy-tabix.
+  fieldcatset   'ZCUSTOMERTEXT'     '客户描述Customer'    sy-tabix.
 
   fieldcatset   'ZRUSERNO'      '实际客户编号'    sy-tabix.
   fieldcatset   'ZRUSER'      '实际客户Actual Customer'    sy-tabix.
@@ -1079,7 +1081,7 @@ FORM catalog USING flag_b.
     fieldcatset   'ZSON'      '子件'    sy-tabix.
     fieldcatset   'ZSONDETAIL'      '子件描述'    sy-tabix.
     fieldcatset   'ZMEINS'      '子件单位'    sy-tabix.
-    fieldcatset   'ZSUM'      '铝合装子件销售数量'    sy-tabix.
+    fieldcatset   'ZSUM'      '礼合装子件销售数量'    sy-tabix.
 
   ENDIF.
 ENDFORM.
@@ -1192,4 +1194,47 @@ FORM alvshow USING flag_b.
       MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
     ENDIF.
   ENDIF.
+ENDFORM.
+
+FORM frm_authority_check.
+  DATA ls_pvkorg LIKE LINE OF pvkorg.
+  DATA ls_svtweg LIKE LINE OF svtweg.
+  LOOP AT svtweg INTO ls_svtweg.
+*  DATA lv_werks TYPE werks_d.
+    AUTHORITY-CHECK OBJECT 'V_KNA1_VKO'
+    ID 'VKORG' DUMMY
+    ID 'VTWEG' FIELD ls_svtweg-low
+    ID 'SPART' DUMMY
+    ID 'ACTVT' DUMMY.
+    IF sy-subrc <> 0.
+*     Implement a suitable exception handling here
+      gv_sel_error = 'X'.
+    ELSE.
+*      MESSAGE '有权限' TYPE 'S'.
+      gv_sel_error = ''.
+    ENDIF.
+    IF gv_sel_error = 'X'.
+      EXIT.
+    ENDIF.
+    CLEAR ls_pvkorg.
+  ENDLOOP.
+  LOOP AT pvkorg INTO ls_pvkorg.
+    AUTHORITY-CHECK OBJECT 'V_KNA1_VKO'
+    ID 'VKORG' FIELD ls_pvkorg
+    ID 'VTWEG' DUMMY
+    ID 'SPART' DUMMY
+    ID 'ACTVT' DUMMY.
+    IF sy-subrc <> 0.
+*     Implement a suitable exception handling here
+      gv_sel_error = 'X'.
+    ELSE.
+*      MESSAGE '有权限' TYPE 'S'.
+      gv_sel_error = ''.
+    ENDIF.
+    IF gv_sel_error = 'X'.
+      EXIT.
+    ENDIF.
+    CLEAR ls_pvkorg.
+  ENDLOOP.
+
 ENDFORM.

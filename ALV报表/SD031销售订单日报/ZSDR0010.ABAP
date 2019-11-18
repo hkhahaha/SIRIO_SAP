@@ -92,9 +92,9 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         zson           TYPE vbap-matnr, "子件
         zsondetail(20) TYPE c, "子件描述
         zmeins         TYPE mara-meins, "子件的单位
-        zsum(20)       TYPE c, "铝盒装子件销售数量
+        zsum           TYPE p DECIMALS 3, "铝盒装子件销售数量
         partner        TYPE string, "实际客户的业务员
-        zsum2          TYPE string, "礼合装基本子件数量
+        zsum2          TYPE p DECIMALS 3, "礼合装基本子件数量
 
       END OF ty_all.
 TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
@@ -190,8 +190,8 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zson           TYPE vbap-matnr, "子件
         zsondetail(20) TYPE c, "子件描述
         zmeins         TYPE mara-meins, "子件的单位
-        zsum(20)       TYPE c, "礼盒装子件销售数量
-        zsum2          TYPE string, "礼合装基本子件数量
+        zsum           TYPE p DECIMALS 3, "礼盒装子件销售数量
+        zsum2          TYPE p DECIMALS 3, "礼合装基本子件数量
         erdat          TYPE vbak-erdat, "创建日期
       END OF ty_out.
 
@@ -235,7 +235,6 @@ START-OF-SELECTION.
   PERFORM alvshow.
 
 END-OF-SELECTION.
-
 
 
 
@@ -408,7 +407,7 @@ FORM getdata.
     AND vbak~ernam IN sernam
 *    AND vbak~vbeln = '0200000829'
     AND vbak~erdat IN serdat
-    AND vbak~vbtyp <> 'W'.
+  AND vbak~vbtyp <> 'W'.
 
   "上面获取到的是所有有关VBAP和VBAK的数据
 
@@ -425,7 +424,7 @@ FORM getdata.
   FROM ausp
   FOR ALL ENTRIES IN lt_all2
   WHERE ausp~objek = lt_all2-matnr90
-    AND ausp~atinn IN ( '0000000075','0000000052','0000000074','0000000067','0000000035' ).
+  AND ausp~atinn IN ( '0000000075','0000000052','0000000074','0000000067','0000000035' ).
 
   "将一部分可以直接插入的数据插入到内表中
   LOOP AT lt_all INTO ls_all.
@@ -477,7 +476,7 @@ FORM getdata.
       INTO ls_all-augru
       FROM tvaut
       WHERE tvaut~spras  = '1'
-        AND tvaut~augru = ls_all-augru.
+      AND tvaut~augru = ls_all-augru.
     ENDIF.
     "因为TY_OUT的结构包含了TY_ALL的结构，所以直接MOVE
     MOVE-CORRESPONDING ls_all TO ls_out.
@@ -499,7 +498,7 @@ FORM getdata.
     INTO CORRESPONDING FIELDS OF ls_jest
     FROM jest
     WHERE jest~objnr = ls_all-objnr
-      AND jest~stat LIKE 'E%'.
+    AND jest~stat LIKE 'E%'.
     IF ls_jest-stat = 'E0001'.
       ls_out-state = '创建'.
     ELSEIF ls_jest-stat = 'E0002'.
@@ -525,7 +524,7 @@ FORM getdata.
     WHERE knvv~kunnr = ls_all-kunnr
       AND knvv~vkorg = ls_all-vkorg
       AND knvv~vtweg = ls_all-vtweg
-      AND knvv~spart = ls_all-spart.
+    AND knvv~spart = ls_all-spart.
     ls_out-kvgr1 = ls_knvv-kvgr1.
     CLEAR ls_knvv.
     "库存地点
@@ -534,7 +533,7 @@ FORM getdata.
     INTO CORRESPONDING FIELDS OF ls_lips
     FROM lips
     WHERE lips~vgbel = ls_all-vbeln
-      AND lips~vgpos = ls_all-posnr.
+    AND lips~vgpos = ls_all-posnr.
     ls_out-lgort = ls_lips-lgort.
     CLEAR ls_lips.
     "业务员
@@ -549,7 +548,7 @@ FORM getdata.
     ON but000~partner = vbpa~kunnr
     WHERE vbpa~parvw = 'Z3'
       AND vbpa~vbeln = ls_all-vbeln
-      AND vbpa~posnr = ''.
+    AND vbpa~posnr = ''.
     ls_out-saleman = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
     CLEAR ls_but000.
     "检索项
@@ -596,7 +595,7 @@ FORM getdata.
       AND knvp~vkorg = ls_all-vkorg
       AND knvp~vtweg = ls_all-vtweg
       AND knvp~spart = ls_all-spart
-      AND knvp~parvw = 'Z3'.
+    AND knvp~parvw = 'Z3'.
 
     CLEAR ls_but000.
     "实际客户等级
@@ -608,7 +607,7 @@ FORM getdata.
     ON vbpa~kunnr = kna1~kunnr
     WHERE vbpa~parvw = 'Z1'
       AND vbpa~vbeln = ls_all-vbeln
-      AND vbpa~posnr = ''.
+    AND vbpa~posnr = ''.
     ls_out-kukla = ls_kna1-kukla.
     IF ls_out-kukla IS NOT INITIAL.
       SELECT SINGLE
@@ -627,7 +626,7 @@ FORM getdata.
     INTO CORRESPONDING FIELDS OF ls_vbkd
     FROM vbkd
     WHERE vbkd~posnr = ls_all-posnr
-      AND vbkd~vbeln = ls_all-vbeln.
+    AND vbkd~vbeln = ls_all-vbeln.
     IF ls_vbkd-bstkd_e IS INITIAL.
       SELECT SINGLE
       bstkd_e
@@ -767,7 +766,7 @@ FORM getdata.
     FROM mska
     WHERE mska~vbeln = ls_all-vbeln
       AND mska~posnr = ls_all-posnr
-      AND mska~matnr = ls_all-matnr.
+    AND mska~matnr = ls_all-matnr.
 *    ls_out-innum = ls_mska-kalab + ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
     ls_out-innum = ls_mska-kalab.
     ls_out-innum2 = ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
@@ -784,7 +783,7 @@ FORM getdata.
     FROM vbfa
     WHERE vbfa~vbelv = ls_all-vbeln
       AND vbfa~posnv = ls_all-posnr
-      AND vbfa~vbtyp_n IN ( 'R','h' ).
+    AND vbfa~vbtyp_n IN ( 'R','h' ).
     LOOP AT lt_vbfa INTO ls_vbfa.
       ls_out-outnum = ls_out-outnum + ls_vbfa-rfmng.
     ENDLOOP.
@@ -1047,7 +1046,7 @@ FORM getdata.
     INTO CORRESPONDING FIELDS OF TABLE lt_dd07v
     FROM dd07v
       WHERE dd07v~ddlanguage = '1'
-      AND dd07v~domname IN ( 'ZD_DYTK','ZD_SFXBZ','ZD_XFLAG','ZD_ZDSCQY','ZD_PHYQ','ZD_BHCL' ).
+    AND dd07v~domname IN ( 'ZD_DYTK','ZD_SFXBZ','ZD_XFLAG','ZD_ZDSCQY','ZD_PHYQ','ZD_BHCL' ).
     READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_BHCL' valpos = ls_out-zbhcl."备货策略
     ls_out-zbhcl = ls_dd07v-ddtext.
     CLEAR ls_dd07v.
@@ -1274,6 +1273,8 @@ FORM getdata.
         ENDIF.
         CLEAR ls_stb.
       ENDLOOP.
+      ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-matnr i_out = 'X' ).
+      APPEND ls_out TO lt_out.
       CLEAR lt_stb.
 *      APPEND ls_out to lt_out.
     ELSEIF flag_a = 'X'.
@@ -1463,22 +1464,39 @@ ENDFORM.                    " FRM_SET_PF_STATUS
 
 FORM frm_authority_check.
   DATA ls_pvkorg LIKE LINE OF pvkorg.
-  LOOP AT pvkorg INTO ls_pvkorg.
+  DATA ls_svtweg LIKE LINE OF svtweg.
+  LOOP AT svtweg INTO ls_svtweg.
 *  DATA lv_werks TYPE werks_d.
     AUTHORITY-CHECK OBJECT 'V_KNA1_VKO'
-*  ID 'QACT_ILOT' FIELD 'xxxxxxxx'
-    ID 'VKORG' FIELD ls_pvkorg.
-*  ID 'QPRUEFART' FIELD 'xxxxxxxx'
-*  ID 'QMATAUTH' FIELD 'xxxxxxxx'.
+     ID 'VKORG' DUMMY
+     ID 'VTWEG' FIELD ls_svtweg-low
+     ID 'SPART' DUMMY
+     ID 'ACTVT' DUMMY.
     IF sy-subrc <> 0.
-* Implement a suitable exception handling here
-      MESSAGE '权限检查失败' TYPE 'E'.
+*     Implement a suitable exception handling here
       gv_sel_error = 'X'.
     ELSE.
-      MESSAGE '有权限' TYPE 'S'.
+*      MESSAGE '有权限' TYPE 'S'.
       gv_sel_error = ''.
     ENDIF.
-*    CHECK gv_sel_error IS INITIAL."权限检查标识
+    IF gv_sel_error = 'X'.
+      EXIT.
+    ENDIF.
+    CLEAR ls_pvkorg.
+  ENDLOOP.
+  LOOP AT pvkorg INTO ls_pvkorg.
+    AUTHORITY-CHECK OBJECT 'V_KNA1_VKO'
+    ID 'VKORG' FIELD ls_pvkorg
+    ID 'VTWEG' DUMMY
+    ID 'SPART' DUMMY
+    ID 'ACTVT' DUMMY.
+    IF sy-subrc <> 0.
+*     Implement a suitable exception handling here
+      gv_sel_error = 'X'.
+    ELSE.
+*      MESSAGE '有权限' TYPE 'S'.
+      gv_sel_error = ''.
+    ENDIF.
     IF gv_sel_error = 'X'.
       EXIT.
     ENDIF.

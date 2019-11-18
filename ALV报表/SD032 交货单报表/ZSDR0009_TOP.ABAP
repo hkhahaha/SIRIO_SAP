@@ -201,7 +201,8 @@ TYPES:END OF lv_main.
 
 SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001."定义屏幕
 SELECT-OPTIONS:pvbeln FOR likp-vbeln,"条件输入框，一个for对应一个
-pvkorg FOR likp-vkorg,"for前面的是字段显示的名称，可以修改，但是注意不要超过8个字符，否则会报错
+pvkorg FOR likp-vkorg OBLIGATORY,"for前面的是字段显示的名称，可以修改，但是注意不要超过8个字符，否则会报错
+svtweg    FOR   vbak-vtweg  OBLIGATORY,"  分销渠道
 pvbeln2 FOR vbak-vbeln,
 pwerks FOR lips-werks,
 puser FOR adrp-name_text,

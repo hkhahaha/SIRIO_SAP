@@ -622,6 +622,7 @@ FORM getdata.
     "客户PO、付款方式、汇率
     CLEAR ls_vbkd.
     SELECT SINGLE
+      posex_e
       bstkd_e
       kursk
       zterm
@@ -629,6 +630,14 @@ FORM getdata.
     FROM vbkd
     WHERE vbkd~posnr = ls_all-posnr
     AND vbkd~vbeln = ls_all-vbeln.
+    IF ls_vbkd-posex_e IS INITIAL.
+      SELECT SINGLE
+      posex_e
+      INTO CORRESPONDING FIELDS OF ls_vbkd
+      FROM vbkd
+      WHERE vbkd~posnr = ''
+      AND vbkd~vbeln = ls_all-vbeln.
+    ENDIF.
     IF ls_vbkd-bstkd_e IS INITIAL.
       SELECT SINGLE
       bstkd_e
@@ -666,6 +675,7 @@ FORM getdata.
     ls_out-bstkd_e = ls_vbkd-bstkd_e.
     "汇率
     ls_out-kursk = ls_vbkd-kursk.
+    ls_out-posex_e = ls_vbkd-posex_e.
     "不含税金额CNY
     ls_out-price2 = ls_out-netwr * ls_out-kursk."不含税金额CNY
 
@@ -763,8 +773,8 @@ FORM getdata.
     CLEAR ls_out-innum.
     DATA:lv_value1 TYPE mska-kalab,
          lv_value2 TYPE mska-kains.
-    CLEAR LV_VALUE1.
-    CLEAR LV_VALUE2.
+    CLEAR lv_value1.
+    CLEAR lv_value2.
     SELECT
     kalab
     kains
@@ -777,7 +787,7 @@ FORM getdata.
     WHERE mska~vbeln = ls_all-vbeln
     AND mska~posnr = ls_all-posnr
     AND mska~matnr = ls_all-matnr
-    and mska~lgort IN ('1040','2040','3040','1070','2070','3070').
+    AND mska~lgort IN ('1040','2040','3040','1070','2070','3070').
     LOOP AT lt_mska INTO ls_mska.
 *    ls_out-innum = ls_mska-kalab + ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
       lv_value1 = lv_value1 + ls_mska-kalab.
@@ -877,6 +887,7 @@ FORM getdata.
     CLEAR ls_lines.
     CLEAR  lt_lines.
     "生产行项目备注
+    i_name = ls_all-vbeln && ls_all-posnr.
     CALL FUNCTION 'READ_TEXT'
       EXPORTING
 *       CLIENT                  = SY-MANDT
@@ -1390,7 +1401,7 @@ FORM catalog.
   fieldcatset 'ZZWTL'   '最晚投料日期' sy-tabix.
   fieldcatset 'ZZZBZ'   '最早包装时间' sy-tabix.
   fieldcatset 'ZZWBZ'   '最晚包装时间' sy-tabix.
-  fieldcatset 'BSTKD_E2'   '客户合同单号' sy-tabix.
+*  fieldcatset 'BSTKD_E2'   '客户合同单号' sy-tabix.
   fieldcatset 'POSEX_E'   '客户合同分录' sy-tabix.
   fieldcatset 'NOTE'   '生产行项目备注' sy-tabix.
   fieldcatset 'ZBHCL'   '备货策略' sy-tabix.

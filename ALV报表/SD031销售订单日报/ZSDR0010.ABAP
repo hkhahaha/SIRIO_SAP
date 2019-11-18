@@ -24,7 +24,7 @@ TYPES:BEGIN OF ty_zco,
         atwrt TYPE cawn-atwrt, "特性值
         atwtb TYPE cawnt-atwtb, "特性值描述
       END OF ty_zco.
-
+DATA gv_sel_error TYPE flag.
 TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部字段
         zapszt         TYPE    string , "  APS状态
         vbeln          TYPE    vbak-vbeln  , "  单据号
@@ -95,6 +95,7 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         zsum(20)       TYPE c, "铝盒装子件销售数量
         partner        TYPE string, "实际客户的业务员
         zsum2          TYPE string, "礼合装基本子件数量
+
       END OF ty_all.
 TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zapszt         TYPE    string , "  APS状态
@@ -155,7 +156,8 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zysjhq         TYPE    vbap-zysjhq , "  客户要求交货日期
         zatpdfrq       TYPE    vbap-zatpdfrq, "  ATP答复日期
         znbjhq         TYPE    vbap-znbjhq , "  实际交货日期
-        innum          TYPE    string      , "  入库量
+        innum          TYPE    p DECIMALS 3, "  入库量
+        innum2         TYPE    p DECIMALS 3, "  入库量
         outnum         TYPE    string      , "  出库量
         invoice        TYPE    string      , "  开票量
         invoiced       TYPE    string      , "  开票日期
@@ -190,6 +192,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zmeins         TYPE mara-meins, "子件的单位
         zsum(20)       TYPE c, "礼盒装子件销售数量
         zsum2          TYPE string, "礼合装基本子件数量
+        erdat          TYPE vbak-erdat, "创建日期
       END OF ty_out.
 
 ***********  ALV 定义 **********************************************
@@ -203,8 +206,8 @@ SELECT-OPTIONS:
 sauart    FOR   vbak-auart  ,"  订单类型
 svbeln FOR vbap-vbeln,"订单号
 sposnr FOR vbap-posnr,"行号
-pvkorg    FOR   vbak-vkorg  NO INTERVALS,"  销售组织
-svtweg    FOR   vbak-vtweg  ,"  分销渠道
+pvkorg    FOR   vbak-vkorg  OBLIGATORY,"  销售组织
+svtweg    FOR   vbak-vtweg  OBLIGATORY,"  分销渠道
 sspart    FOR   vbak-spart  ,"  产品组
 swerks    FOR   vbap-werks  ,"  工厂
 skunnr    FOR   vbak-kunnr  ,"  客户
@@ -225,6 +228,8 @@ SELECTION-SCREEN END OF BLOCK blk.
 
 
 START-OF-SELECTION.
+  PERFORM frm_authority_check.
+  CHECK gv_sel_error IS INITIAL."权限检查标识
   PERFORM getdata.
   PERFORM catalog.
   PERFORM alvshow.
@@ -386,6 +391,7 @@ FORM getdata.
   vbak~zckgj     "出口国家
   vbak~zyfkqk    "预付款
   augru     "订货原因
+  vbak~erdat "创建日期
   INTO CORRESPONDING FIELDS OF TABLE lt_all
   FROM vbak
   INNER JOIN vbap
@@ -401,7 +407,8 @@ FORM getdata.
     AND vbak~kunnr IN skunnr
     AND vbak~ernam IN sernam
 *    AND vbak~vbeln = '0200000829'
-    AND vbak~erdat IN serdat.
+    AND vbak~erdat IN serdat
+    AND vbak~vbtyp <> 'W'.
 
   "上面获取到的是所有有关VBAP和VBAK的数据
 
@@ -747,6 +754,8 @@ FORM getdata.
     "价格合计
     ls_out-priceall = ls_all-netwr + ls_all-mwsbp.
     "入库量（当前库存）
+    CLEAR ls_mska.
+    CLEAR ls_out-innum.
     SELECT SINGLE
       kalab
       kains
@@ -759,9 +768,12 @@ FORM getdata.
     WHERE mska~vbeln = ls_all-vbeln
       AND mska~posnr = ls_all-posnr
       AND mska~matnr = ls_all-matnr.
-    ls_out-innum = ls_mska-kalab + ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
+*    ls_out-innum = ls_mska-kalab + ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
+    ls_out-innum = ls_mska-kalab.
+    ls_out-innum2 = ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
     IF ls_out-number IS NOT INITIAL AND ls_out-kwmeng IS NOT INITIAL.
       ls_out-innum = ls_out-innum / ( ls_out-number / ls_out-kwmeng  ).
+      ls_out-innum2 = ls_out-innum2 / ( ls_out-number / ls_out-kwmeng  ).
     ENDIF.
 
     "出库量
@@ -1268,7 +1280,7 @@ FORM getdata.
       ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-matnr i_out = 'X' ).
       APPEND ls_out TO lt_out."输出不含BOM的行数
     ENDIF.
-    APPEND ls_out to lt_out.
+*    APPEND ls_out TO lt_out.
     CLEAR ls_out.
     CLEAR ls_all.
   ENDLOOP.
@@ -1348,7 +1360,8 @@ FORM catalog.
   fieldcatset 'ZYSJHQ'   '客户要求交货日期' sy-tabix.
   fieldcatset 'ZATPDFRQ'   'ATP答复日期' sy-tabix.
   fieldcatset 'ZNBJHQ'   '实际交货日期' sy-tabix.
-  fieldcatset 'INNUM'   '当前库存' sy-tabix.
+  fieldcatset 'INNUM'   '非限制库存' sy-tabix.
+  fieldcatset 'INNUM2'   '其它库存' sy-tabix.
   fieldcatset 'OUTNUM'   '出库量' sy-tabix.
   fieldcatset 'INVOIC'   '开票量' sy-tabix.
   fieldcatset 'INVOICED'   '开票日期' sy-tabix.
@@ -1378,6 +1391,7 @@ FORM catalog.
   fieldcatset 'ETTYP' '计划行类别' sy-tabix.
   fieldcatset 'BU_SORT1'      '实际客户的检索项'    sy-tabix.
   fieldcatset 'PARTNER'      '实际客户的业务员'    sy-tabix.
+  fieldcatset 'ERDAT'      '创建日期'    sy-tabix.
   IF flag_b = 'X'.
     fieldcatset   'ZSON'      '子件'    sy-tabix.
     fieldcatset   'ZSONDETAIL'      '子件描述'    sy-tabix.
@@ -1446,3 +1460,29 @@ ENDFORM.
 FORM frm_user_status  USING i_it_extab TYPE slis_t_extab.
   SET PF-STATUS '0100' .
 ENDFORM.                    " FRM_SET_PF_STATUS
+
+FORM frm_authority_check.
+  DATA ls_pvkorg LIKE LINE OF pvkorg.
+  LOOP AT pvkorg INTO ls_pvkorg.
+*  DATA lv_werks TYPE werks_d.
+    AUTHORITY-CHECK OBJECT 'V_KNA1_VKO'
+*  ID 'QACT_ILOT' FIELD 'xxxxxxxx'
+    ID 'VKORG' FIELD ls_pvkorg.
+*  ID 'QPRUEFART' FIELD 'xxxxxxxx'
+*  ID 'QMATAUTH' FIELD 'xxxxxxxx'.
+    IF sy-subrc <> 0.
+* Implement a suitable exception handling here
+      MESSAGE '权限检查失败' TYPE 'E'.
+      gv_sel_error = 'X'.
+    ELSE.
+      MESSAGE '有权限' TYPE 'S'.
+      gv_sel_error = ''.
+    ENDIF.
+*    CHECK gv_sel_error IS INITIAL."权限检查标识
+    IF gv_sel_error = 'X'.
+      EXIT.
+    ENDIF.
+    CLEAR ls_pvkorg.
+  ENDLOOP.
+
+ENDFORM.

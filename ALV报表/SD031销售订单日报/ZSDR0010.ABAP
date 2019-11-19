@@ -195,6 +195,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zsum2          TYPE p DECIMALS 3, "礼合装基本子件数量
         erdat          TYPE vbak-erdat, "创建日期
         udate          TYPE jcds-udate, "二审日期
+        wadat_ist      TYPE likp-wadat_ist, "首个交货日期
         chgnr          TYPE jcds-chgnr,
       END OF ty_out.
 
@@ -292,8 +293,11 @@ FORM getdata.
        lt_tvkbt         TYPE TABLE OF tvkbt,
        ls_tvkbt         TYPE tvkbt,
        ls_kna1          TYPE kna1,
+       lt_likp          TYPE TABLE OF likp,
+       ls_likp          TYPE likp,
        lt_zco           TYPE TABLE OF ty_zco,
        ls_zco           TYPE ty_zco.
+
   DATA: lt_lines LIKE TABLE OF tline,
         ls_lines LIKE tline.
   DATA:lt_all2 TYPE TABLE OF ty_all2,
@@ -825,33 +829,65 @@ FORM getdata.
       ls_out-innum = ls_out-innum / ( ls_out-number / ls_out-kwmeng  ).
       ls_out-innum2 = ls_out-innum2 / ( ls_out-number / ls_out-kwmeng  ).
     ENDIF.
-
+    CLEAR lt_vbfa.
     "出库量
     SELECT
       rfmng
-      vbtyp_v
+      vbtyp_n
     INTO CORRESPONDING FIELDS OF TABLE lt_vbfa
     FROM vbfa
     WHERE vbfa~vbelv = ls_all-vbeln
       AND vbfa~posnv = ls_all-posnr
     AND vbfa~vbtyp_n IN ( 'R','h' ).
     LOOP AT lt_vbfa INTO ls_vbfa.
-      ls_out-outnum = ls_out-outnum + ls_vbfa-rfmng.
+      IF ls_vbfa-vbtyp_n = 'R'.
+        ls_out-outnum = ls_out-outnum + ls_vbfa-rfmng.
+      ELSEIF ls_vbfa-vbtyp_n = 'h'.
+        ls_out-outnum = ls_out-outnum - ls_vbfa-rfmng.
+      ENDIF.
+      CLEAR ls_vbfa.
     ENDLOOP.
+    CLEAR ls_vbfa.
+    CLEAR lt_vbfa.
+    "首个交货日期
+    SELECT
+      vbeln
+    INTO CORRESPONDING FIELDS OF TABLE lt_vbfa
+    FROM vbfa
+    WHERE vbfa~vbelv = ls_all-vbeln
+    AND vbfa~posnv = ls_all-posnr
+    AND vbfa~vbtyp_n = 'J'
+    AND vbfa~rfmng > 0
+    ORDER BY vbeln.
+    READ TABLE lt_vbfa INTO ls_vbfa INDEX 1.
+    CLEAR ls_likp.
+    SELECT SINGLE
+      wadat_ist
+    INTO CORRESPONDING FIELDS OF ls_likp
+    FROM likp
+    WHERE likp~vbeln = ls_vbfa-vbeln.
+    ls_out-wadat_ist = ls_likp-wadat_ist.
+    CLEAR lt_vbfa.
     CLEAR ls_vbfa.
     "开票量
     SELECT
     rfmng
-    vbtyp_v
+    vbtyp_n
     erdat
     INTO CORRESPONDING FIELDS OF TABLE lt_vbfa
     FROM vbfa
     WHERE vbfa~vbelv = ls_all-vbeln
     AND vbfa~posnv = ls_all-posnr
-    AND vbfa~vbtyp_v = 'M'
+    AND vbfa~vbtyp_n IN ( 'M','N' )
     ORDER BY erdat DESCENDING.
     LOOP AT lt_vbfa INTO ls_vbfa.
-      ls_out-invoice = ls_out-invoice + ls_vbfa-rfmng.
+*      ls_out-invoice = ls_out-invoice + ls_vbfa-rfmng.
+      IF ls_vbfa-vbtyp_n = 'M'.
+        ls_out-invoice = ls_out-invoice + ls_vbfa-rfmng.
+      ELSEIF ls_vbfa-vbtyp_n = 'N'.
+        ls_out-invoice = ls_out-invoice - ls_vbfa-rfmng.
+      ENDIF.
+      CLEAR ls_vbfa.
     ENDLOOP.
     CLEAR ls_vbfa.
     "开票日期
@@ -1427,8 +1463,8 @@ FORM catalog.
   fieldcatset 'INNUM'   '非限制库存' sy-tabix.
   fieldcatset 'INNUM2'   '其它库存' sy-tabix.
   fieldcatset 'OUTNUM'   '出库量' sy-tabix.
-  fieldcatset 'INVOIC'   '开票量' sy-tabix.
-  fieldcatset 'INVOICED'   '开票日期Invoice Date' sy-tabix.
+  fieldcatset 'INVOICE'   '开票量' sy-tabix.
+*  fieldcatset 'INVOICED'   '开票日期Invoice Date' sy-tabix.
   fieldcatset 'ZSFXBZ'   '新包装New Package?' sy-tabix.
   fieldcatset 'ZSFXCP'   '新产品New Product' sy-tabix.
   fieldcatset 'ZSFBJ'   '是否报检' sy-tabix.
@@ -1456,6 +1492,7 @@ FORM catalog.
   fieldcatset 'BU_SORT1'      '实际客户的检索项'    sy-tabix.
   fieldcatset 'PARTNER'      '实际客户的业务员'    sy-tabix.
   fieldcatset 'ERDAT'      '创建日期'    sy-tabix.
+  fieldcatset 'WADAT_IST'      '首个交货日期'    sy-tabix.
 
   IF flag_b = 'X'.
     fieldcatset   'ZSON'      '子件'    sy-tabix.

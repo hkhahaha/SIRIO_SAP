@@ -48,10 +48,10 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         zkhwlms        TYPE    vbap-zkhwlms  , "  客户产品名称
         zcpgg          TYPE    vbap-zcpgg  , "  规格型号
         zbzgg          TYPE    vbap-zbzgg  , "  包装规格
-        meins          TYPE    vbap-meins  , "  基本计量单位
+        meins          TYPE    string  , "  基本计量单位
         kwmeng         TYPE    vbap-kwmeng , "  销售数量
         zypsl          TYPE    vbap-zypsl  , "  样品数量
-        vrkme          TYPE    vbap-vrkme  , "  销售单位
+        vrkme          TYPE    string  , "  销售单位
         mwsbp          TYPE    vbap-mwsbp  , "  销项税额
         netwr          TYPE    vbap-netwr  , "  不含税金额
         zdytk          TYPE    vbap-zdytk  , "  短溢条款
@@ -84,7 +84,7 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         umziz          TYPE    vbap-umziz  , "转换因子（分子）
         umzin          TYPE    vbap-umzin  ,  "转换因此（分母）
         knumv          TYPE vbak-knumv, "凭证条件号
-        zyfkqk         TYPE vbak-zyfkqk, "预付款
+        zyfkqk         TYPE string, "预付款
         augru          TYPE string, "订货原因
         price2         TYPE vbap-netwr, "不含税金额CNY
         ettyp          TYPE vbep-ettyp, "计划行类别
@@ -95,6 +95,7 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         zsum           TYPE p DECIMALS 3, "铝盒装子件销售数量
         partner        TYPE string, "实际客户的业务员
         zsum2          TYPE p DECIMALS 3, "礼合装基本子件数量
+        udate          TYPE jcds-udate, "二审日期
 
       END OF ty_all.
 TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
@@ -113,7 +114,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         saleman        TYPE    string      , "  业务员
         mc_name1       TYPE    but000-mc_name1, "检索项
         mandt          TYPE    vbak-mandt  , "  集团名称
-        kunnr          TYPE    vbak-kunnr  , "  售达方(客户名称)
+        kunnr          TYPE    string  , "  售达方(客户名称)
         kunnr2         TYPE    vbak-kunnr  , "  售达方(编号)
         custname       TYPE    string      , "  实际客户名称
         custname2      TYPE    string      , "  实际客户编号
@@ -161,10 +162,10 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         outnum         TYPE    string      , "  出库量
         invoice        TYPE    string      , "  开票量
         invoiced       TYPE    string      , "  开票日期
-        zsfxbz         TYPE    vbap-zsfxbz , "  新包装
-        zsfxcp         TYPE    vbap-zsfxcp , "  新产品
-        zsfbj          TYPE    vbap-zsfbj  , "  是否报检
-        zphyq          TYPE    vbap-zphyq  , "  批号要求
+        zsfxbz         TYPE    string , "  新包装
+        zsfxcp         TYPE    string , "  新产品
+        zsfbj          TYPE    string  , "  是否报检
+        zphyq          TYPE    string  , "  批号要求
         zzztl          TYPE    vbap-zzztl  , "  最早投料日期
         zzwtl          TYPE    vbap-zzwtl  , "  最晚投料日期
         zzzbz          TYPE    vbap-zzzbz  , "  最早包装时间
@@ -182,7 +183,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         invoicenote    TYPE string         , "  开票文本
         augru          TYPE string, "订货原因
         ddpprice       TYPE p DECIMALS 2, "DDP价格
-        zyfkqk         TYPE  vbak-zyfkqk, "预付款
+        zyfkqk         TYPE  string, "预付款
         price2         TYPE vbap-netwr, "不含税金额CNY
         ettyp          TYPE vbep-ettyp, "计划行类别
         bu_sort1       TYPE string, "实际客户的检索项
@@ -193,6 +194,8 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zsum           TYPE p DECIMALS 3, "礼盒装子件销售数量
         zsum2          TYPE p DECIMALS 3, "礼合装基本子件数量
         erdat          TYPE vbak-erdat, "创建日期
+        udate          TYPE jcds-udate, "二审日期
+        chgnr          TYPE jcds-chgnr,
       END OF ty_out.
 
 ***********  ALV 定义 **********************************************
@@ -262,6 +265,8 @@ FORM getdata.
        ls_vbkd          TYPE vbkd,
        ls_mvke          TYPE mvke,
        ls_makt          TYPE makt,
+       lt_jcds          TYPE TABLE OF jcds,
+       ls_jcds          TYPE jcds,
        lt_vbfa          TYPE TABLE OF vbfa,
        ls_vbfa          TYPE vbfa,
        lt_mska          TYPE TABLE OF mska,
@@ -430,6 +435,7 @@ FORM getdata.
   "将一部分可以直接插入的数据插入到内表中
   LOOP AT lt_all INTO ls_all.
 
+
     CLEAR ls_ausp.
     READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
                                              atinn = '0000000075'.
@@ -499,13 +505,32 @@ FORM getdata.
     INTO CORRESPONDING FIELDS OF ls_jest
     FROM jest
     WHERE jest~objnr = ls_all-objnr
-    AND jest~stat LIKE 'E%'.
+    AND jest~stat LIKE 'E%'
+    AND jest~inact = ''.
     IF ls_jest-stat = 'E0001'.
       ls_out-state = '创建'.
     ELSEIF ls_jest-stat = 'E0002'.
       ls_out-state = '业务一审'.
     ELSEIF ls_jest-stat = 'E0003'.
       ls_out-state = '财务二审'.
+    ENDIF.
+
+
+    IF ls_out-state = '财务二审'.
+      "二审日期
+      CLEAR lt_jcds.
+      SELECT
+      udate
+      chgnr
+      INTO CORRESPONDING FIELDS OF TABLE lt_jcds
+      FROM jcds
+      WHERE jcds~objnr = ls_all-objnr
+      AND jcds~stat = 'E0003'
+      ORDER BY chgnr.
+
+      READ TABLE lt_jcds INTO ls_jcds INDEX 1.
+      ls_out-udate = ls_jcds-udate.
+      CLEAR ls_jcds.
     ENDIF.
     "制单人(取描述)
     SELECT SINGLE
@@ -529,14 +554,14 @@ FORM getdata.
     ls_out-kvgr1 = ls_knvv-kvgr1.
     CLEAR ls_knvv.
     "库存地点
-    SELECT SINGLE
-      lgort
-    INTO CORRESPONDING FIELDS OF ls_lips
-    FROM lips
-    WHERE lips~vgbel = ls_all-vbeln
-    AND lips~vgpos = ls_all-posnr.
-    ls_out-lgort = ls_lips-lgort.
-    CLEAR ls_lips.
+*    SELECT SINGLE
+*      lgort
+*    INTO CORRESPONDING FIELDS OF ls_lips
+*    FROM lips
+*    WHERE lips~vgbel = ls_all-vbeln
+*    AND lips~vgpos = ls_all-posnr.
+*    ls_out-lgort = ls_lips-lgort.
+*    CLEAR ls_lips.
     "业务员
     SELECT SINGLE
       name_org1
@@ -835,17 +860,19 @@ FORM getdata.
       CHECK ls_out-invoiced IS NOT INITIAL.
     ENDLOOP.
     "是否报检
-    IF ls_all-zsfbj = 'X'.
-      ls_out-zsfbj = '是'.
-    ELSE.
-      ls_out-zsfbj = '否'.
-    ENDIF.
+*    IF ls_all-zsfbj = 'X'.
+*      ls_out-zsfbj = '是'.
+*    ELSE.
+*      ls_out-zsfbj = '否'.
+*    ENDIF.
+    ls_out-zsfbj = ls_all-zsfbj.
     "批号要求
-    IF ls_all-zphyq = 'X'.
-      ls_out-zphyq = '是'.
-    ELSE.
-      ls_out-zphyq = '否'.
-    ENDIF.
+*    IF ls_all-zphyq = 'X'.
+*      ls_out-zphyq = '是'.
+*    ELSE.
+*      ls_out-zphyq = '否'.
+*    ENDIF.
+
     "最早投料日期
 *    IF ls_all-zzztl = 'X'.
 *      ls_out-zzztl = '是'.
@@ -918,6 +945,8 @@ FORM getdata.
     ls_out-note = ls_lines-tdline.
     CLEAR ls_lines.
     CLEAR  lt_lines.
+    CLEAR i_name.
+    i_name = ls_all-vbeln.
     "销售文本
     CALL FUNCTION 'READ_TEXT'
       EXPORTING
@@ -1065,26 +1094,31 @@ FORM getdata.
     IF ls_out-zapszt = 'A'.
       ls_out-zapszt = '下达状态'.
     ENDIF.
-
+    CLEAR lt_dd07v.
     SELECT
       ddtext
       valpos
       domname
+      domvalue_l
     INTO CORRESPONDING FIELDS OF TABLE lt_dd07v
     FROM dd07v
       WHERE dd07v~ddlanguage = '1'
     AND dd07v~domname IN ( 'ZD_DYTK','ZD_SFXBZ','ZD_XFLAG','ZD_ZDSCQY','ZD_PHYQ','ZD_BHCL' ).
-    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_BHCL' valpos = ls_out-zbhcl."备货策略
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_BHCL' domvalue_l = ls_out-zbhcl."备货策略
     ls_out-zbhcl = ls_dd07v-ddtext.
     CLEAR ls_dd07v.
-    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_SFXBZ' valpos = ls_out-zsfxbz."是否新包装
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_SFXBZ' domvalue_l = ls_out-zsfxbz."是否新包装
     ls_out-zsfxbz = ls_dd07v-ddtext.
     CLEAR ls_dd07v.
-    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_DYTK' valpos = ls_out-zdytk."短溢条款
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_DYTK' domvalue_l = ls_out-zdytk."短溢条款
     ls_out-zdytk = ls_dd07v-ddtext.
     CLEAR ls_dd07v.
-    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = ' ' valpos = ''.
-    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = ' ' valpos = ''.
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_PHYQ' domvalue_l = ls_all-zphyq."批号要求
+    ls_out-zphyq = ls_dd07v-ddtext.
+    CLEAR ls_dd07v.
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_XFLAG' domvalue_l = ls_all-zsfbj."批号要求
+    ls_out-zsfbj = ls_dd07v-ddtext.
+    CLEAR ls_dd07v.
 
 
 
@@ -1114,25 +1148,25 @@ FORM getdata.
     WHERE mara~matnr = ls_all-matnr.
 
     "单位的转换
-    DEFINE changemeins.
-      CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
-      EXPORTING
-        input          = &1
-        language       = sy-langu
-      IMPORTING
-*       LONG_TEXT      =
-        output         = &2
-*       SHORT_TEXT     =
-      EXCEPTIONS
-        unit_not_found = 1
-        OTHERS         = 2.
-      IF sy-subrc <> 0.
-* Implement suitable error handling here
-      ENDIF.
-    END-OF-DEFINITION.
-
-    changemeins ls_out-meins ls_out-meins.
-    changemeins ls_out-vrkme ls_out-vrkme.
+*    DEFINE changemeins.
+*      CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+*      EXPORTING
+*        input          = &1
+*        language       = sy-langu
+*      IMPORTING
+**       LONG_TEXT      =
+*        output         = &2
+**       SHORT_TEXT     =
+*      EXCEPTIONS
+*        unit_not_found = 1
+*        OTHERS         = 2.
+*      IF sy-subrc <> 0.
+** Implement suitable error handling here
+*      ENDIF.
+*    END-OF-DEFINITION.
+*
+*    changemeins ls_out-meins ls_out-meins.
+*    changemeins ls_out-vrkme ls_out-vrkme.
 
 
     CLEAR flag.
@@ -1269,20 +1303,21 @@ FORM getdata.
           ls_out-zson = ls_stb-idnrk."BOM的物料编码
           ls_out-zson = zcl_bc_public=>conv_by_ddic( i_input = ls_out-zson i_out = 'X' ).
           "子件的单位
-          CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
-            EXPORTING
-              input          = ls_mara-meins
-              language       = sy-langu
-            IMPORTING
-              long_text      = ls_out-zmeins
-*             OUTPUT         =
-*             SHORT_TEXT     =
-            EXCEPTIONS
-              unit_not_found = 1
-              OTHERS         = 2.
-          IF sy-subrc <> 0.
-* Implement suitable error handling here
-          ENDIF.
+*          CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+*            EXPORTING
+*              input          = ls_mara-meins
+*              language       = sy-langu
+*            IMPORTING
+*              long_text      = ls_out-zmeins
+**             OUTPUT         =
+**             SHORT_TEXT     =
+*            EXCEPTIONS
+*              unit_not_found = 1
+*              OTHERS         = 2.
+*          IF sy-subrc <> 0.
+** Implement suitable error handling here
+*          ENDIF.
+          ls_out-zmeins = ls_mara-meins.
           "子件的描述
           CLEAR ls_makt.
           SELECT SINGLE
@@ -1330,6 +1365,7 @@ FORM catalog.
   END-OF-DEFINITION.
   fieldcatset 'ZAPSZt'   'APS状态' sy-tabix.
   fieldcatset 'STATE'   '订单状态' sy-tabix.
+  fieldcatset 'UDATE'      '二审日期'    sy-tabix.
   fieldcatset 'AUGRU'   '订单原因' sy-tabix.
   fieldcatset 'VBELN'   '单据号Serial Number' sy-tabix.
   fieldcatset 'POSNR'   '行号' sy-tabix.
@@ -1339,7 +1375,7 @@ FORM catalog.
   fieldcatset 'VTWEG'   '分销渠道Area' sy-tabix.
   fieldcatset 'KVGR1'   '销售渠道/客户类型Sales Channel' sy-tabix.
   fieldcatset 'WERKS'   '工厂Factory' sy-tabix.
-  fieldcatset 'LGORT'   '库存地点' sy-tabix.
+*  fieldcatset 'LGORT'   '库存地点' sy-tabix.
   fieldcatset 'VKBUR'   '二级部门' sy-tabix.
   fieldcatset 'SALEMAN'   '业务员Sales' sy-tabix.
   fieldcatset 'MC_NAME1'   '检索项' sy-tabix.
@@ -1385,9 +1421,9 @@ FORM catalog.
   fieldcatset 'PRICE2'     '不含税金额CNY'   sy-tabix.
   fieldcatset 'PRICEALL'   '价税合计Amount(Tax Including)' sy-tabix.
   fieldcatset 'ZDYTK'   '短溢条款' sy-tabix.
-  fieldcatset 'ZYSJHQ'   '客户要求交货日期' sy-tabix.
+  fieldcatset 'ZYSJHQ'   '原始交货日期' sy-tabix.
   fieldcatset 'ZATPDFRQ'   'ATP答复日期' sy-tabix.
-  fieldcatset 'ZNBJHQ'   '实际交货日期Actual Delivery Date' sy-tabix.
+  fieldcatset 'ZNBJHQ'   '内部交货日期' sy-tabix.
   fieldcatset 'INNUM'   '非限制库存' sy-tabix.
   fieldcatset 'INNUM2'   '其它库存' sy-tabix.
   fieldcatset 'OUTNUM'   '出库量' sy-tabix.
@@ -1410,7 +1446,7 @@ FORM catalog.
   fieldcatset 'ZSFXKH'   '新客户 New Customer?' sy-tabix.
   fieldcatset 'PRONOTE'   '生产相关文本Comment' sy-tabix.
   fieldcatset 'SALENOT'   '销售文本' sy-tabix.
-  fieldcatset 'VOICENOT'   '发票文本' sy-tabix.
+  fieldcatset 'VOICENOT'   '发货文本' sy-tabix.
   fieldcatset 'INVOICENOTE' '开票文本' sy-tabix.
   fieldcatset 'DDPPRICE' 'DDP价格DDP Price' sy-tabix.
   fieldcatset 'ZYFKQK' '预付款Prepayment' sy-tabix.
@@ -1420,6 +1456,7 @@ FORM catalog.
   fieldcatset 'BU_SORT1'      '实际客户的检索项'    sy-tabix.
   fieldcatset 'PARTNER'      '实际客户的业务员'    sy-tabix.
   fieldcatset 'ERDAT'      '创建日期'    sy-tabix.
+
   IF flag_b = 'X'.
     fieldcatset   'ZSON'      '子件'    sy-tabix.
     fieldcatset   'ZSONDETAIL'      '子件描述'    sy-tabix.
@@ -1453,8 +1490,8 @@ FORM alvshow.
 *     IT_FILTER_LVC            =
 *     IT_HYPERLINK             =
 *     IS_SEL_HIDE              =
-*     I_DEFAULT                = 'X'
-*     I_SAVE                   = ' '
+      i_default                = 'X'
+      i_save                   = 'A'
 *     IS_VARIANT               =
 *     IT_EVENTS                =
 *     IT_EVENT_EXIT            =
@@ -1494,13 +1531,14 @@ FORM frm_authority_check.
   DATA ls_svtweg LIKE LINE OF svtweg.
   LOOP AT svtweg INTO ls_svtweg.
 *  DATA lv_werks TYPE werks_d.
-    AUTHORITY-CHECK OBJECT 'V_KNA1_VKO'
+    AUTHORITY-CHECK OBJECT 'V_VBAK_VKO'
      ID 'VKORG' DUMMY
      ID 'VTWEG' FIELD ls_svtweg-low
      ID 'SPART' DUMMY
      ID 'ACTVT' DUMMY.
     IF sy-subrc <> 0.
 *     Implement a suitable exception handling here
+      MESSAGE '分销渠道没有权限' TYPE 'E'.
       gv_sel_error = 'X'.
     ELSE.
 *      MESSAGE '有权限' TYPE 'S'.
@@ -1512,14 +1550,15 @@ FORM frm_authority_check.
     CLEAR ls_pvkorg.
   ENDLOOP.
   LOOP AT pvkorg INTO ls_pvkorg.
-    AUTHORITY-CHECK OBJECT 'V_KNA1_VKO'
-    ID 'VKORG' FIELD ls_pvkorg
+    AUTHORITY-CHECK OBJECT 'V_VBAK_VKO'
+    ID 'VKORG' FIELD ls_pvkorg-low
     ID 'VTWEG' DUMMY
     ID 'SPART' DUMMY
     ID 'ACTVT' DUMMY.
     IF sy-subrc <> 0.
 *     Implement a suitable exception handling here
       gv_sel_error = 'X'.
+      MESSAGE '销售组织没有权限' TYPE 'E' .
     ELSE.
 *      MESSAGE '有权限' TYPE 'S'.
       gv_sel_error = ''.

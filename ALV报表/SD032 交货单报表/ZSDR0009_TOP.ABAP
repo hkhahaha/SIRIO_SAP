@@ -76,7 +76,7 @@ TYPES:BEGIN OF lv_out,
         kpsum           TYPE    vbfa-rfmng , "  开票数量
         ddpprice        TYPE    p DECIMALS 2, "  DDP价格
         perprice        TYPE    vbap-mwsbp , "  含税单价
-        disclv(12)      TYPE    c , "  折扣率
+        disclv      TYPE    p DECIMALS 3 , "  折扣率
         discnum         TYPE    vbap-mwsbp , "  折扣金额
         kbetr           TYPE    p DECIMALS 2 , "  税率
         mwsbp           TYPE    vbap-mwsbp  , "  销项税额
@@ -100,7 +100,7 @@ TYPES:BEGIN OF lv_out,
 TYPES:BEGIN OF lv_out2.
         INCLUDE TYPE lv_out.
         TYPES:zson(20)       TYPE c, "子件
-        zsondetail(20) TYPE c, "子件描述
+        zsondetail(60) TYPE c, "子件描述
         zmeins         TYPE mara-meins, "子件的单位
         zsum(20)       TYPE c, "铝盒装子件销售数量
       END OF lv_out2.
@@ -157,7 +157,7 @@ TYPES:
   kpsum       TYPE    string  , "  开票数量
   ddpprice    TYPE    string  , "  DDP价格
   perprice    TYPE    string  , "  含税单价
-  disclv      TYPE    string  , "  折扣率
+  disclv      TYPE    P DECIMALS 3  , "  折扣率
   discnum     TYPE    string  , "  折扣金额
   kbetr       TYPE    prcd_elements-kbetr , "  税率
   mwsbp       TYPE    vbap-mwsbp  , "  销项税额
@@ -204,7 +204,7 @@ SELECT-OPTIONS:pvbeln FOR likp-vbeln,"条件输入框，一个for对应一个
 pvkorg FOR likp-vkorg OBLIGATORY,"for前面的是字段显示的名称，可以修改，但是注意不要超过8个字符，否则会报错
 svtweg    FOR   vbak-vtweg  OBLIGATORY,"  分销渠道
 pvbeln2 FOR vbak-vbeln,
-pwerks FOR lips-werks,
+pwerks FOR lips-werks OBLIGATORY,
 puser FOR adrp-name_text,
 pkunnr FOR vbpa-kunnr,
 pcustom FOR vbpa-kunnr,

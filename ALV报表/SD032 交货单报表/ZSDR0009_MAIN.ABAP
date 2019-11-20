@@ -1022,7 +1022,7 @@ FORM catalog USING flag_b.
   fieldcatset   'VRKME'   '销售单位Marketing Unit'    sy-tabix.
   fieldcatset   'ZJIANS'      '件数Number of Packages'    sy-tabix.
   fieldcatset   'ZLXSL'     '零箱数量'    sy-tabix.
-  fieldcatset   'ZLFIMG'      '实发销售数量Actual Marketing QTY'    sy-tabix.
+  fieldcatset   'ZLFIMG'      '发货数量Actual Marketing QTY'    sy-tabix.
   fieldcatset   'MEINS'   '基本计量单位Unit'    sy-tabix.
   fieldcatset   'WBSTA'   '交货单状态'   sy-tabix.
   fieldcatset   'CHARG'   '批量流水Batch Serial Number'    sy-tabix.
@@ -1163,8 +1163,8 @@ FORM alvshow USING flag_b.
 *       IT_SORT            =
 *       IT_FILTER          =
 *       IS_SEL_HIDE        =
-*       I_DEFAULT          = 'X'
-*       I_SAVE             = ' '
+        i_default          = 'X'
+        i_save             = 'A'
 *       IS_VARIANT         =
 *       IT_EVENTS          =
 *       IT_EVENT_EXIT      =
@@ -1201,13 +1201,14 @@ FORM frm_authority_check.
   DATA ls_svtweg LIKE LINE OF svtweg.
   LOOP AT svtweg INTO ls_svtweg.
 *  DATA lv_werks TYPE werks_d.
-    AUTHORITY-CHECK OBJECT 'V_KNA1_VKO'
+    AUTHORITY-CHECK OBJECT 'V_VBAK_VKO'
     ID 'VKORG' DUMMY
     ID 'VTWEG' FIELD ls_svtweg-low
     ID 'SPART' DUMMY
     ID 'ACTVT' DUMMY.
     IF sy-subrc <> 0.
 *     Implement a suitable exception handling here
+      MESSAGE '分销渠道无权限' TYPE 'E'.
       gv_sel_error = 'X'.
     ELSE.
 *      MESSAGE '有权限' TYPE 'S'.
@@ -1219,13 +1220,14 @@ FORM frm_authority_check.
     CLEAR ls_pvkorg.
   ENDLOOP.
   LOOP AT pvkorg INTO ls_pvkorg.
-    AUTHORITY-CHECK OBJECT 'V_KNA1_VKO'
-    ID 'VKORG' FIELD ls_pvkorg
+    AUTHORITY-CHECK OBJECT 'V_VBAK_VKO'
+    ID 'VKORG' FIELD ls_pvkorg-low
     ID 'VTWEG' DUMMY
     ID 'SPART' DUMMY
     ID 'ACTVT' DUMMY.
     IF sy-subrc <> 0.
 *     Implement a suitable exception handling here
+      MESSAGE '销售组织无权限' TYPE 'E'.
       gv_sel_error = 'X'.
     ELSE.
 *      MESSAGE '有权限' TYPE 'S'.

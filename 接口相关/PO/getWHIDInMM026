@@ -1,0 +1,18 @@
+if ( DLGORT == null || DLGORT.equals("") ) {
+	return "";
+} else {
+	if(BUS_TYPE != null && (BUS_TYPE.equals("B06") || BUS_TYPE.equals("B07"))) {//B06转储  B07寄售转自购
+				if (DLGORT.startsWith("1") || DLGORT.startsWith("91")) {
+							return "WH01";
+				}	else if ( DLGORT.startsWith("2") || DLGORT.startsWith("92") ) {
+							return "WH02";
+				}  else if ( DLGORT.startsWith("3") || DLGORT.startsWith("93") ) {
+							return "WH03";
+				}  else {
+							return "OT";
+				}		
+	} else {
+				return DLGORT;
+	}
+
+}

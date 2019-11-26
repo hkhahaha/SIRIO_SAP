@@ -1,23 +1,25 @@
 *&---------------------------------------------------------------------*
 *& 包含               ZSDR0018_MAIN
 *&---------------------------------------------------------------------*
-DATA:lt_aufm  TYPE TABLE OF aufm WITH HEADER LINE,
-     ls_aufm  TYPE aufm,
-     lt_mseg  TYPE TABLE OF mseg,
-     ls_mseg  TYPE mseg,
-     lt_vbap  TYPE TABLE OF vbap,
-     ls_vbap  TYPE vbap,
-     lt_vbep  TYPE TABLE OF vbep,
-     ls_vbep  TYPE vbep,
-     lt_vbak  TYPE TABLE OF vbak,
-     ls_vbak  TYPE vbak,
-     lt_alv   TYPE TABLE OF ty_alv,
-     ls_alv   TYPE ty_alv,
-     lt_vbapk TYPE TABLE OF ty_vbapk,
-     ls_vbapk TYPE ty_vbapk,
-     lt_vbfa  TYPE TABLE OF vbfa,
-     lt_vbfa2 TYPE TABLE OF vbfa,
-     ls_vbfa  TYPE vbfa.
+DATA:lt_aufm   TYPE TABLE OF aufm WITH HEADER LINE,
+     ls_aufm   TYPE aufm,
+     lt_mseg   TYPE TABLE OF mseg,
+     lt_mseg2  TYPE TABLE OF mseg,
+     ls_mseg   TYPE mseg,
+     lt_vbap   TYPE TABLE OF vbap,
+     ls_vbap   TYPE vbap,
+     lt_vbep   TYPE TABLE OF vbep,
+     ls_vbep   TYPE vbep,
+     lt_vbak   TYPE TABLE OF vbak,
+     ls_vbak   TYPE vbak,
+     lt_alv    TYPE TABLE OF ty_alv,
+     ls_alv    TYPE ty_alv,
+     lt_vbapk  TYPE TABLE OF ty_vbapk,
+     lt_vbapk2 TYPE TABLE OF ty_vbapk,
+     ls_vbapk  TYPE ty_vbapk,
+     lt_vbfa   TYPE TABLE OF vbfa,
+     lt_vbfa2  TYPE TABLE OF vbfa,
+     ls_vbfa   TYPE vbfa.
 
 START-OF-SELECTION.
 *调用子程序
@@ -28,97 +30,153 @@ START-OF-SELECTION.
 END-OF-SELECTION.
 
 FORM getdata.
-  "首先先获取AUFM表里面的数据
+  "查询AUFM表里面的数据
   SELECT
-    budat
+    a~budat
     a~bwart
     a~werks
     a~kdauf
     a~mblnr
     a~zeile
-    a~kdauf
     a~kdpos
-    b~ettyp
-    a~wempf
-    a~mblnr
-    a~zeile
-    INTO CORRESPONDING FIELDS OF TABLE lt_aufm
-    FROM  aufm AS a
-    INNER JOIN vbep AS b
-    ON a~kdpos = b~posnr
-    AND a~kdauf = b~vbeln
-    INNER JOIN mseg AS c
-    ON c~mblnr = a~mblnr
-    AND c~zeile = a~zeile
-    WHERE a~budat = sy-datum
+    b~posnr
+    b~matnr
+    b~arktx
+    b~kwmeng
+    b~zieme
+    c~vkorg
+    c~vtweg
+    c~vbeln
+    c~ernam
+    c~kunnr
+    c~auart
+    INTO CORRESPONDING FIELDS OF TABLE lt_vbapk2
+    FROM aufm AS a
+    INNER JOIN vbap AS b
+    ON b~vbeln = a~kdauf
+    AND b~posnr = a~kdpos
+    INNER JOIN vbak AS c
+    ON c~vbeln = a~kdauf
+    WHERE a~budat IN s_budat
     AND a~bwart = '101'
     AND a~werks IN s_werks
     AND a~kdauf <> ''
-    AND a~budat IN s_budat
-    AND b~ettyp NOT LIKE '%ZB%'
-    AND c~wempf <> '此单结束'
-    AND c~smbln <> a~mblnr
-    AND c~smblp <> a~zeile.
-
-  SELECT
-   c~kunnr
-   c~ernam
-   c~vbeln
-   d~posnr
-   c~vkorg
-   c~vtweg
-   c~auart
-   d~matnr
-   d~arktx
-   d~kwmeng
-   d~zieme
-   INTO CORRESPONDING FIELDS OF TABLE lt_vbapk
-   FROM vbak AS c
-   INNER JOIN vbap AS d
-   ON c~vbeln = d~vbeln
-   INNER JOIN vbep AS a
-   ON a~posnr = d~posnr
-   AND a~vbeln = d~vbeln
-   FOR ALL ENTRIES IN lt_aufm
-   WHERE c~vbeln = lt_aufm-kdauf
-   AND d~posnr = lt_aufm-kdpos
-   AND A~ettyp NOT LIKE '%ZB%'
-   AND c~auart LIKE 'ZA%'.
-
-  CLEAR lt_vbapk.
-
-  SELECT
-    c~kunnr
-    c~ernam
-    c~vbeln
-    d~posnr
-    c~vkorg
-    c~vtweg
-    c~auart
-    d~matnr
-    d~arktx
-    d~kwmeng
-    d~zieme
-    e~ettyp
-    APPENDING CORRESPONDING FIELDS OF TABLE lt_vbapk
-    FROM vbak AS c
-    INNER JOIN vbap AS d
-    ON c~vbeln = d~vbeln
-    INNER JOIN vbep AS e
-    ON e~vbeln = d~posnr
-    AND e~vbeln = d~vbeln
-    WHERE c~auart LIKE 'ZA%'
+    AND a~kdauf IN s_vbeln
+    AND a~kdpos IN s_posnr
+    AND b~posnr IN s_posnr
     AND c~kunnr IN s_kunnr
     AND c~ernam IN s_ernam
-    AND c~vbeln IN s_vbeln
     AND c~vkorg IN s_vkorg
-    AND d~kwmeng <= '1'
-    AND e~ettyp NOT LIKE '%ZB%'.
+    AND c~vtweg IN s_vtweg.
 
-  SORT lt_vbapk BY vbeln posnr.
-  DELETE ADJACENT DUPLICATES FROM lt_vbapk COMPARING vbeln posnr.
+  "获取MSEG表里面的数据，此单结束的订单号和行项
+  SELECT
+    mblnr
+    zeile
+    wempf
+    INTO CORRESPONDING FIELDS OF TABLE lt_mseg
+    FROM mseg
+    FOR ALL ENTRIES IN lt_vbapk2
+    WHERE mseg~mblnr = lt_vbapk2-mblnr
+    AND mseg~zeile = lt_vbapk2-zeile
+    AND mseg~wempf <> '此单结束'.
 
+  "获取MSEG表里面的数据，剔除行
+  SELECT
+    smbln
+    smblp
+    INTO CORRESPONDING FIELDS OF TABLE lt_mseg2
+    FROM mseg.
+
+  "已经关闭的销售订单，VBEP
+  SELECT
+    vbeln
+    posnr
+    INTO CORRESPONDING FIELDS OF TABLE lt_vbep
+    FROM vbep
+    WHERE vbep~ettyp LIKE '%ZB%'.
+
+  "获取销售订单熟练郭小于的销售订单和行项目
+  SELECT
+    vbak~auart
+    vbap~kwmeng
+    vbap~vbeln
+    vbap~posnr
+    kunnr
+    vbak~ernam
+    vkorg
+    vtweg
+    vbap~matnr
+    arktx
+    zieme
+    INTO CORRESPONDING FIELDS OF TABLE lt_vbapk
+    FROM vbap
+    INNER JOIN vbak
+    ON vbak~vbeln = vbap~vbeln
+    INNER JOIN aufm
+    ON aufm~kdauf = vbap~vbeln
+    AND aufm~kdpos = vbap~posnr
+    WHERE vbap~kwmeng <= '1'
+    AND vbak~auart LIKE 'ZA%'
+    AND vbap~posnr IN s_posnr
+    AND vbak~kunnr IN s_kunnr
+    AND vbak~ernam IN s_ernam
+    AND vbak~vbeln IN s_vbeln
+    AND vbak~vkorg IN s_vkorg
+    AND vbak~vtweg IN s_vtweg
+    AND aufm~budat IN s_budat
+    AND aufm~werks IN s_werks.
+  LOOP AT lt_vbapk INTO ls_vbapk.
+    READ TABLE lt_vbep INTO ls_vbep WITH KEY vbeln = ls_vbapk-vbeln
+                                             posnr = ls_vbapk-posnr.
+    "如果有找到的话，需要关闭订单
+    IF sy-subrc = 0.
+      DELETE lt_vbapk WHERE vbeln = ls_vbapk-vbeln.
+      CLEAR ls_vbep.
+      CONTINUE.
+    ENDIF.
+  ENDLOOP.
+  CLEAR ls_vbapk.
+  LOOP AT lt_vbapk2 INTO ls_vbapk.
+    "剔除2个MSEG的表的数据
+    READ TABLE lt_mseg2 INTO ls_mseg WITH KEY smbln = ls_vbapk-mblnr
+                                              smblp = ls_vbapk-zeile.
+    IF sy-subrc = 0.
+      DELETE TABLE lt_vbapk2 FROM ls_vbapk.
+      CLEAR ls_mseg.
+      CONTINUE.
+    ENDIF.
+
+    READ TABLE lt_mseg INTO ls_mseg WITH KEY mblnr = ls_vbapk-mblnr
+                                             zeile = ls_vbapk-zeile.
+    IF sy-subrc = 0.
+      DELETE TABLE lt_vbapk2 FROM ls_vbapk.
+      CLEAR ls_mseg.
+      CONTINUE.
+    ENDIF.
+  ENDLOOP.
+  APPEND LINES OF lt_vbapk2 TO lt_vbapk.
+  CLEAR ls_vbapk.
+*  LOOP AT lt_vbapk2 INTO ls_vbapk.
+*    MOVE-CORRESPONDING ls_vbapk TO ls_alv.
+*    APPEND ls_alv TO lt_alv.
+*  ENDLOOP.
   MOVE-CORRESPONDING lt_vbapk TO lt_alv.
+  DELETE ADJACENT DUPLICATES FROM lt_alv COMPARING vbeln posnr.
+
+  SELECT
+    vbeln
+    posnr
+    etenr
+    edatu
+    ettyp
+    INTO CORRESPONDING FIELDS OF TABLE lt_vbep
+    FROM vbep
+    FOR ALL ENTRIES IN lt_alv
+    WHERE vbep~vbeln = lt_alv-vbeln
+    AND vbep~posnr = lt_alv-posnr.
+
+  SORT lt_vbep BY vbeln posnr edatu DESCENDING.
 
   LOOP AT lt_alv INTO ls_alv.
     CLEAR lt_vbfa.
@@ -152,7 +210,15 @@ FORM getdata.
     ls_alv-number2  = '222'.
     "已入库数量
     ls_alv-number3 = '333'.
-    MODIFY TABLE lt_alv FROM  ls_alv TRANSPORTING number1 number2 number3.
+
+    "读取第一条，获取其计划行类别ETTYP
+    READ TABLE lt_vbep INTO ls_vbep WITH KEY vbeln = ls_alv-vbeln
+                                             posnr = ls_alv-posnr.
+    IF sy-subrc = 0.
+      ls_alv-ettyp = ls_vbep-ettyp.
+      CLEAR ls_vbep.
+    ENDIF.
+    MODIFY TABLE lt_alv FROM  ls_alv TRANSPORTING number1 number2 number3 ettyp.
   ENDLOOP.
 
 

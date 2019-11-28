@@ -470,22 +470,22 @@ FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
         order_header_inx-updateflag = 'U'.
 
 
-        order_item_in-itm_number     =  '000010'.
+        order_item_in-itm_number     =  ls_alv-posnr.
         APPEND order_item_in.
 
-        order_item_inx-itm_number     =   '000010'.
+        order_item_inx-itm_number     =  ls_alv-posnr.
         order_item_inx-updateflag     =  'U'.
         APPEND order_item_inx.
 *
-        schedule_lines-itm_number = '000010'.
-        schedule_lines-sched_line = '0001'.
-        schedule_lines-sched_type = 'Z1'.
+        schedule_lines-itm_number = ls_alv-posnr.
+        schedule_lines-sched_line = ls_alv-etenr.
+        schedule_lines-sched_type = 'ZB'.
 *        schedule_lines-req_date = '20180808'.
 *        schedule_lines-req_qty    = '35'. "4.  "数量
         APPEND schedule_lines.
 *
-        schedule_linesx-itm_number = '000010'.
-        schedule_linesx-sched_line = '0001'.
+        schedule_linesx-itm_number = ls_alv-posnr.
+        schedule_linesx-sched_line = ls_alv-etenr.
         schedule_linesx-updateflag = 'U'.
         schedule_linesx-sched_type = 'X'.
 *        schedule_linesx-req_qty    = 'X'.
@@ -503,7 +503,7 @@ FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
 **
         CALL FUNCTION 'BAPI_SALESORDER_CHANGE'
           EXPORTING
-            salesdocument    = '0032000096'
+            salesdocument    = ls_alv-vbeln
             order_header_inx = order_header_inx
           TABLES
             return           = return1

@@ -13,10 +13,17 @@ DATA:lt_aufm   TYPE TABLE OF aufm WITH HEADER LINE,
      lt_vbak   TYPE TABLE OF vbak,
      ls_vbak   TYPE vbak,
      lt_alv    TYPE TABLE OF ty_alv,
+     lt_alv2   TYPE TABLE OF ty_alv,
      ls_alv    TYPE ty_alv,
      lt_vbapk  TYPE TABLE OF ty_vbapk,
      lt_vbapk2 TYPE TABLE OF ty_vbapk,
      ls_vbapk  TYPE ty_vbapk,
+     lt_tvakt  TYPE TABLE OF tvakt,
+     ls_tvakt  TYPE tvakt,
+     lt_but000 TYPE TABLE OF but000,
+     ls_but000 TYPE but000,
+     lt_mssa   TYPE TABLE OF mssa,
+     ls_mssa   TYPE mssa,
      lt_vbfa   TYPE TABLE OF vbfa,
      lt_vbfa2  TYPE TABLE OF vbfa,
      ls_vbfa   TYPE vbfa.
@@ -50,6 +57,8 @@ FORM getdata.
     c~ernam
     c~kunnr
     c~auart
+    b~umziz
+    b~umzin
     INTO CORRESPONDING FIELDS OF TABLE lt_vbapk2
     FROM aufm AS a
     INNER JOIN vbap AS b
@@ -109,13 +118,15 @@ FORM getdata.
     vbap~matnr
     arktx
     zieme
+    vbap~umziz
+    vbap~umzin
     INTO CORRESPONDING FIELDS OF TABLE lt_vbapk
     FROM vbap
     INNER JOIN vbak
     ON vbak~vbeln = vbap~vbeln
-    INNER JOIN aufm
-    ON aufm~kdauf = vbap~vbeln
-    AND aufm~kdpos = vbap~posnr
+*    INNER JOIN aufm
+*    ON aufm~kdauf = vbap~vbeln
+*    AND aufm~kdpos = vbap~posnr
     WHERE vbap~kwmeng <= '1'
     AND vbak~auart LIKE 'ZA%'
     AND vbap~posnr IN s_posnr
@@ -123,9 +134,9 @@ FORM getdata.
     AND vbak~ernam IN s_ernam
     AND vbak~vbeln IN s_vbeln
     AND vbak~vkorg IN s_vkorg
-    AND vbak~vtweg IN s_vtweg
-    AND aufm~budat IN s_budat
-    AND aufm~werks IN s_werks.
+    AND vbak~vtweg IN s_vtweg.
+*    AND aufm~budat IN s_budat
+*    AND aufm~werks IN s_werks.
   LOOP AT lt_vbapk INTO ls_vbapk.
     READ TABLE lt_vbep INTO ls_vbep WITH KEY vbeln = ls_vbapk-vbeln
                                              posnr = ls_vbapk-posnr.
@@ -137,10 +148,12 @@ FORM getdata.
     ENDIF.
   ENDLOOP.
   CLEAR ls_vbapk.
+  SORT lt_mseg2 BY smbln smblp.
+  SORT lt_mseg BY mblnr zeile.
   LOOP AT lt_vbapk2 INTO ls_vbapk.
     "剔除2个MSEG的表的数据
     READ TABLE lt_mseg2 INTO ls_mseg WITH KEY smbln = ls_vbapk-mblnr
-                                              smblp = ls_vbapk-zeile.
+                                              smblp = ls_vbapk-zeile BINARY SEARCH.
     IF sy-subrc = 0.
       DELETE TABLE lt_vbapk2 FROM ls_vbapk.
       CLEAR ls_mseg.
@@ -148,7 +161,7 @@ FORM getdata.
     ENDIF.
 
     READ TABLE lt_mseg INTO ls_mseg WITH KEY mblnr = ls_vbapk-mblnr
-                                             zeile = ls_vbapk-zeile.
+                                             zeile = ls_vbapk-zeile BINARY SEARCH.
     IF sy-subrc = 0.
       DELETE TABLE lt_vbapk2 FROM ls_vbapk.
       CLEAR ls_mseg.
@@ -162,7 +175,7 @@ FORM getdata.
 *    APPEND ls_alv TO lt_alv.
 *  ENDLOOP.
   MOVE-CORRESPONDING lt_vbapk TO lt_alv.
-  DELETE ADJACENT DUPLICATES FROM lt_alv COMPARING vbeln posnr.
+  DELETE ADJACENT DUPLICATES FROM lt_alv COMPARING ALL FIELDS.
 
   SELECT
     vbeln
@@ -177,8 +190,50 @@ FORM getdata.
     AND vbep~posnr = lt_alv-posnr.
 
   SORT lt_vbep BY vbeln posnr edatu DESCENDING.
+  MOVE-CORRESPONDING lt_alv TO lt_alv2.
 
+  "取出全部的凭证类型描述
+  SELECT
+    auart
+    bezei
+    INTO CORRESPONDING FIELDS OF TABLE lt_tvakt
+    FROM tvakt
+    WHERE tvakt~spras = '1'.
+  SORT lt_tvakt BY auart.
+
+  "取出客户的描述
+  SELECT
+    partner
+    name_org1
+    name_org2
+    name_org3
+    name_org4
+    INTO CORRESPONDING FIELDS OF TABLE lt_but000
+    FROM but000
+    FOR ALL ENTRIES IN lt_alv
+    WHERE but000~partner = lt_alv-kunnr.
+  SORT lt_but000 BY partner.
+
+  SELECT
+    salab
+    vbeln
+    posnr
+    matnr
+    INTO CORRESPONDING FIELDS OF TABLE lt_mssa
+    FROM mssa
+    FOR ALL ENTRIES IN lt_alv
+    WHERE mssa~matnr = lt_alv-matnr
+    AND mssa~vbeln = lt_alv-vbeln
+    AND mssa~posnr = lt_alv-posnr.
+  SORT lt_mssa BY vbeln posnr matnr.
   LOOP AT lt_alv INTO ls_alv.
+    DATA(l_index) = sy-tabix.
+    IF ls_alv-umzin IS NOT INITIAL.
+      ls_alv-rate = ls_alv-umziz / ls_alv-umzin."转换率
+    ELSE.
+      ls_alv-rate = ls_alv-umziz / 1."转换率
+    ENDIF.
+
     CLEAR lt_vbfa.
     SELECT
     vbelv
@@ -188,44 +243,84 @@ FORM getdata.
     INTO CORRESPONDING FIELDS OF TABLE lt_vbfa
     FROM vbfa
     WHERE vbfa~vbelv = ls_alv-vbeln
-    AND vbfa~posnv = ls_alv-posnr
-    AND vbfa~vbtyp_n IN ( 'R','h' ).
+    AND vbfa~posnv = ls_alv-posnr.
+*    AND vbfa~vbtyp_n IN ( 'R','h' ).
+    SORT lt_vbfa BY vbelv posnv vbtyp_n.
     "获取过账数量
     IF lt_vbfa IS NOT INITIAL.
       LOOP AT lt_vbfa INTO ls_vbfa.
         COLLECT ls_vbfa INTO lt_vbfa2.
         CLEAR ls_vbfa.
       ENDLOOP.
-      READ TABLE lt_vbfa2 INTO ls_vbfa WITH KEY vbelv = ls_vbfa-vbelv
-                                                posnv = ls_vbfa-posnv
-                                                vbtyp_n = 'R'.
+      SORT lt_vbfa2 BY vbelv posnv vbtyp_n.
+      READ TABLE lt_vbfa2 INTO ls_vbfa WITH KEY vbelv = ls_alv-vbeln
+                                                posnv = ls_alv-posnr
+                                                vbtyp_n = 'R' BINARY SEARCH.
       ls_alv-number1 = ls_vbfa-rfmng.
       CLEAR ls_vbfa.
-      READ TABLE lt_vbfa2 INTO ls_vbfa WITH KEY vbelv = ls_vbfa-vbelv
-                                                posnv = ls_vbfa-posnv
-                                                vbtyp_n = 'h'.
+      READ TABLE lt_vbfa2 INTO ls_vbfa WITH KEY vbelv = ls_alv-vbeln
+                                                posnv = ls_alv-posnr
+                                                vbtyp_n = 'h' BINARY SEARCH.
       ls_alv-number1 = ls_alv-number1 - ls_vbfa-rfmng.
     ENDIF.
-    "当前库存数量
-    ls_alv-number2  = '222'.
-    "已入库数量
-    ls_alv-number3 = '333'.
 
+*    MODIFY TABLE lt_alv2 FROM ls_alv.
     "读取第一条，获取其计划行类别ETTYP
     READ TABLE lt_vbep INTO ls_vbep WITH KEY vbeln = ls_alv-vbeln
-                                             posnr = ls_alv-posnr.
+                                             posnr = ls_alv-posnr BINARY SEARCH.
     IF sy-subrc = 0.
       ls_alv-ettyp = ls_vbep-ettyp.
       CLEAR ls_vbep.
     ENDIF.
-    MODIFY TABLE lt_alv FROM  ls_alv TRANSPORTING number1 number2 number3 ettyp.
+
+    "匹配凭证类型描述
+    READ TABLE lt_tvakt INTO ls_tvakt WITH KEY auart = ls_alv-auart BINARY SEARCH.
+    IF sy-subrc = 0.
+      ls_alv-bezei = ls_tvakt-bezei.
+      CLEAR ls_tvakt.
+    ENDIF.
+
+    "匹配客户描述
+    READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_alv-kunnr BINARY SEARCH.
+    IF sy-subrc = 0.
+      ls_alv-name_org = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
+      CLEAR ls_but000.
+    ENDIF.
+
+    "匹配非限制库存
+    READ TABLE lt_mssa INTO ls_mssa WITH KEY vbeln = ls_alv-vbeln
+                                             posnr = ls_alv-posnr
+                                             matnr = ls_alv-matnr
+                                             BINARY SEARCH.
+    IF sy-subrc = 0.
+      ls_alv-number2 = ls_mssa-salab / ls_alv-rate.
+      CLEAR ls_mssa.
+    ENDIF.
+
+    "转换销售单位
+    CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+      EXPORTING
+        input          = ls_alv-zieme
+*       LANGUAGE       = SY-LANGU
+      IMPORTING
+        long_text      = ls_alv-zieme
+*       OUTPUT         =
+*       SHORT_TEXT     =
+      EXCEPTIONS
+        unit_not_found = 1
+        OTHERS         = 2.
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+    ENDIF.
+    ls_alv-number3 = ls_alv-number1 + ls_alv-number2.
+    ls_alv-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_alv-matnr i_out = 'X' ).
+    ls_alv-status = ''.
+    MODIFY lt_alv2 FROM ls_alv INDEX l_index.
   ENDLOOP.
-
-
 ENDFORM.
 
 FORM catalog.
-  CLEAR fieldcat.
+  CLEAR: fieldcat[], sy-tabix.
 
   DEFINE fieldcatset."宏定义
     fieldcat-just = 'C'."字段居中显示
@@ -235,9 +330,7 @@ FORM catalog.
     fieldcat-col_pos = sy-tabix."列位置
     APPEND fieldcat.
   END-OF-DEFINITION.
-  layout-zebra = 'X'.
-  layout-box_fname = 'sel'.
-  layout-cwidth_opt = 'X'.
+
 
   fieldcatset 'VKORG' '销售组织'.
   fieldcatset 'VTWEG' '分销渠道'.
@@ -256,6 +349,10 @@ FORM catalog.
   fieldcatset 'NUMBER3' '已入库数量'.
 *  fieldcatset 'WEMPF' '收货方'.
   fieldcatset 'ZIEME' '销售单位'.
+  fieldcatset 'STATUS' '关闭状态'.
+  layout-zebra = 'X'.
+  layout-box_fname = 'sel'.
+  layout-cwidth_opt = 'X'.
 ENDFORM.
 
 FORM alvshow.
@@ -266,7 +363,7 @@ FORM alvshow.
 *     I_BUFFER_ACTIVE          =
       i_callback_program       = sy-repid
       i_callback_pf_status_set = 'FRM_USER_STATUS'
-*     i_callback_user_command  = 'FRM_USER_COMMAND'
+      i_callback_user_command  = 'FRM_USER_COMMAND'
 *     I_CALLBACK_TOP_OF_PAGE   = ' '
 *     I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
 *     I_CALLBACK_HTML_END_OF_LIST       = ' '
@@ -283,7 +380,7 @@ FORM alvshow.
 *     IT_HYPERLINK             =
 *     IS_SEL_HIDE              =
 *     I_DEFAULT                = 'X'
-*     I_SAVE                   = ' '
+      i_save                   = 'A'
 *     IS_VARIANT               =
 *     IT_EVENTS                =
 *     IT_EVENT_EXIT            =
@@ -302,7 +399,7 @@ FORM alvshow.
 *     E_EXIT_CAUSED_BY_CALLER  =
 *     ES_EXIT_CAUSED_BY_USER   =
     TABLES
-      t_outtab                 = lt_alv
+      t_outtab                 = lt_alv2
     EXCEPTIONS
       program_error            = 1
       OTHERS                   = 2.
@@ -311,6 +408,79 @@ FORM alvshow.
   ENDIF.
 ENDFORM.
 
+
+
 FORM frm_user_status  USING i_it_extab TYPE slis_t_extab.
   SET PF-STATUS '0100' .
 ENDFORM.                    " FRM_SET_PF_STATUS
+
+FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
+      i_wa_selfield TYPE slis_selfield.
+  DATA:
+    ls_layout TYPE lvc_s_layo,
+    lv_grid   TYPE REF TO cl_gui_alv_grid.
+  DATA ls_stable TYPE lvc_s_stbl.
+
+
+
+  CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
+*   EXPORTING
+*     IR_SALV_FULLSCREEN_ADAPTER       =
+    IMPORTING
+*     ET_EXCLUDING                     =
+*     E_REPID                          =
+*     E_CALLBACK_PROGRAM               =
+*     E_CALLBACK_ROUTINE               =
+      e_grid = lv_grid
+*     ET_FIELDCAT_LVC                  =
+*     ER_TRACE                         =
+*     E_FLG_NO_HTML                    =
+*     ES_LAYOUT_KKBLO                  =
+*     ES_SEL_HIDE                      =
+*     ET_EVENT_EXIT                    =
+*     ER_FORM_TOL                      =
+*     ER_FORM_EOL                      =
+    .
+
+
+*  CALL METHOD lv_grid->check_changed_data.
+  CASE i_ucomm.
+    WHEN '&POP'.  "click POP button in application toolbar
+*      MESSAGE '退出程序' TYPE 'E'.
+*      EXIT.
+*      RETURN.
+      "如果有选上的行，那么对应sel列标记为X，取出标记为X的字段行进行操作
+      LOOP AT lt_alv2 INTO ls_alv WHERE sel = 'X'.
+        ls_alv-status = '成功'.
+        MODIFY lt_alv2 FROM ls_alv.
+      ENDLOOP.
+    WHEN OTHERS.
+
+  ENDCASE.
+  i_wa_selfield-refresh = 'X'.
+  i_wa_selfield-col_stable = 'X'.
+  i_wa_selfield-row_stable = 'X'.
+  CALL METHOD lv_grid->get_frontend_layout
+    IMPORTING
+      es_layout = ls_layout.
+
+  ls_layout-cwidth_opt = 'x'.
+
+  CALL METHOD lv_grid->set_frontend_layout
+    EXPORTING
+      is_layout = ls_layout.
+
+
+*  ls_stable-row = 'X'.
+*  ls_stable-col = 'X'.
+*
+*  CALL METHOD lv_grid->refresh_table_display
+*    EXPORTING
+*      is_stable      = ls_stable
+*      i_soft_refresh = 'x'
+*    EXCEPTIONS
+*      finished       = 1
+*      OTHERS         = 2.
+*  IF sy-subrc <> 0.
+*  ENDIF.
+ENDFORM.

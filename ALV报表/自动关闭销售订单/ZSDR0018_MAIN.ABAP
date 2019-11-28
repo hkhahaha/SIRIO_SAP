@@ -270,6 +270,7 @@ FORM getdata.
                                              posnr = ls_alv-posnr BINARY SEARCH.
     IF sy-subrc = 0.
       ls_alv-ettyp = ls_vbep-ettyp.
+      ls_alv-etenr = ls_vbep-etenr.
       CLEAR ls_vbep.
     ENDIF.
 
@@ -338,6 +339,8 @@ FORM catalog.
   fieldcatset 'ERNAM' '创建人'.
   fieldcatset 'KUNNR' '客户'.
   fieldcatset 'NAME_ORG' '客户描述'.
+  fieldcatset 'ETENR' '计划行'.
+  fieldcatset 'ETTYP' '计划行类别'.
   fieldcatset 'AUART' '凭证类型'.
   fieldcatset 'BEZEI' '凭证类型描述'.
   fieldcatset 'POSNR' '行项目'.
@@ -451,8 +454,83 @@ FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
 *      RETURN.
       "如果有选上的行，那么对应sel列标记为X，取出标记为X的字段行进行操作
       LOOP AT lt_alv2 INTO ls_alv WHERE sel = 'X'.
-        ls_alv-status = '成功'.
-        MODIFY lt_alv2 FROM ls_alv.
+        DATA: salesdocument    LIKE  bapivbeln-vbeln,
+              order_header_in  LIKE  bapisdh1,
+              order_header_inx LIKE  bapisdh1x,
+
+
+              order_item_in    LIKE  bapisditm  OCCURS 0 WITH HEADER LINE,
+              order_item_inx   LIKE  bapisditmx OCCURS 0 WITH HEADER LINE,
+              return1          LIKE  bapiret2  OCCURS 0 WITH HEADER LINE,
+              return           LIKE  bapiret2  OCCURS 0 WITH HEADER LINE,
+              schedule_lines   LIKE  bapischdl  OCCURS 0 WITH HEADER LINE,
+              schedule_linesx  LIKE  bapischdlx OCCURS 0 WITH HEADER LINE.
+
+
+        order_header_inx-updateflag = 'U'.
+
+
+        order_item_in-itm_number     =  '000010'.
+        APPEND order_item_in.
+
+        order_item_inx-itm_number     =   '000010'.
+        order_item_inx-updateflag     =  'U'.
+        APPEND order_item_inx.
+*
+        schedule_lines-itm_number = '000010'.
+        schedule_lines-sched_line = '0001'.
+        schedule_lines-sched_type = 'Z1'.
+*        schedule_lines-req_date = '20180808'.
+*        schedule_lines-req_qty    = '35'. "4.  "数量
+        APPEND schedule_lines.
+*
+        schedule_linesx-itm_number = '000010'.
+        schedule_linesx-sched_line = '0001'.
+        schedule_linesx-updateflag = 'U'.
+        schedule_linesx-sched_type = 'X'.
+*        schedule_linesx-req_qty    = 'X'.
+*        schedule_linesx-req_date = 'X'.
+*
+*        APPEND schedule_linesx.
+*        schedule_linesx-itm_number = '000010'.
+*        schedule_linesx-updateflag = 'D'.
+*        schedule_linesx-sched_type = 'X'.
+*        schedule_linesx-req_qty    = 'X'.
+*        schedule_linesx-req_date = 'X'.
+*
+        APPEND schedule_linesx.
+
+**
+        CALL FUNCTION 'BAPI_SALESORDER_CHANGE'
+          EXPORTING
+            salesdocument    = '0032000096'
+            order_header_inx = order_header_inx
+          TABLES
+            return           = return1
+            order_item_in    = order_item_in
+            order_item_inx   = order_item_inx
+            schedule_lines   = schedule_lines
+            schedule_linesx  = schedule_linesx.
+
+        IF sy-subrc = '0'.
+
+          CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+            EXPORTING
+              wait = 'X'.
+          MOVE return1 TO return.
+        ELSE.
+
+          CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+
+        ENDIF.
+
+        IF return-type = 'S' OR return-type = 'W'.
+          ls_alv-status = '成功'.
+          MODIFY lt_alv2 FROM ls_alv.
+        ELSE.
+          ls_alv-status = '不成功'.
+          MODIFY lt_alv2 FROM ls_alv.
+        ENDIF.
       ENDLOOP.
     WHEN OTHERS.
 

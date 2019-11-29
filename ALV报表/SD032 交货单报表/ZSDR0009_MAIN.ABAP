@@ -491,7 +491,7 @@ FORM getdata.
       FROM vbfa AS a
       INNER JOIN vbrk AS b
       ON a~vbeln = b~vbeln
-      WHERE a~vbtyp_n = 'M' AND b~sfakn  = '' AND b~fksto = ''
+      WHERE a~vbtyp_n IN ('M','O') AND b~sfakn  = '' AND b~fksto = ''
       AND a~vbelv = ls_main-vbeln_likp AND a~posnv = ls_main-posnr_lips.
       LOOP AT lt_vbfa INTO ls_vbfa.
         count = count + ls_vbfa-rfmng.
@@ -1005,59 +1005,58 @@ FORM catalog USING flag_b.
     fieldcat-col_pos = &3."列位置
     APPEND fieldcat.
   END-OF-DEFINITION.
-
-  fieldcatset   'VBELN'   '交货单Serial Number'   sy-tabix.
-  fieldcatset   'POSNR'   '行项目'   sy-tabix.
-  fieldcatset   'VGBEL'   '销售订单Order Number'    sy-tabix.
-  fieldcatset   'VGPOS'   '行项目'   sy-tabix.
-  fieldcatset   'VKORG'   '销售组织'    sy-tabix.
-  fieldcatset   'WERKS'   '工厂Factory'    sy-tabix.
-  fieldcatset   'LGORT'   '库存地址'    sy-tabix.
   fieldcatset   'ERDAT'   '创建日期Date'    sy-tabix.
   fieldcatset   'ZFHRQ'   '发货日期'    sy-tabix.
+  fieldcatset   'ZZQZT'      '账期审批状态'    sy-tabix.
+  fieldcatset   'CMGST'      '贷方'    sy-tabix.
+  fieldcatset   'WBSTA'   '交货单状态'   sy-tabix.
   fieldcatset   'WADAT'   '过账日期'    sy-tabix.
+  fieldcatset   'VKORG'   '销售组织'    sy-tabix.
+  fieldcatset   'WERKS'   '工厂Factory'    sy-tabix.
+  fieldcatset   'ERNAM'     '制单人Prepared by'   sy-tabix.
+  fieldcatset   'VBELN'   '交货单Serial Number'   sy-tabix.
+  fieldcatset   'POSNR'   '行项目'   sy-tabix.
   fieldcatset   'MATNR'   '产品代号Product ID'    sy-tabix.
   fieldcatset   'ARKTX'   '产品名称Product Name'    sy-tabix.
-  fieldcatset   'LFIMG'   '销售订单数量Marketing QTY'    sy-tabix.
-  fieldcatset   'VRKME'   '销售单位Marketing Unit'    sy-tabix.
+  fieldcatset   'ZPSPE'     '包装规格Packing Specification'    sy-tabix.
+  fieldcatset   'LGORT'   '库存地址'    sy-tabix.
+  fieldcatset   'ZLFIMG'      '发货数量Actual Marketing QTY'    sy-tabix.
   fieldcatset   'ZJIANS'      '件数Number of Packages'    sy-tabix.
   fieldcatset   'ZLXSL'     '零箱数量'    sy-tabix.
-  fieldcatset   'ZLFIMG'      '发货数量Actual Marketing QTY'    sy-tabix.
-  fieldcatset   'MEINS'   '基本计量单位Unit'    sy-tabix.
-  fieldcatset   'WBSTA'   '交货单状态'   sy-tabix.
-  fieldcatset   'CHARG'   '批量流水Batch Serial Number'    sy-tabix.
   fieldcatset   'BAXSSL'      '基本计量数量QTY'    sy-tabix.
+  fieldcatset   'MEINS'   '基本计量单位Unit'    sy-tabix.
+  fieldcatset   'CHARG'   '批量流水Batch Serial Number'    sy-tabix.
+  fieldcatset   'ZPACK_CHARG'     '打印批号Bactch Number'    sy-tabix.
+  fieldcatset   'ZHSDAT'      '生产日期MFG Date'    sy-tabix.
+  fieldcatset   'VFDAT'      '货架寿命到期日'    sy-tabix.
   fieldcatset   'ZFHQD'     '是否特殊发货清单'    sy-tabix.
   fieldcatset   'ZSHCOA'      '是否需要随货COA'    sy-tabix.
   fieldcatset   'ZFHSX'     '发货顺序'    sy-tabix.
   fieldcatset   'ZWMSZT'      '是否传输WMS'   sy-tabix.
-  fieldcatset   'ZUSER'     '业务员Sales'   sy-tabix.
+  fieldcatset   'SDABW'      '特殊处理标'    sy-tabix.
+  fieldcatset   'Z004'      '备注Comment'    sy-tabix.
   fieldcatset   'ZCUSTOM'     '客户编码'    sy-tabix.
   fieldcatset   'ZCUSTOMERTEXT'     '客户描述Customer'    sy-tabix.
-
+  fieldcatset   'SORTL'     '检索项'   sy-tabix.
+  fieldcatset   'ZUSER'     '业务员Sales'   sy-tabix.
   fieldcatset   'ZRUSERNO'      '实际客户编号'    sy-tabix.
   fieldcatset   'ZRUSER'      '实际客户Actual Customer'    sy-tabix.
-  fieldcatset   'ERNAM'     '制单人Prepared by'   sy-tabix.
-  fieldcatset   'SORTL'     '检索项'   sy-tabix.
+  fieldcatset   'BU_SORT1'      '实际客户的检索项'    sy-tabix.
   fieldcatset   'KUKLA'     '实际客户等级Classification'    sy-tabix.
   fieldcatset   'BEZEI'     '销售渠道/客户类型Sales Channel'   sy-tabix.
-  fieldcatset   'PMATN'     '定价参考物料'    sy-tabix.
-  fieldcatset   'MAKTX'     '定价参考物料描述'    sy-tabix.
-  fieldcatset   'ZSTDNAME'      '标准名称'    sy-tabix.
-  fieldcatset   'GROES'     '规格型号Filling Weight'    sy-tabix.
-  fieldcatset   'MATKL'     '物料中类编号'    sy-tabix.
-  fieldcatset   'WGBEZ'     '物料中类描述'    sy-tabix.
-  fieldcatset   'ZPSPE'     '包装规格Packing Specification'    sy-tabix.
+  fieldcatset   'VGBEL'   '销售订单Order Number'    sy-tabix.
+  fieldcatset   'BSTKD_E'     '客户合同单号PO Number'    sy-tabix.
+  fieldcatset   'ZCKGJ'      '出口国家简称'    sy-tabix.
+  fieldcatset   'ZCKGJT'      '出口国家Country'    sy-tabix.
+  fieldcatset   'VGPOS'   '行项目'   sy-tabix.
+  fieldcatset   'VRKME'   '销售单位Marketing Unit'    sy-tabix.
+  fieldcatset   'LFIMG'   '销售订单数量Marketing QTY'    sy-tabix.
+  fieldcatset   'KPSUM'     '开票数量Invoice QTY'    sy-tabix.
   fieldcatset   'ZSFXCP'      '新产品New Product'   sy-tabix.
   fieldcatset   'ZYPSL'     '样品数量Sample QTY'    sy-tabix.
-  fieldcatset   'ZHSDAT'      '生产日期MFG Date'    sy-tabix.
-*  fieldcatset    '待定'      保质期   sy-tabix.
-*  fieldcatset    '待定'      失效日期    sy-tabix.
-*  fieldcatset   'SVBELN'      '销售订单号'   sy-tabix.
-  fieldcatset   'BSTKD_E'     '客户合同单号PO Number'    sy-tabix.
-  fieldcatset   'KPSUM'     '开票数量Invoice QTY'    sy-tabix.
+  fieldcatset   'KURSK'      '汇率'    sy-tabix.
   fieldcatset   'DDPPRICE'      'DDP价格DDP Price'   sy-tabix.
-  fieldcatset   'PERPRICE'      '含税单价Unit price'    sy-tabix.
+  fieldcatset   'PERPRICE'      '折前单价Unit price'    sy-tabix.
   fieldcatset   'DISCLV'      '折扣率Discount Rate'   sy-tabix.
   fieldcatset   'DISCNUM'     '折扣金额Discount'    sy-tabix.
   fieldcatset   'KBETR'     '税率(%)Tax Rate'    sy-tabix.
@@ -1066,17 +1065,17 @@ FORM catalog USING flag_b.
   fieldcatset   'PRICE2'     '不含税金额CNY Amount（Tax excluding）'   sy-tabix.
   fieldcatset   'NETWR'     '价税总计Amount(Tax Including)'    sy-tabix.
   fieldcatset   'WAERK'     '订单币别Order Currency'    sy-tabix.
-  fieldcatset   'ZPACK_CHARG'     '打印批号Bactch Number'    sy-tabix.
-  fieldcatset   'Z004'      '备注Comment'    sy-tabix.
-  fieldcatset   'ZCKGJ'      '出口国家简称'    sy-tabix.
-  fieldcatset   'ZCKGJT'      '出口国家Country'    sy-tabix.
-  fieldcatset   'VFDAT'      '货架寿命到期日'    sy-tabix.
-  fieldcatset   'KURSK'      '汇率'    sy-tabix.
-  fieldcatset   'BU_SORT1'      '实际客户的检索项'    sy-tabix.
-  fieldcatset   'ZZQZT'      '账期审批状态'    sy-tabix.
-  fieldcatset   'CMGST'      '贷方'    sy-tabix.
-  fieldcatset   'SDABW'      '特殊处理标'    sy-tabix.
+  fieldcatset   'PMATN'     '定价参考物料'    sy-tabix.
+  fieldcatset   'MAKTX'     '定价参考物料描述'    sy-tabix.
+  fieldcatset   'ZSTDNAME'      '标准名称'    sy-tabix.
   fieldcatset   'ZKHWL'      '客户物料编码'    sy-tabix.
+  fieldcatset   'GROES'     '规格型号Filling Weight'    sy-tabix.
+  fieldcatset   'MATKL'     '物料中类编号'    sy-tabix.
+  fieldcatset   'WGBEZ'     '物料中类描述'    sy-tabix.
+*  fieldcatset    '待定'      保质期   sy-tabix.
+*  fieldcatset    '待定'      失效日期    sy-tabix.
+*  fieldcatset   'SVBELN'      '销售订单号'   sy-tabix.
+
   IF flag_b = 'X'.
     fieldcatset   'ZSON'      '子件'    sy-tabix.
     fieldcatset   'ZSONDETAIL'      '子件描述'    sy-tabix.

@@ -1,38 +1,52 @@
 *&---------------------------------------------------------------------*
 *& 包含               ZSDR0018_MAIN
 *&---------------------------------------------------------------------*
-DATA:lt_aufm   TYPE TABLE OF aufm WITH HEADER LINE,
-     ls_aufm   TYPE aufm,
-     lt_mseg   TYPE TABLE OF mseg,
-     lt_mseg2  TYPE TABLE OF mseg,
-     ls_mseg   TYPE mseg,
-     lt_vbap   TYPE TABLE OF vbap,
-     ls_vbap   TYPE vbap,
-     lt_vbep   TYPE TABLE OF vbep,
-     ls_vbep   TYPE vbep,
-     lt_vbak   TYPE TABLE OF vbak,
-     ls_vbak   TYPE vbak,
-     lt_alv    TYPE TABLE OF ty_alv,
-     lt_alv2   TYPE TABLE OF ty_alv,
-     ls_alv    TYPE ty_alv,
-     lt_vbapk  TYPE TABLE OF ty_vbapk,
-     lt_vbapk2 TYPE TABLE OF ty_vbapk,
-     ls_vbapk  TYPE ty_vbapk,
-     lt_tvakt  TYPE TABLE OF tvakt,
-     ls_tvakt  TYPE tvakt,
-     lt_but000 TYPE TABLE OF but000,
-     ls_but000 TYPE but000,
-     lt_mssa   TYPE TABLE OF mssa,
-     ls_mssa   TYPE mssa,
-     lt_vbfa   TYPE TABLE OF vbfa,
-     lt_vbfa2  TYPE TABLE OF vbfa,
-     ls_vbfa   TYPE vbfa.
+DATA:lt_aufm     TYPE TABLE OF aufm WITH HEADER LINE,
+     ls_aufm     TYPE aufm,
+     lt_mseg     TYPE TABLE OF mseg,
+     lt_mseg2    TYPE TABLE OF mseg,
+     ls_mseg     TYPE mseg,
+     lt_vbap     TYPE TABLE OF vbap,
+     ls_vbap     TYPE vbap,
+     lt_vbep     TYPE TABLE OF vbep,
+     ls_vbep     TYPE vbep,
+     lt_vbak     TYPE TABLE OF vbak,
+     ls_vbak     TYPE vbak,
+     lt_alv      TYPE TABLE OF ty_alv,
+     lt_alv2     TYPE TABLE OF ty_alv,
+     ls_alv      TYPE ty_alv,
+     lt_vbapk    TYPE TABLE OF ty_vbapk,
+     lt_vbapk2   TYPE TABLE OF ty_vbapk,
+     ls_vbapk    TYPE ty_vbapk,
+     lt_tvakt    TYPE TABLE OF tvakt,
+     ls_tvakt    TYPE tvakt,
+     lt_but000   TYPE TABLE OF but000,
+     ls_but000   TYPE but000,
+     lt_mssa     TYPE TABLE OF mssa,
+     ls_mssa     TYPE mssa,
+     lt_name     TYPE TABLE OF ty_name,
+     ls_name     TYPE ty_name,
+     lt_zsdr0018 TYPE TABLE OF zsdr0018,
+     ls_zsdr0018 TYPE zsdr0018,
+     lt_vbfa     TYPE TABLE OF vbfa,
+     lt_vbfa2    TYPE TABLE OF vbfa,
+     ls_vbfa     TYPE vbfa.
 
 START-OF-SELECTION.
 *调用子程序
   PERFORM getdata.
-  PERFORM catalog.
-  PERFORM alvshow.
+  IF sy-batch IS NOT INITIAL.
+    SELECT * INTO CORRESPONDING FIELDS OF TABLE lt_zsdr0018 FROM zsdr0018.
+    READ TABLE lt_zsdr0018 INTO ls_zsdr0018 INDEX 1.
+    IF ls_zsdr0018-active IS NOT INITIAL.
+      PERFORM closedata.
+    ELSE.
+      EXIT.
+    ENDIF.
+  ELSE.
+    PERFORM catalog.
+    PERFORM alvshow.
+  ENDIF.
 
 END-OF-SELECTION.
 
@@ -128,6 +142,7 @@ FORM getdata.
 *    ON aufm~kdauf = vbap~vbeln
 *    AND aufm~kdpos = vbap~posnr
     WHERE vbap~kwmeng <= '1'
+    AND vbap~kwmeng > '0'
     AND vbak~auart LIKE 'ZA%'
     AND vbap~posnr IN s_posnr
     AND vbak~kunnr IN s_kunnr
@@ -226,6 +241,19 @@ FORM getdata.
     AND mssa~vbeln = lt_alv-vbeln
     AND mssa~posnr = lt_alv-posnr.
   SORT lt_mssa BY vbeln posnr matnr.
+
+  SELECT
+    bname
+    name_text
+    INTO CORRESPONDING FIELDS OF TABLE lt_name
+    FROM adrp
+    INNER JOIN usr21
+    ON usr21~persnumber = adrp~persnumber
+    FOR ALL ENTRIES IN lt_alv
+    WHERE usr21~bname = lt_alv-ernam.
+
+  SORT lt_name BY bname.
+
   LOOP AT lt_alv INTO ls_alv.
     DATA(l_index) = sy-tabix.
     IF ls_alv-umzin IS NOT INITIAL.
@@ -298,6 +326,13 @@ FORM getdata.
       CLEAR ls_mssa.
     ENDIF.
 
+    "匹配用户名
+    READ TABLE lt_name INTO ls_name WITH KEY bname = ls_alv-ernam BINARY SEARCH.
+    IF sy-subrc = 0.
+      ls_alv-name_text = ls_name-name_text.
+      CLEAR ls_name.
+    ENDIF.
+
     "转换销售单位
     CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
       EXPORTING
@@ -337,6 +372,7 @@ FORM catalog.
   fieldcatset 'VTWEG' '分销渠道'.
   fieldcatset 'VBELN' '销售订单'.
   fieldcatset 'ERNAM' '创建人'.
+  fieldcatset 'NAME_TEXT' '创建名称'.
   fieldcatset 'KUNNR' '客户'.
   fieldcatset 'NAME_ORG' '客户描述'.
   fieldcatset 'ETENR' '计划行'.
@@ -353,6 +389,7 @@ FORM catalog.
 *  fieldcatset 'WEMPF' '收货方'.
   fieldcatset 'ZIEME' '销售单位'.
   fieldcatset 'STATUS' '关闭状态'.
+  fieldcatset 'STATUS2' '关闭操作详细信息'.
   layout-zebra = 'X'.
   layout-box_fname = 'sel'.
   layout-cwidth_opt = 'X'.
@@ -462,11 +499,13 @@ FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
               order_item_in    LIKE  bapisditm  OCCURS 0 WITH HEADER LINE,
               order_item_inx   LIKE  bapisditmx OCCURS 0 WITH HEADER LINE,
               return1          LIKE  bapiret2  OCCURS 0 WITH HEADER LINE,
+              ls_return1       LIKE  bapiret2,
               return           LIKE  bapiret2  OCCURS 0 WITH HEADER LINE,
               schedule_lines   LIKE  bapischdl  OCCURS 0 WITH HEADER LINE,
               schedule_linesx  LIKE  bapischdlx OCCURS 0 WITH HEADER LINE.
 
-
+        CLEAR: salesdocument,order_header_in,order_header_inx,order_item_in,order_item_inx,return1,return,schedule_lines,schedule_linesx.
+        CLEAR: order_item_in[],order_item_inx[],return1[],return[],schedule_lines[],schedule_linesx[].
         order_header_inx-updateflag = 'U'.
 
 
@@ -511,7 +550,6 @@ FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
             order_item_inx   = order_item_inx
             schedule_lines   = schedule_lines
             schedule_linesx  = schedule_linesx.
-
         IF sy-subrc = '0'.
 
           CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
@@ -523,6 +561,12 @@ FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
           CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
 
         ENDIF.
+        "拼接操作的详细信息
+        LOOP AT  return1 INTO ls_return1.
+          ls_alv-status2 = ls_alv-status2 && ls_return1-message.
+          CLEAR ls_return1.
+        ENDLOOP.
+
 
         IF return-type = 'S' OR return-type = 'W'.
           ls_alv-status = '成功'.
@@ -532,6 +576,7 @@ FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
           MODIFY lt_alv2 FROM ls_alv.
         ENDIF.
       ENDLOOP.
+
     WHEN OTHERS.
 
   ENDCASE.
@@ -547,18 +592,79 @@ FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
   CALL METHOD lv_grid->set_frontend_layout
     EXPORTING
       is_layout = ls_layout.
+ENDFORM.
+
+FORM closedata.
+  LOOP AT lt_alv2 INTO ls_alv.
+    DATA: salesdocument    LIKE  bapivbeln-vbeln,
+          order_header_in  LIKE  bapisdh1,
+          order_header_inx LIKE  bapisdh1x,
 
 
-*  ls_stable-row = 'X'.
-*  ls_stable-col = 'X'.
+          order_item_in    LIKE  bapisditm  OCCURS 0 WITH HEADER LINE,
+          order_item_inx   LIKE  bapisditmx OCCURS 0 WITH HEADER LINE,
+          return1          LIKE  bapiret2  OCCURS 0 WITH HEADER LINE,
+          ls_return1       LIKE  bapiret2,
+          return           LIKE  bapiret2  OCCURS 0 WITH HEADER LINE,
+          schedule_lines   LIKE  bapischdl  OCCURS 0 WITH HEADER LINE,
+          schedule_linesx  LIKE  bapischdlx OCCURS 0 WITH HEADER LINE.
+
+    CLEAR: salesdocument,order_header_in,order_header_inx,order_item_in,order_item_inx,return1,return,schedule_lines,schedule_linesx.
+    CLEAR: order_item_in[],order_item_inx[],return1[],return[],schedule_lines[],schedule_linesx[].
+    order_header_inx-updateflag = 'U'.
+
+
+    order_item_in-itm_number     =  ls_alv-posnr.
+    APPEND order_item_in.
+
+    order_item_inx-itm_number     =  ls_alv-posnr.
+    order_item_inx-updateflag     =  'U'.
+    APPEND order_item_inx.
 *
-*  CALL METHOD lv_grid->refresh_table_display
-*    EXPORTING
-*      is_stable      = ls_stable
-*      i_soft_refresh = 'x'
-*    EXCEPTIONS
-*      finished       = 1
-*      OTHERS         = 2.
-*  IF sy-subrc <> 0.
-*  ENDIF.
+    schedule_lines-itm_number = ls_alv-posnr.
+    schedule_lines-sched_line = ls_alv-etenr.
+    schedule_lines-sched_type = 'ZB'.
+*        schedule_lines-req_date = '20180808'.
+*        schedule_lines-req_qty    = '35'. "4.  "数量
+    APPEND schedule_lines.
+*
+    schedule_linesx-itm_number = ls_alv-posnr.
+    schedule_linesx-sched_line = ls_alv-etenr.
+    schedule_linesx-updateflag = 'U'.
+    schedule_linesx-sched_type = 'X'.
+*        schedule_linesx-req_qty    = 'X'.
+*        schedule_linesx-req_date = 'X'.
+*
+*        APPEND schedule_linesx.
+*        schedule_linesx-itm_number = '000010'.
+*        schedule_linesx-updateflag = 'D'.
+*        schedule_linesx-sched_type = 'X'.
+*        schedule_linesx-req_qty    = 'X'.
+*        schedule_linesx-req_date = 'X'.
+*
+    APPEND schedule_linesx.
+
+**
+    CALL FUNCTION 'BAPI_SALESORDER_CHANGE'
+      EXPORTING
+        salesdocument    = ls_alv-vbeln
+        order_header_inx = order_header_inx
+      TABLES
+        return           = return1
+        order_item_in    = order_item_in
+        order_item_inx   = order_item_inx
+        schedule_lines   = schedule_lines
+        schedule_linesx  = schedule_linesx.
+    IF sy-subrc = '0'.
+
+      CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+        EXPORTING
+          wait = 'X'.
+      MOVE return1 TO return.
+    ELSE.
+
+      CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+
+    ENDIF.
+  ENDLOOP.
 ENDFORM.

@@ -118,6 +118,7 @@ FORM getdata.
     INTO CORRESPONDING FIELDS OF TABLE lt_vbep
     FROM vbep
     WHERE vbep~ettyp LIKE '%ZB%'.
+  SORT lt_vbep BY vbeln posnr.
 
   "获取销售订单熟练郭小于的销售订单和行项目
   SELECT
@@ -182,8 +183,39 @@ FORM getdata.
       CLEAR ls_mseg.
       CONTINUE.
     ENDIF.
+
+    "读取第一条，获取其计划行类别ETTYP
+    READ TABLE lt_vbep INTO ls_vbep WITH KEY vbeln = ls_vbapk-vbeln
+                                             posnr = ls_vbapk-posnr BINARY SEARCH.
+    IF sy-subrc = 0.
+      DELETE TABLE lt_vbapk2 FROM ls_vbapk.
+      CLEAR ls_vbep.
+    ENDIF.
+
   ENDLOOP.
-  APPEND LINES OF lt_vbapk2 TO lt_vbapk.
+*  APPEND LINES OF lt_vbapk2 TO lt_vbapk.
+
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：01.12.2019 11:54:48
+*&---------------------------------------------------------------------*
+*&修改记录：接下来根据前台的单选框进行拆分
+*&FLAG_A:AUFM表里面的数据；FLAG_B:VBAP表里面的数据
+*&---------------------------------------------------------------------*
+  IF flag_a = 'X' AND flag_b IS INITIAL."AUFM
+    CLEAR lt_vbapk.
+    APPEND LINES OF lt_vbapk2 TO lt_vbapk.
+  ELSEIF flag_a IS INITIAL AND flag_b = 'X'."VBAP
+
+  ELSEIF flag_b IS INITIAL AND flag_a IS INITIAL."都有
+    MESSAGE '没有选择类型' TYPE 'S' DISPLAY LIKE 'E'.
+    EXIT.
+    MESSAGE '没有选择类型' TYPE 'S' DISPLAY LIKE 'E'.
+  ELSE.
+    APPEND LINES OF lt_vbapk2 TO lt_vbapk.
+  ENDIF.
+
+
   CLEAR ls_vbapk.
 *  LOOP AT lt_vbapk2 INTO ls_vbapk.
 *    MOVE-CORRESPONDING ls_vbapk TO ls_alv.
@@ -234,6 +266,10 @@ FORM getdata.
     vbeln
     posnr
     matnr
+    sains
+    saspe
+    saein
+
     INTO CORRESPONDING FIELDS OF TABLE lt_mssa
     FROM mssa
     FOR ALL ENTRIES IN lt_alv
@@ -289,13 +325,13 @@ FORM getdata.
       READ TABLE lt_vbfa2 INTO ls_vbfa WITH KEY vbelv = ls_alv-vbeln
                                                 posnv = ls_alv-posnr
                                                 vbtyp_n = 'h' BINARY SEARCH.
-      ls_alv-number1 = ls_alv-number1 - ls_vbfa-rfmng.
+      ls_alv-number1 = ( ls_alv-number1 - ls_vbfa-rfmng ) / ls_alv-rate.
     ENDIF.
 
 *    MODIFY TABLE lt_alv2 FROM ls_alv.
     "读取第一条，获取其计划行类别ETTYP
     READ TABLE lt_vbep INTO ls_vbep WITH KEY vbeln = ls_alv-vbeln
-                                             posnr = ls_alv-posnr BINARY SEARCH.
+    posnr = ls_alv-posnr BINARY SEARCH.
     IF sy-subrc = 0.
       ls_alv-ettyp = ls_vbep-ettyp.
       ls_alv-etenr = ls_vbep-etenr.
@@ -323,6 +359,7 @@ FORM getdata.
                                              BINARY SEARCH.
     IF sy-subrc = 0.
       ls_alv-number2 = ls_mssa-salab / ls_alv-rate.
+      ls_alv-storage = ( ls_mssa-sains + ls_mssa-saspe + ls_mssa-saein ) / ls_alv-rate.
       CLEAR ls_mssa.
     ENDIF.
 
@@ -348,7 +385,7 @@ FORM getdata.
     IF sy-subrc <> 0.
 * Implement suitable error handling here
     ENDIF.
-    ls_alv-number3 = ls_alv-number1 + ls_alv-number2.
+    ls_alv-number3 = ls_alv-number1 + ls_alv-number2 + ls_alv-storage.
     ls_alv-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_alv-matnr i_out = 'X' ).
     ls_alv-status = ''.
     MODIFY lt_alv2 FROM ls_alv INDEX l_index.
@@ -383,9 +420,10 @@ FORM catalog.
   fieldcatset 'MATNR' '物料'.
   fieldcatset 'ARKTX' '物料描述'.
   fieldcatset 'KWMENG' '数量'.
-  fieldcatset 'NUMBER1' '已过账数量（销售单位'.
+  fieldcatset 'NUMBER1' '已过账数量（销售单位）'.
   fieldcatset 'NUMBER2' '当前库存数量（销售单位）'.
-  fieldcatset 'NUMBER3' '已入库数量'.
+  fieldcatset 'STORAGE' '其他库存（销售单位）'.
+  fieldcatset 'NUMBER3' '已入库数量（销售单位）'.
 *  fieldcatset 'WEMPF' '收货方'.
   fieldcatset 'ZIEME' '销售单位'.
   fieldcatset 'STATUS' '关闭状态'.

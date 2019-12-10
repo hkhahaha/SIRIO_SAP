@@ -24,11 +24,11 @@ TYPES: BEGIN OF ty_alv,
          zpack_sta   TYPE  cabn-atnam, "包装规格
          prfql       TYPE  qpmk-prfql  , "检验岗位
          dummy40     TYPE  qpmk-dummy40  , "检验项目
-         msehi       TYPE t006a-mseh6 , "计量单位
-         ltextkz1    TYPE  qpmt-kurztext , "规定标准
-         ltextkz5    TYPE  qpmt-kurztext , "规定标准(EN )
-         ltextkz2    TYPE  qpmt-kurztext , "内控标准
-         ltextkz3    TYPE  qmtt-kurztext , "检验方法
+         msehi       TYPE t006a-msehl , "计量单位
+         ltextkz1    TYPE  char200 , "规定标准
+         ltextkz5    TYPE  char200 , "规定标准(EN )
+         ltextkz2    TYPE  char200 , "内控标准
+         ltextkz3    TYPE  char200 , "检验方法
          lagort      TYPE  qals-lagortchrg, "库存地
          lagortchrg  TYPE  qals-lagortchrg, "库存地
 *         gesstichpr  TYPE  qals-gesstichpr, " 样本数量
@@ -40,6 +40,7 @@ TYPES: BEGIN OF ty_alv,
          lgobe       TYPE  t001l-lgobe,
          verwmerkm   TYPE  qamv-verwmerkm,
          mkversion   TYPE  qamv-mkversion,
+         qdynregel   TYPE qamv-qdynregel,
          mkmnr       TYPE  qpmk-mkmnr,
          version     TYPE  qpmk-version,
          pmethode    TYPE  qamv-pmethode,
@@ -52,19 +53,34 @@ TYPES: BEGIN OF ty_alv,
          steuerkz    TYPE qpmk-steuerkz,
          print       TYPE  qmtt-kurztext,
          mtart       TYPE mara-mtart,
-
-
-
-
-
-
-
-
-
+         zlicha      TYPE string,
+         status(2)   TYPE c,
+         merknr      TYPE qamv-merknr,
+         qmtb_werks  TYPE qamv-qmtb_werks,   "QAMV的主检验特性的工厂
+         qpmk_werks  TYPE qamv-qpmk_werks,   "QAMV的主检验特性的工厂
        END OF ty_alv.
 
-DATA: gt_alv TYPE TABLE OF ty_alv,
-      gs_alv TYPE ty_alv.
+
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：02.12.2019 20:44:28
+*&---------------------------------------------------------------------*
+*&修改记录：添加存储工作中心判断的相关字段
+*&---------------------------------------------------------------------*
+TYPES:BEGIN OF ty_check,
+        prueflos  TYPE qals-prueflos, "检验批编号
+        charg     TYPE qals-charg, "批次号
+        matnr     TYPE qals-matnr,
+        verwmerkm TYPE plmk-verwmerkm,
+        pmethode  TYPE plmk-pmethode,
+      END OF ty_check.
+
+
+DATA: gt_alv   TYPE TABLE OF ty_alv,
+      gt_alv2  TYPE TABLE OF ty_alv,
+      gs_alv   TYPE ty_alv,
+      lt_check TYPE TABLE OF ty_check,
+      ls_check LIKE LINE OF lt_check.
 
 
 *----------------------------------------------------------------------*

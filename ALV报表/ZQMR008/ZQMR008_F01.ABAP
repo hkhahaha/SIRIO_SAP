@@ -6,7 +6,6 @@
 *& 包含               ZQMR006_F01
 *&---------------------------------------------------------------------*
 
-
 FORM frm_get_data .
   DATA: lv_obtyp TYPE obtyp.
 
@@ -23,61 +22,75 @@ FORM frm_get_data .
         END OF lt_mseg1,
         ls_mseg1 LIKE LINE OF lt_mseg1.
 
-  DATA: lt_qals  TYPE TABLE OF qals,
-        ls_qals  TYPE qals,
+  TYPES:BEGIN OF lv_qals,
+          qprs_objnr TYPE qprs-objnr.
+          INCLUDE TYPE qals.
+        TYPES END OF lv_qals.
 
-        lt_qprs  TYPE TABLE OF qprs,
-        ls_qprs  TYPE qprs,
+  DATA:ls_qals  TYPE lv_qals,
+       lt_qals  LIKE TABLE OF ls_qals,
 
-
-        lt_makt  TYPE TABLE OF makt,
-        ls_makt  TYPE makt,
-
-        lt_mara  TYPE TABLE OF mara,
-        ls_mara  TYPE mara,
-
-        lt_mseg  TYPE TABLE OF mseg,
-        ls_mseg  TYPE mseg,
+       lt_qprs  TYPE TABLE OF qprs,
+       ls_qprs  TYPE qprs,
 
 
-        lt_qmat  TYPE TABLE OF qmat,
-        ls_qmat  TYPE qmat,
+       lt_makt  TYPE TABLE OF makt,
+       ls_makt  TYPE makt,
 
-        lt_qmtt  TYPE TABLE OF qmtt,
-        ls_qmtt  TYPE qmtt,
+       lt_mara  TYPE TABLE OF mara,
+       ls_mara  TYPE mara,
 
-        lt_plmk  TYPE TABLE OF plmk,
-        ls_plmk  TYPE plmk,
-
-
-        lt_afpo  TYPE TABLE OF afpo,
-        ls_afpo  TYPE afpo,
-
-        lt_vbak  TYPE TABLE OF vbak,
-        ls_vbak  TYPE vbak,
-
-        lt_kna1  TYPE TABLE OF kna1,
-        ls_kna1  TYPE kna1,
-
-        lt_qpmk  TYPE TABLE OF qpmk,
-        ls_qpmk  TYPE qpmk,
-
-        lt_qamv  TYPE TABLE OF qamv,
-        ls_qamv  TYPE qamv,
-        lt_qamv2 TYPE TABLE OF qamv,
-        ls_qamv2 TYPE qamv,
-        lt_qpmt  TYPE TABLE OF qpmt,
-        ls_qpmt  TYPE qpmt,
+       lt_mseg  TYPE TABLE OF mseg,
+       ls_mseg  TYPE mseg,
 
 
-        lt_t001l TYPE TABLE OF t001l,
-        ls_t001l TYPE t001l,
+       lt_qmat  TYPE TABLE OF qmat,
+       ls_qmat  TYPE qmat,
 
-        lt_tq11t TYPE TABLE OF tq11t,
-        ls_tq11t TYPE tq11t,
+       lt_qmtt  TYPE TABLE OF qmtt,
+       ls_qmtt  TYPE qmtt,
 
-        lt_t006a TYPE TABLE OF t006a,
-        ls_t006a TYPE t006a.
+       lt_plmk  TYPE TABLE OF plmk,
+       ls_plmk  TYPE plmk,
+
+
+       lt_afpo  TYPE TABLE OF afpo,
+       ls_afpo  TYPE afpo,
+
+       lt_vbak  TYPE TABLE OF vbak,
+       ls_vbak  TYPE vbak,
+
+       lt_kna1  TYPE TABLE OF kna1,
+       ls_kna1  TYPE kna1,
+
+       lt_qpmk  TYPE TABLE OF qpmk,
+       ls_qpmk  TYPE qpmk,
+
+       lt_qamv  TYPE TABLE OF qamv,
+       ls_qamv  TYPE qamv,
+
+       lt_qamv2 TYPE TABLE OF qamv,
+       ls_qamv2 TYPE qamv,
+
+       lt_qpmt  TYPE TABLE OF qpmt,
+       ls_qpmt  TYPE qpmt,
+
+       lt_qamr  TYPE TABLE OF qamr,
+       ls_qamr  TYPE qamr,
+
+
+       lt_t001l TYPE TABLE OF t001l,
+       ls_t001l TYPE t001l,
+
+       lt_tq11t TYPE TABLE OF tq11t,
+       ls_tq11t TYPE tq11t,
+
+       lt_mcha  TYPE TABLE OF mcha,
+       ls_mcha  TYPE mcha,
+       ls_mcha2 TYPE mcha,
+
+       lt_t006a TYPE TABLE OF t006a,
+       ls_t006a TYPE t006a.
 
 
 
@@ -118,6 +131,8 @@ FORM frm_get_data .
 
   DATA print TYPE c.
 
+  DATA: lv_name TYPE thead-tdname,
+        lv_id   TYPE string.
   " 取出 报表所需系统表的字段
 
   SELECT * INTO CORRESPONDING FIELDS OF TABLE lt_t001l FROM t001l.
@@ -146,10 +161,15 @@ FORM frm_get_data .
   lagortchrg
   a~kdauf
   a~objnr
+  b~objnr AS qprs_objnr   "20191205 新增
 
-  FROM qals AS a INNER JOIN qprs AS b ON a~prueflos = b~plos2
+  FROM qals AS a
+  INNER JOIN qprs AS b
+  ON a~prueflos = b~plos2
   AND b~prtyp = '1'
-
+  INNER JOIN qprn
+  ON a~prueflos = qprn~plos
+  AND b~pn_nr = qprn~pn_nr     "20191205 新增
   INTO CORRESPONDING FIELDS OF TABLE lt_qals
   WHERE a~matnr IN s_matnr
   AND a~charg IN s_charg
@@ -158,7 +178,7 @@ FORM frm_get_data .
   AND a~art IN s_art
   AND lagortchrg IN s_lagort
   AND a~kdauf IN s_kdauf
-  AND aendt IN s_aendt.
+  AND qprn~frgdt IN s_aendt.
 
 
   IF lt_qals IS NOT INITIAL.
@@ -172,9 +192,11 @@ FORM frm_get_data .
     objnr
     INTO CORRESPONDING FIELDS OF TABLE lt_qprs
     FROM qprs
+    INNER JOIN qprn
+    ON qprn~pn_nr = qprs~pn_nr
     FOR ALL ENTRIES IN lt_qals
     WHERE plos2 = lt_qals-prueflos AND prtyp = '1'
-    AND aendt IN s_aendt.
+    AND qprn~frgdt IN s_aendt.
 
     LOOP AT lt_qprs INTO ls_qprs. " 取出取样状态,通过函数STATUS_READ，读取OBTYP
       CLEAR ls_obtyp.
@@ -195,13 +217,25 @@ FORM frm_get_data .
         .
       IF sy-subrc = 0.
         ls_obtyp-plos2 = ls_qprs-plos2.
-        READ TABLE lt_stat1 TRANSPORTING NO FIELDS WITH KEY stat = 'I0002'.
-        IF sy-subrc = 0.
-          ls_obtyp-stat = 'I0002'.
 
+        READ TABLE lt_stat1 TRANSPORTING NO FIELDS WITH KEY stat = 'I0076'."20191205 新增
+        IF sy-subrc = 0."20191205 新增
+
+          DELETE lt_obtyp WHERE stat NE'I0002'.  "20191205 新增
+          DELETE lt_qals WHERE  qprs_objnr = ls_qprs-objnr."20191205 新增
+
+        ELSE."20191205 新增
+
+
+          READ TABLE lt_stat1 TRANSPORTING NO FIELDS WITH KEY stat = 'I0002'.
+          IF sy-subrc = 0.
+            ls_obtyp-stat = 'I0002'.
+
+          ENDIF.
+          APPEND ls_obtyp TO lt_obtyp.
         ENDIF.
-        APPEND ls_obtyp TO lt_obtyp.
-      ENDIF.
+
+      ENDIF."20191205 新增
     ENDLOOP.
 
   ENDIF.
@@ -231,6 +265,7 @@ FORM frm_get_data .
     FROM qmat
     FOR ALL ENTRIES IN lt_qals
     WHERE matnr = lt_qals-matnr
+    AND  werks = lt_qals-werk
     AND art = lt_qals-art.
 
   ENDIF.
@@ -238,6 +273,7 @@ FORM frm_get_data .
 
 
   IF lt_qals IS NOT INITIAL.
+
     SELECT
     prueflos
     verwmerkm
@@ -246,11 +282,77 @@ FORM frm_get_data .
     pmtversion
     ltextkz
     pmethode
-
+    satzstatus
+    merknr
+    qdynregel "增加动态修改规则字段 20191204
+      qmtb_werks "检验方法工厂 20191208
+      qpmk_werks "检验特性工厂20191208
     INTO CORRESPONDING FIELDS OF TABLE lt_qamv
     FROM qamv
     FOR ALL ENTRIES IN lt_qals
-    WHERE prueflos = lt_qals-prueflos.
+    WHERE prueflos = lt_qals-prueflos
+    AND satzstatus NE '4'.
+
+    SELECT
+             qamv~prueflos
+             verwmerkm
+             mkversion
+             pmethode
+             pmtversion
+             ltextkz
+             pmethode
+             qamr~satzstatus
+             qamv~merknr
+             qdynregel "增加动态修改规则字段 20191204
+      qmtb_werks"检验方法工厂20191208
+      qpmk_werks"检验特性工厂20191208
+    APPENDING CORRESPONDING FIELDS OF TABLE lt_qamv
+    FROM qamv
+    INNER JOIN qamr ON qamv~prueflos = qamr~prueflos
+    AND qamv~merknr = qamr~merknr
+    FOR ALL ENTRIES IN lt_qals
+    WHERE qamv~prueflos = lt_qals-prueflos
+    AND qamr~satzstatus NE '4'.
+
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：02.12.2019 20:59:05
+*&---------------------------------------------------------------------*
+*&修改记录：添加工作中心的判断
+*&---------------------------------------------------------------------*
+
+*    CLEAR lt_check.
+*    SELECT
+*    qals~prueflos
+*    qals~matnr
+*    qals~charg
+*    plmk~verwmerkm
+*    INTO CORRESPONDING FIELDS OF TABLE lt_check
+*      FROM plmk
+*      INNER JOIN plpo
+*      ON plpo~plnnr = plmk~plnnr
+*      AND plpo~plnkn = plmk~plnkn
+*      INNER JOIN crhd
+*      ON crhd~objid = plpo~arbid
+*      INNER JOIN plas
+*      ON plas~plnty = plpo~plnty
+*      AND plas~plnnr = plpo~plnnr
+*      AND plas~plnkn = plpo~plnkn
+*      AND plas~zaehl = plpo~zaehl
+*      INNER JOIN qals
+*      ON qals~plnnr = plas~plnnr
+*      AND qals~plnal = plas~plnal
+*      FOR ALL ENTRIES IN lt_qamv
+*      WHERE plpo~loekz <> 'X'
+*      AND plmk~verwmerkm = lt_qamv-verwmerkm
+*      AND plpo~plnty = 'Q'
+*      AND crhd~arbpl = p_lang
+*      AND qals~plnty = 'Q'
+*      AND qals~prueflos = lt_qamv-prueflos
+*      AND plmk~loekz <> 'X'.
+
+***********02.12.2019 21:00:23结束修改**********
+
 
   ENDIF.
 
@@ -270,6 +372,7 @@ FORM frm_get_data .
     FOR ALL ENTRIES IN lt_qamv
     WHERE mkmnr = lt_qamv-verwmerkm
     AND version = lt_qamv-mkversion
+    AND zaehler = lt_qamv-qpmk_werks " 20191208 新增
     AND prfql IN s_prfql.
 
   ENDIF.
@@ -280,7 +383,7 @@ FORM frm_get_data .
     msehi
     mseht
     mseh6
-
+msehl
     INTO CORRESPONDING FIELDS OF TABLE lt_t006a
     FROM t006a
     FOR ALL ENTRIES IN lt_qpmk
@@ -305,6 +408,7 @@ FORM frm_get_data .
     FOR ALL ENTRIES IN lt_qpmk
     WHERE zaehler = lt_qpmk-zaehler
     AND mkmnr = lt_qpmk-mkmnr
+    AND zaehler = lt_qpmk-zaehler  " 20191208 新增
     AND version = lt_qpmk-version.
 
   ENDIF.
@@ -330,11 +434,12 @@ FORM frm_get_data .
     version
     ltextkz
     kurztext
-
+    werks "20191208 新增
     INTO CORRESPONDING FIELDS OF TABLE lt_qmtt
     FROM qmtt
     FOR ALL ENTRIES IN lt_qamv
     WHERE pmtnr = lt_qamv-pmethode
+    AND werks = lt_qamv-qmtb_werks "20191208 新增
     AND version = lt_qamv-pmtversion.
 
   ENDIF.
@@ -469,11 +574,94 @@ FORM frm_get_data .
           verwmerkm
           pmethode
           pmtversion
+          satzstatus
+          qdynregel "增加动态修改规则字段 20191204
+          qamv~merknr
+          qmtb_werks"检验方法工厂20191209
+          qpmk_werks"检验特性工厂20191209
         INTO CORRESPONDING FIELDS OF TABLE lt_qamv2
         FROM qamv
-        WHERE qamv~prueflos = ls_qals-prueflos.
+        WHERE qamv~prueflos = ls_qals-prueflos
+        AND satzstatus NE '4'.
 
+        SELECT
+          mkversion
+          verwmerkm
+          pmethode
+          pmtversion
+          qamv~satzstatus
+          qdynregel "增加动态修改规则字段 20191204
+          qamv~merknr
+          qmtb_werks"检验方法工厂20191209
+          qpmk_werks"检验特性工厂20191209
+      APPENDING CORRESPONDING FIELDS OF TABLE lt_qamv2
+      FROM qamv
+      INNER JOIN qamr ON qamv~prueflos = qamr~prueflos
+      AND qamv~merknr = qamr~merknr
+      AND qamv~vorglfnr = qamr~vorglfnr
+      WHERE qamv~prueflos = ls_qals-prueflos
+      AND qamr~satzstatus = '2'
+      AND qamv~satzstatus = '4'.
+
+
+
+***********02.12.2019 21:20:42结束修改**********
         LOOP AT lt_qamv2 INTO ls_qamv2.
+*&作者：Seashell Huang
+*&修改日期：02.12.2019 21:20:27
+*&---------------------------------------------------------------------*
+*&修改记录：工作中心
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：02.12.2019 20:59:05
+*&---------------------------------------------------------------------*
+*&修改记录：添加工作中心的判断
+*&---------------------------------------------------------------------*
+          CLEAR lt_check.
+          SELECT
+          qals~prueflos
+          qals~matnr
+          qals~charg
+          plmk~verwmerkm
+          plmk~pmethode
+          INTO CORRESPONDING FIELDS OF TABLE lt_check
+          FROM plmk
+          INNER JOIN plpo
+          ON plpo~plnnr = plmk~plnnr
+          AND plpo~plnkn = plmk~plnkn
+          INNER JOIN crhd
+          ON crhd~objid = plpo~arbid
+          INNER JOIN plas
+          ON plas~plnty = plpo~plnty
+          AND plas~plnnr = plpo~plnnr
+          AND plas~plnkn = plpo~plnkn
+          AND plas~zaehl = plpo~zaehl
+          INNER JOIN qals
+          ON qals~plnnr = plas~plnnr
+          AND qals~plnal = plas~plnal
+          WHERE plpo~loekz <> 'X'
+*        AND plmk~verwmerkm = lt_qamv-verwmerkm
+          AND plpo~plnty = 'Q'
+          AND crhd~arbpl = p_lang
+          AND qals~plnty = 'Q'
+          AND qals~prueflos = ls_qals-prueflos
+          AND plmk~loekz <> 'X'.
+
+          IF lt_check IS INITIAL.
+            CLEAR lt_check.
+            CONTINUE.
+          ELSE.
+            READ TABLE lt_check INTO ls_check WITH KEY verwmerkm = ls_qamv2-verwmerkm
+                                                       pmethode = ls_qamv2-pmethode.
+            IF sy-subrc <> 0.
+              CLEAR ls_check.
+              CONTINUE.
+            ENDIF.
+          ENDIF.
+
+          gs_alv-merknr = ls_qamv2-merknr.
+***********02.12.2019 21:00:23结束修改**********
 
 
           MOVE-CORRESPONDING ls_qals TO gs_alv.
@@ -497,6 +685,8 @@ FORM frm_get_data .
                 unit_not_found = 1
                 OTHERS         = 2.
           ENDIF.
+
+
 
           READ TABLE  lt_mara INTO ls_mara WITH KEY matnr = ls_qals-matnr.  " 将物料表字段赋予
           IF sy-subrc = 0 .
@@ -550,7 +740,7 @@ FORM frm_get_data .
           IF sy-subrc = 0 .
 
             MOVE-CORRESPONDING ls_qpmk TO gs_alv.
-
+            gs_alv-merknr = ls_qamv2-merknr.
           ENDIF.
 
           READ TABLE lt_tq11t INTO ls_tq11t WITH KEY prfql = gs_alv-prfql.  "将TQ11T 表字段赋予
@@ -565,16 +755,38 @@ FORM frm_get_data .
           sprache = '1'.  "将QPMT 表字段赋予,规定标准，对应语言ZH
           IF sy-subrc = 0 .
 
-            gs_alv-ltextkz1 = ls_qpmt-kurztext.
-          ENDIF.
+            IF ls_qpmt-ltextkz = 'X'.
+              "读取主检验特征长文本
 
+              lv_name = sy-mandt && gs_alv-werk && |{ gs_alv-mkmnr PAD = ' ' WIDTH = 8 }| && gs_alv-version && sy-langu.
+
+              PERFORM frm_read_text USING 'QPMT' 'QPMERKMAL' lv_name sy-langu
+                                    CHANGING gs_alv-ltextkz1.
+            ELSE.
+              "读取短文本
+              gs_alv-ltextkz1 = ls_qpmt-kurztext.
+            ENDIF.
+
+          ENDIF.
+          gs_alv-qdynregel = ls_qamv2-qdynregel.
           READ TABLE lt_qpmt INTO ls_qpmt WITH KEY zaehler  = gs_alv-zaehler
           mkmnr = gs_alv-mkmnr
           version = gs_alv-version
           sprache = 'E'.  "将QPMT 表字段赋予,规定标准(EN ) ，对应语言EN
           IF sy-subrc = 0 .
 
-            gs_alv-ltextkz5 = ls_qpmt-kurztext.
+            IF ls_qpmt-ltextkz = 'X'.
+              "读取主检验特征长文本
+
+              lv_name = sy-mandt && gs_alv-werk && |{ gs_alv-mkmnr PAD = ' ' WIDTH = 8 }| && gs_alv-version && sy-langu.
+
+              PERFORM frm_read_text USING 'QPMT' 'QPMERKMAL' lv_name sy-langu
+                                    CHANGING gs_alv-ltextkz5.
+            ELSE.
+              "读取短文本
+              gs_alv-ltextkz5 = ls_qpmt-kurztext.
+            ENDIF.
+
           ENDIF.
 
 
@@ -584,7 +796,18 @@ FORM frm_get_data .
           sprache = 'Z'.  "将QPMT 表字段赋予,内控标准，对应语言Z1
           IF sy-subrc = 0 .
 
-            gs_alv-ltextkz2 = ls_qpmt-kurztext.
+            IF ls_qpmt-ltextkz = 'X'.
+              "读取主检验特征长文本
+
+              lv_name = sy-mandt && gs_alv-werk && |{ gs_alv-mkmnr PAD = ' ' WIDTH = 8 }| && gs_alv-version && sy-langu.
+
+              PERFORM frm_read_text USING 'QPMT' 'QPMERKMAL' lv_name sy-langu
+                                    CHANGING gs_alv-ltextkz2.
+            ELSE.
+              "读取短文本
+              gs_alv-ltextkz2 = ls_qpmt-kurztext.
+            ENDIF.
+
           ENDIF.
 
 
@@ -593,7 +816,18 @@ FORM frm_get_data .
           version = gs_alv-pmtversion.   "将QMTT 表字段赋予,检验方法
           IF sy-subrc = 0 .
 
-            gs_alv-ltextkz3 = ls_qmtt-kurztext.
+            IF ls_qmtt-ltextkz = 'X'.
+
+              lv_name = sy-mandt && gs_alv-werk && |{ gs_alv-pmethode PAD = ' ' WIDTH = 8 }| && gs_alv-pmtversion && sy-langu.
+              "读取检验方法长文本
+              PERFORM frm_read_text USING 'QMTT' 'QPMETHODE' lv_name sy-langu
+                                  CHANGING gs_alv-ltextkz3.
+            ELSE.
+              "读取短文本
+              gs_alv-ltextkz3 = ls_qmtt-kurztext.
+            ENDIF.
+
+
           ENDIF.
 
           READ TABLE lt_t001l INTO ls_t001l  WITH KEY lgort = gs_alv-lagortchrg     "将库存地点描述表字段赋予
@@ -617,6 +851,23 @@ FORM frm_get_data .
 
           IF gs_alv-matnr IS NOT INITIAL.
             IF gs_alv-charg IS NOT INITIAL.
+*&---------------------------------------------------------------------*
+*& 程序名：ZQMR008_F01
+*&作者：Seashell Huang
+*&模块：
+*&创建日期：05.11.2019 18:13:23
+*&功能描述：
+*&---------------------------------------------------------------------*
+*&修改记录：获取供应商批次
+*&---------------------------------------------------------------------*
+              SELECT SINGLE
+                licha
+              INTO gs_alv-zlicha
+              FROM mcha
+              WHERE mcha~matnr = gs_alv-matnr
+              AND mcha~charg = gs_alv-charg
+              AND mcha~werks = s_werk.
+
 **          获取物料的批次信息  -- 包装规格 长批号 开箱数 到货日期 生产日期 有效日期
               CALL FUNCTION 'VB_BATCH_2_CLASS_OBJECT'
                 EXPORTING
@@ -649,6 +900,7 @@ FORM frm_get_data .
                     return          = lt_return.
                 IF lt_return IS NOT INITIAL AND lt_return[ 1 ]-type = 'S'.
                   DATA lv_date TYPE n LENGTH 8.
+
 ***              包装规格
 
                   IF gs_alv-mtart = 'Z010' OR gs_alv-mtart = 'Z020'.
@@ -675,17 +927,47 @@ FORM frm_get_data .
                   ENDIF.
 
 
+*&---------------------------------------------------------------------*
+*& 程序名：ZQMR008_F01
+*&作者：Seashell Huang
+*&模块：
+*&创建日期：05.11.2019 15:52:38
+*&功能描述：
+*&---------------------------------------------------------------------*
+*&修改记录：修改打印包装批号的取数方式,具体内容如下：
+*                  字段打印包装批号：
+*                  原辅料、包材、半成品：
+*                  输出分类022 类ZBATCH_SIRIO，字段ZCHARGL的值
+*&
+*&---------------------------------------------------------------------*
+
+****              打印包装批号
+*                  CLEAR ls_allocvalueschar.
+*                  READ TABLE lt_allocvalueschar WITH KEY charact = 'ZPACK_CHARG' INTO ls_allocvalueschar.
+*                  IF sy-subrc = 0.
+*                    gs_alv-zpack_charg = ls_allocvalueschar-value_char.  "打印包装批号,分类类BATCH_CP
+*                  ENDIF.
+*
+*                  READ TABLE lt_allocvalueschar WITH KEY charact = 'Z_BATCH_DYPC' INTO ls_allocvalueschar.
+*                 IF sy-subrc = 0.
+*                 gs_alv-zpack_charg = ls_allocvalueschar-value_char.  "打印包装批号，分类类BATCH_CP
+*                 ENDIF.
 
 ***              打印包装批号
-                  CLEAR ls_allocvalueschar.
-                  READ TABLE lt_allocvalueschar WITH KEY charact = 'ZPACK_CHARG' INTO ls_allocvalueschar.
-                  IF sy-subrc = 0.
-                    gs_alv-zpack_charg = ls_allocvalueschar-value_char.  "打印包装批号,分类类BATCH_CP
-                  ENDIF.
 
-                  READ TABLE lt_allocvalueschar WITH KEY charact = 'Z_BATCH_DYPC' INTO ls_allocvalueschar.
-                  IF sy-subrc = 0.
-                    gs_alv-zpack_charg = ls_allocvalueschar-value_char.  "打印包装批号，分类类BATCH_CP
+                  "判断物料类型是否是原辅料、包材、半成品
+                  IF gs_alv-mtart = 'Z010' OR gs_alv-mtart = 'Z020' OR gs_alv-mtart = 'Z030'.
+                    READ TABLE lt_allocvalueschar WITH KEY charact = 'ZCHARGL' INTO ls_allocvalueschar.
+                    IF sy-subrc = 0.
+                      gs_alv-zpack_charg = ls_allocvalueschar-value_char.  "打印包装批号，分类类BATCH_CP
+                    ENDIF.
+                  ELSEIF  gs_alv-mtart = 'Z050'.
+                    READ TABLE lt_allocvalueschar WITH KEY charact = 'Z_BATCH_DYPC' INTO ls_allocvalueschar.
+                    IF sy-subrc = 0.
+                      gs_alv-zpack_charg = ls_allocvalueschar-value_char.  "打印包装批号，分类类BATCH_CP
+                    ENDIF.
+                  ELSE.
+                    gs_alv-zpack_charg = ''.
                   ENDIF.
 
 ***              ZLWEDT 到货日期
@@ -699,44 +981,86 @@ FORM frm_get_data .
                 ENDIF.
               ENDIF.
 
-*   判断90天内同一供应商批号非首次到货
-              DATA: lv_cnt TYPE i.
-              LOOP AT lt_mseg INTO ls_mseg WHERE  matnr = gs_alv-matnr     "看下取多少条数据
-              AND   werks = gs_alv-werk
-              AND    charg = gs_alv-charg
-              AND    lifnr = gs_alv-sellifnr.
-                lv_cnt = lv_cnt + 1.
-
-              ENDLOOP.
-
-              " 比较日期 长度
-              DATA: tday TYPE i.
-              DATA: tday2 TYPE d.
-              CALL FUNCTION 'FIMA_DAYS_AND_MONTHS_AND_YEARS'
-                EXPORTING
-                  i_date_from = gs_alv-zlwedt
-                  i_date_to   = sy-datum
-                IMPORTING
-                  e_days      = tday.
-
-              IF tday <= 90 AND lv_cnt >= 2.
-                gs_alv-ltextkz4 = '是'.
+*&---------------------------------------------------------------------*
+*& 程序名：ZQMR008_F01
+*&作者：Seashell Huang
+*&模块：
+*&创建日期：05.11.2019 16:18:55
+*&功能描述：
+*&---------------------------------------------------------------------*
+*&修改记录：修改是否首次到货的取数逻辑
+*              90天内同一供应商批号是否首次到货：
+*              MCHA表中，通过物料+供应商批号,根据创建日期进行排序，
+*              IF TODAY-创建日期>90,输出否，IF TODAY-创建日期<=90，
+*              第一条为是，其余条目为否
+*&---------------------------------------------------------------------*
+              "判断供应商批次是否为空的，如果是空的，“是否供应商批次非首次”留空
+              IF gs_alv-zlicha IS INITIAL.
+                gs_alv-ltextkz4 = ''.
               ELSE.
-                gs_alv-ltextkz4 = '否'.
+                "如果供应商批次不为空的话
+                "首先先从MCHA取出所有物料、供应商批次对应的数据，按照创建日期进行排序
+                SELECT
+                ersda
+                charg
+                INTO CORRESPONDING FIELDS OF TABLE lt_mcha
+                FROM mcha
+                WHERE mcha~matnr = gs_alv-matnr
+                AND mcha~licha = gs_alv-zlicha
+                ORDER BY ersda charg.
+                "然后检查对应的物料、SAP批次和工厂，然后和上面的内表中的第一条数据进行对比，如果相等的话是首次，否则是非首次
+                READ TABLE lt_mcha INTO ls_mcha2 INDEX 1.
+                SELECT SINGLE
+                ersda"创建日期
+                charg
+                INTO CORRESPONDING FIELDS OF ls_mcha
+                FROM mcha
+                WHERE mcha~matnr = gs_alv-matnr
+                AND mcha~werks = gs_alv-werk
+                AND mcha~charg = gs_alv-charg.
+                IF ls_mcha-ersda = ls_mcha2-ersda AND ls_mcha-charg = ls_mcha2-charg AND sy-datum - ls_mcha2-ersda <= 90 .
+*                  ls_all-zflag2 = '首次'.
+                  gs_alv-ltextkz4 = '是'.
+
+                ELSE.
+*                  ls_all-zflag2 = '非首次'.
+                  gs_alv-ltextkz4 = '否'.
+                ENDIF.
               ENDIF.
+
+
+
+
+**   判断90天内同一供应商批号非首次到货
+*              DATA: lv_cnt TYPE i.
+*              LOOP AT lt_mseg INTO ls_mseg WHERE  matnr = gs_alv-matnr     "看下取多少条数据
+*              AND   werks = gs_alv-werk
+*              AND    charg = gs_alv-charg
+*              AND    lifnr = gs_alv-sellifnr.
+*                lv_cnt = lv_cnt + 1.
+*
+*              ENDLOOP.
+*
+*              " 比较日期 长度
+*              DATA: tday TYPE i.
+*              DATA: tday2 TYPE d.
+*              CALL FUNCTION 'FIMA_DAYS_AND_MONTHS_AND_YEARS'
+*                EXPORTING
+*                  i_date_from = gs_alv-zlwedt
+*                  i_date_to   = sy-datum
+*                IMPORTING
+*                  e_days      = tday.
+*
+*              IF tday <= 90 AND lv_cnt >= 2.
+*                gs_alv-ltextkz4 = '是'.
+*              ELSE.
+*                gs_alv-ltextkz4 = '否'.
+*              ENDIF.
 
             ENDIF.
           ENDIF.
 
-          " 去除物料前面的零
-          CALL FUNCTION 'CONVERSION_EXIT_ALPHA_OUTPUT'
-            EXPORTING
-              input  = gs_alv-matnr
-            IMPORTING
-              output = gs_alv-matnr.
-*   EXCEPTIONS
-*     LENGTH_ERROR       = 1
-*     OTHERS             = 2
+
 
 
           "覆盖掉QPMK里面的字段
@@ -761,7 +1085,7 @@ FORM frm_get_data .
           READ TABLE lt_t006a INTO ls_t006a  WITH KEY msehi = ls_qpmk-masseinhsw.
 
           IF sy-subrc = 0 .
-            gs_alv-msehi = ls_t006a-mseh6.
+            gs_alv-msehi = ls_t006a-msehl.
           ENDIF.
 
 
@@ -771,27 +1095,61 @@ FORM frm_get_data .
 *      version = ls_qamv2-pmtversion.
           SELECT SINGLE
             kurztext
+            ltextkz
+            werks
+            pmtnr
+            version
           INTO CORRESPONDING FIELDS OF ls_qmtt
           FROM qmtt
           WHERE pmtnr = ls_qamv2-pmethode
-            AND version = ls_qamv2-pmtversion.
+            AND version = ls_qamv2-pmtversion
+            AND werks = ls_qamv2-qmtb_werks. "20191209 新增
 
           IF ls_qmtt IS NOT INITIAL.
-            gs_alv-ltextkz3 = ls_qmtt-kurztext.
+
+            IF ls_qmtt-ltextkz = 'X'.
+
+              lv_name = sy-mandt && ls_qmtt-werks && |{ ls_qmtt-pmtnr PAD = ' ' WIDTH = 8 }| && gs_alv-version && sy-langu.
+              "读取检验方法长文本
+              PERFORM frm_read_text USING 'QMTT' 'QPMETHODE' lv_name sy-langu
+                                  CHANGING gs_alv-ltextkz3.
+            ELSE.
+              "读取短文本
+              gs_alv-ltextkz3 = ls_qmtt-kurztext.
+            ENDIF.
+
           ENDIF.
 
           "覆盖掉规定标准ZH
           CLEAR ls_qpmt.
           SELECT SINGLE
+            zaehler
             kurztext
+            ltextkz
+            mkmnr
+            version
           INTO CORRESPONDING FIELDS OF ls_qpmt
           FROM qpmt
           WHERE qpmt~sprache = '1'
           AND qpmt~version = ls_qamv2-mkversion
           AND qpmt~mkmnr = ls_qamv2-verwmerkm
-          AND qpmt~zaehler = gs_alv-zaehler.
+          AND qpmt~zaehler = ls_qamv2-qpmk_werks.
 
-          gs_alv-ltextkz1 = ls_qpmt-kurztext.
+
+          IF ls_qpmt-ltextkz = 'X'.
+            "读取主检验特征长文本 20191206
+
+            lv_name = sy-mandt && ls_qpmt-zaehler && |{ ls_qpmt-mkmnr PAD = ' ' WIDTH = 8 }| && ls_qpmt-version && sy-langu.
+
+            PERFORM frm_read_text USING 'QPMT' 'QPMERKMAL' lv_name sy-langu
+                                  CHANGING gs_alv-ltextkz1.
+          ELSE.
+            "读取短文本
+            gs_alv-ltextkz1 = ls_qpmt-kurztext.
+          ENDIF.
+
+
+*          gs_alv-ltextkz1 = ls_qpmt-kurztext.
 
 
           "覆盖掉内控标准
@@ -803,9 +1161,21 @@ FORM frm_get_data .
           WHERE qpmt~sprache = 'Z'
           AND qpmt~version = ls_qamv2-mkversion
           AND qpmt~mkmnr = ls_qamv2-verwmerkm
-          AND qpmt~zaehler = gs_alv-zaehler.
+          AND qpmt~zaehler = ls_qamv2-qpmk_werks.
 
-          gs_alv-ltextkz2 = ls_qpmt-kurztext.
+          IF ls_qpmt-ltextkz = 'X'.
+            "读取主检验特征长文本 20191206
+
+            lv_name = sy-mandt && ls_qpmt-zaehler && |{ ls_qpmt-mkmnr PAD = ' ' WIDTH = 8 }| && ls_qpmt-version && sy-langu.
+
+            PERFORM frm_read_text USING 'QPMT' 'QPMERKMAL' lv_name sy-langu
+                                  CHANGING gs_alv-ltextkz2.
+          ELSE.
+            "读取短文本
+            gs_alv-ltextkz2 = ls_qpmt-kurztext.
+          ENDIF.
+
+
 
           "覆盖掉规定标准EN
           CLEAR ls_qpmt.
@@ -816,63 +1186,108 @@ FORM frm_get_data .
           WHERE qpmt~sprache = 'E'
           AND qpmt~version = ls_qamv2-mkversion
           AND qpmt~mkmnr = ls_qamv2-verwmerkm
-          AND qpmt~zaehler = gs_alv-zaehler.
+          AND qpmt~zaehler = ls_qamv2-qpmk_werks.
 
-          gs_alv-ltextkz5 = ls_qpmt-kurztext.
+          IF ls_qpmt-ltextkz = 'X'.
+            "读取主检验特征长文本 20191206
 
+            lv_name = sy-mandt && ls_qpmt-zaehler && |{ ls_qpmt-mkmnr PAD = ' ' WIDTH = 8 }| && ls_qpmt-version && sy-langu.
+
+            PERFORM frm_read_text USING 'QPMT' 'QPMERKMAL' lv_name sy-langu
+                                  CHANGING gs_alv-ltextkz5.
+          ELSE.
+            "读取短文本
+            gs_alv-ltextkz5 = ls_qpmt-kurztext.
+          ENDIF.
+
+
+
+
+
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：02.12.2019 16:28:03
+*&---------------------------------------------------------------------*
+*&修改记录：修改接检日期
+*&---------------------------------------------------------------------*
+          "覆盖接检日期
+          CLEAR gs_alv-aendt.
+          SELECT SINGLE
+            frgdt
+          INTO gs_alv-aendt
+          FROM qprn
+          WHERE qprn~plos = gs_alv-prueflos
+            AND qprn~frgna NE '' .    "   20191206取下达人不为空的
+*********************修改结束位置02.12.2019 16:31:16*************
 
 *         检验岗位编码转为文本
           READ TABLE lt_tq11t INTO ls_tq11t WITH KEY prfql = gs_alv-prfql.  "将TQ11T 表字段赋予
           IF sy-subrc = 0 .
 
             gs_alv-prfql = ls_tq11t-pqtxt.
-          ENDIF.
 
+*          ENDIF. 20191207 top
 
+            READ TABLE lt_check INTO ls_check WITH KEY prueflos = gs_alv-prueflos
+                                                       charg = gs_alv-charg
+                                                       matnr = gs_alv-matnr.
+            IF sy-subrc <> 0.
+              CLEAR ls_check.
+              CONTINUE.
+            ENDIF.
 *          APPEND gs_alv TO gt_alv.
 *
 *        CLEAR gs_alv.
 *判断是否打印
-          DATA(temp) = gs_alv-steuerkz+25(1).
+            DATA(temp) = gs_alv-steuerkz+25(1).
 
-          IF temp = ''.
-            gs_alv-print = '1'.
-          ELSEIF temp = 'X'.
-            gs_alv-print = '2'.
-          ELSEIF temp = '*'.
-            gs_alv-print = '3'.
-          ENDIF.
-
-
-
-          "  判断取样状态 ，取数 20191025 waymon
-          READ TABLE lt_obtyp INTO ls_obtyp WITH KEY plos2 = gs_alv-prueflos.
-
-          IF s_lsbox IS NOT INITIAL.
-            IF s_lsbox = '10'.
-
-              IF ls_obtyp-stat = 'I0002'.
-
-*          gs_alv-obtyp = ls_obtyp-obtyp.
-                APPEND gs_alv TO gt_alv.
-
-              ENDIF.
-            ELSEIF s_lsbox = '20'.
-
-              IF ls_obtyp-stat <> 'I0002'.
-*          gs_alv-obtyp = ls_obtyp-obtyp.
-                APPEND gs_alv TO gt_alv.
-              ENDIF.
-
+            IF temp = ''.
+              gs_alv-print = '1'.
+            ELSEIF temp = 'X'.
+              gs_alv-print = '2'.
+            ELSEIF temp = '*'.
+              gs_alv-print = '3'.
             ENDIF.
-          ELSE.
-            APPEND gs_alv TO gt_alv.
-          ENDIF.
+            " 去除物料前面的零
+            CALL FUNCTION 'CONVERSION_EXIT_ALPHA_OUTPUT'
+              EXPORTING
+                input  = gs_alv-matnr
+              IMPORTING
+                output = gs_alv-matnr.
+
+
+            "  判断取样状态 ，取数 20191025 waymon
+            READ TABLE lt_obtyp INTO ls_obtyp WITH KEY plos2 = gs_alv-prueflos.
+
+            IF s_lsbox IS NOT INITIAL.
+              IF s_lsbox = '10'.
+
+                IF ls_obtyp-stat = 'I0002'.
+
+*          gs_alv-obtyp = ls_obtyp-obtyp.
+                  APPEND gs_alv TO gt_alv.
+
+                ENDIF.
+              ELSEIF s_lsbox = '20'.
+
+                IF ls_obtyp-stat <> 'I0002'.
+*          gs_alv-obtyp = ls_obtyp-obtyp.
+                  APPEND gs_alv TO gt_alv.
+                ENDIF.
+
+              ENDIF.
+            ELSE.
+              APPEND gs_alv TO gt_alv.
+            ENDIF.
+
+          ENDIF." 20191207 end
 
           CLEAR gs_alv.       "  判断取样状态 ，取数 20191025 waymon
-
+          CLEAR ls_qamv2.
+          CLEAR ls_qamv.
         ENDLOOP.
-
+        SORT gt_alv BY prueflos merknr.
+*        DELETE ADJACENT DUPLICATES FROM gt_alv COMPARING ALL FIELDS.
       ENDIF.
     ENDIF.
 
@@ -903,6 +1318,7 @@ FORM frm_dis_alv .
 
 
   macro_fill_fcat:
+  l_colpos 'PN_NR'    '取样编号'     '' ' ' ' ' '' '' '',
   l_colpos 'AENDT'    '接检日期'     '' ' ' ' ' '' '' '',
   l_colpos 'PAENDTERM'    '预计完成日期'     '' ' ' ' ' 'QALS' 'PAENDTERM' 'X',
   l_colpos 'MPDAU'    '平均检验期'     '' ' ' ' ' '' '' '',
@@ -917,6 +1333,7 @@ FORM frm_dis_alv .
   l_colpos 'GROES'    '规格型号'     '' ' ' ' ' '' '' '',
   l_colpos 'ZPACK_STA'    '包装规格'     '' ' ' ' ' '' '' '',
   l_colpos 'PRFQL'    '检验岗位'     '' ' ' ' ' '' '' '',
+  l_colpos 'QDYNREGEL'    '动态修改规则'     '' ' ' ' ' '' '' '',
   l_colpos 'DUMMY40'    '检验项目'     '' ' ' ' ' '' '' '',
   l_colpos 'MSEHI'    '计量单位'     '' ' ' ' ' '' '' '',
   l_colpos 'LTEXTKZ1'    '规定标准'     '' ' ' ' ' '' '' '',
@@ -1010,6 +1427,46 @@ FORM frm_authority_check.
   ELSE.
     MESSAGE '有权限' TYPE 'S'.
     gv_sel_error = ''.
+  ENDIF.
+
+ENDFORM.
+
+
+FORM frm_read_text USING id TYPE thead-tdid
+                         object TYPE thead-tdobject
+                         name TYPE thead-tdname
+                         langu TYPE thead-tdspras
+                   CHANGING ret TYPE char200.
+  ret = ''.
+  DATA: lt_tline TYPE TABLE OF tline.
+
+  CALL FUNCTION 'READ_TEXT'
+    EXPORTING
+      client                  = sy-mandt
+      id                      = id
+      language                = langu
+      name                    = name
+      object                  = object
+*     ARCHIVE_HANDLE          = 0
+*     LOCAL_CAT               = ' '
+*   IMPORTING
+*     HEADER                  =
+*     OLD_LINE_COUNTER        =
+    TABLES
+      lines                   = lt_tline
+    EXCEPTIONS
+      id                      = 1
+      language                = 2
+      name                    = 3
+      not_found               = 4
+      object                  = 5
+      reference_check         = 6
+      wrong_access_to_archive = 7
+      OTHERS                  = 8.
+  IF sy-subrc EQ 0.
+    LOOP AT lt_tline ASSIGNING FIELD-SYMBOL(<fs_line>).
+      ret = ret && <fs_line>-tdline.
+    ENDLOOP.
   ENDIF.
 
 ENDFORM.

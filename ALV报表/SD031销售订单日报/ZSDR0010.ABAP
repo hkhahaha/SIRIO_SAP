@@ -49,7 +49,7 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         zcpgg          TYPE    vbap-zcpgg  , "  规格型号
         zbzgg          TYPE    vbap-zbzgg  , "  包装规格
         meins(10)      TYPE    c, "  基本计量单位
-        kwmeng(12)     TYPE    i , "  销售数量
+        kwmeng         TYPE    vbap-kwmeng , "  销售数量
         zypsl          TYPE    vbap-zypsl  , "  样品数量
         vrkme(10)      TYPE    c, "  销售单位
         mwsbp          TYPE    vbap-mwsbp  , "  销项税额
@@ -92,11 +92,12 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         zson           TYPE vbap-matnr, "子件
         zsondetail(60) TYPE c, "子件描述
         zmeins         TYPE mara-meins, "子件的单位
-        zsum           TYPE p DECIMALS 3, "铝盒装子件销售数量
+        zsum           TYPE vbap-kwmeng, "铝盒装子件销售数量
         partner        TYPE string, "实际客户的业务员
-        zsum2          TYPE p DECIMALS 3, "礼合装基本子件数量
+        zsum2          TYPE vbap-kwmeng, "礼合装基本子件数量
         udate          TYPE jcds-udate, "二审日期
         zmeng          TYPE vbap-zmeng, "目标数量
+        kpein          TYPE prcd_elements-kpein, "定价单位
 
       END OF ty_all.
 TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
@@ -145,25 +146,25 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zappsou2(70)   TYPE    c      , "  批文来源2
         zcotype        TYPE    string      , "  合作类型
         meins(10)      TYPE    c, "  基本计量单位
-        number         TYPE    p DECIMALS 3      , "  基本计量数量
-        kwmeng         TYPE    p DECIMALS 3 , "  销售数量
+        number(13)         TYPE   P DECIMALS 3   , "  基本计量数量
+        kwmeng         TYPE    vbap-kwmeng , "  销售数量
         zypsl(40)      TYPE    c  , "  样品数量
         vrkme(10)      TYPE    c, "  销售单位
-        kbetr          TYPE    p DECIMALS 2     , "  含税单价
-        kwert          TYPE    p DECIMALS 3      , "  折扣率
+        kbetr          TYPE    vbap-netwr     , "  含税单价
+        kwert          TYPE    vbap-netwr      , "  折扣率
         mwsbp2         TYPE    vbap-mwsbp  , "  折扣金额
-        kwertdis       TYPE    p DECIMALS 2     , "  税率
+        kwertdis       TYPE    vbap-kwmeng     , "  税率
         mwsbp          TYPE    vbap-mwsbp  , "  销项税额
         netwr          TYPE    vbap-netwr  , "  不含税金额
-        priceall       TYPE    string      , "  价税合计
+        priceall       TYPE    vbap-netwr    , "  价税合计
         zdytk(10)      TYPE    c  , "  短溢条款
         zysjhq         TYPE    vbap-zysjhq , "  客户要求交货日期
         zatpdfrq       TYPE    vbap-zatpdfrq, "  ATP答复日期
         znbjhq         TYPE    vbap-znbjhq , "  实际交货日期
-        innum          TYPE    p DECIMALS 3, "  入库量
-        innum2         TYPE    p DECIMALS 3, "  入库量
-        outnum         TYPE    p DECIMALS 3      , "  出库量
-        invoice        TYPE    p DECIMALS 3      , "  开票量
+        innum          TYPE    vbap-kwmeng, "  入库量
+        innum2         TYPE    vbap-kwmeng, "  入库量
+        outnum         TYPE    vbap-kwmeng  , "  出库量
+        invoice        TYPE    vbap-kwmeng  , "  开票量
         invoiced       TYPE    string      , "  开票日期
         zsfxbz         TYPE    string , "  新包装
         zsfxcp         TYPE    string , "  新产品
@@ -180,7 +181,8 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zbomqq         TYPE    vbap-zbomqq , "  BOM欠缺物料
         zblxy          TYPE    vbak-zblxy  , "  是否有备料协议
         zsfxkh         TYPE    vbak-zsfxkh , "  新客户
-        pronote        TYPE    string      , "  生产相关文本
+        pronote(300)   TYPE    c      , "  生产相关文本
+        pronote2(300)  TYPE    c      , "  生产相关文本2
         salenot        TYPE    string      , "  销售文本
         voicenot       TYPE    string      , "  发票文本
         invoicenote    TYPE string         , "  开票文本
@@ -194,13 +196,14 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zson           TYPE vbap-matnr, "子件
         zsondetail(60) TYPE c, "子件描述
         zmeins(10)     TYPE c, "子件的单位
-        zsum           TYPE p DECIMALS 3, "礼盒装子件销售数量
-        zsum2          TYPE p DECIMALS 3, "礼合装基本子件数量
+        zsum           TYPE vbap-kwmeng, "礼盒装子件销售数量
+        zsum2          TYPE vbap-kwmeng, "礼合装基本子件数量
         erdat          TYPE vbak-erdat, "创建日期
         udate          TYPE jcds-udate, "二审日期
         wadat_ist      TYPE likp-wadat_ist, "首个交货日期
         zmeng          TYPE vbap-zmeng, "目标数量
         chgnr          TYPE jcds-chgnr,
+        kpein          TYPE prcd_elements-kpein, "定价单位
       END OF ty_out.
 
 ***********  ALV 定义 **********************************************
@@ -843,6 +846,7 @@ FORM getdata.
     SELECT SINGLE
       kbetr"含税单价
       kwert"含税金额
+      prcd_elements~kpein"定价单位
     INTO CORRESPONDING FIELDS OF ls_prcd_elements
     FROM prcd_elements
     INNER JOIN vbak
@@ -854,7 +858,8 @@ FORM getdata.
     AND prcd_elements~kinak = ''
     AND vbap~posnr = ls_all-posnr.
     ls_out-kbetr = ls_prcd_elements-kbetr.
-
+    "定价单位
+    ls_out-kpein = ls_prcd_elements-kpein.
     "折扣金额
     ls_out-mwsbp2 = ls_prcd_elements-kwert - ls_all-netwr - ls_all-mwsbp.
     "折扣率
@@ -1034,8 +1039,11 @@ FORM getdata.
     IF sy-subrc <> 0.
 * Implement suitable error handling here
     ENDIF.
-    READ TABLE lt_lines INTO ls_lines INDEX 1.
-    ls_out-pronote = ls_lines-tdline.
+    LOOP AT lt_lines INTO ls_lines.
+      ls_out-pronote = ls_out-pronote && ls_lines-tdline.
+      ls_out-pronote2 = ls_out-pronote+129(128).
+      CLEAR ls_lines.
+    ENDLOOP.
     CLEAR ls_lines.
     CLEAR  lt_lines.
     "生产行项目备注
@@ -1066,8 +1074,11 @@ FORM getdata.
     IF sy-subrc <> 0.
 * Implement suitable error handling here
     ENDIF.
-    READ TABLE lt_lines INTO ls_lines INDEX 1.
-    ls_out-note = ls_lines-tdline.
+    LOOP AT lt_lines INTO ls_lines.
+      ls_out-note = ls_out-note && ls_lines-tdline.
+      CLEAR ls_lines.
+    ENDLOOP.
+
     CLEAR ls_lines.
     CLEAR  lt_lines.
     CLEAR i_name.
@@ -1099,8 +1110,11 @@ FORM getdata.
     IF sy-subrc <> 0.
 * Implement suitable error handling here
     ENDIF.
-    READ TABLE lt_lines INTO ls_lines INDEX 1.
-    ls_out-salenot = ls_lines-tdline.
+*    READ TABLE lt_lines INTO ls_lines INDEX 1.
+*    ls_out-salenot = ls_lines-tdline.
+    LOOP AT lt_lines INTO ls_lines.
+      ls_out-salenot = ls_out-salenot && ls_lines-tdline.
+    ENDLOOP.
     CLEAR ls_lines.
     CLEAR  lt_lines.
     "发货文本
@@ -1130,8 +1144,11 @@ FORM getdata.
     IF sy-subrc <> 0.
 * Implement suitable error handling here
     ENDIF.
-    READ TABLE lt_lines INTO ls_lines INDEX 1.
-    ls_out-voicenot = ls_lines-tdline.
+*    READ TABLE lt_lines INTO ls_lines INDEX 1.
+*    ls_out-voicenot = ls_lines-tdline.
+    LOOP AT lt_lines INTO ls_lines.
+      ls_out-voicenot = ls_out-voicenot && ls_lines-tdline.
+    ENDLOOP.
     CLEAR ls_lines.
     CLEAR  lt_lines.
     "开票文本
@@ -1161,8 +1178,11 @@ FORM getdata.
     IF sy-subrc <> 0.
 * Implement suitable error handling here
     ENDIF.
-    READ TABLE lt_lines INTO ls_lines INDEX 1.
-    ls_out-invoicenote = ls_lines-tdline.
+*    READ TABLE lt_lines INTO ls_lines INDEX 1.
+*    ls_out-invoicenote = ls_lines-tdline.
+    LOOP AT  lt_lines INTO ls_lines.
+      ls_out-invoicenote = ls_out-invoicenote && ls_lines-tdline.
+    ENDLOOP.
     CLEAR ls_lines.
     CLEAR  lt_lines.
     "订单类型取描述
@@ -1498,6 +1518,7 @@ FORM catalog.
   fieldcatset 'AUGRU'   '订单原因' sy-tabix.
   fieldcatset 'VBELN'   '单据号Serial Number' sy-tabix.
   fieldcatset 'PRONOTE'   '生产相关文本Comment' sy-tabix.
+  fieldcatset 'PRONOTE2'   '生产相关文本2Comment2' sy-tabix.
   fieldcatset 'VKORG'   '销售组织' sy-tabix.
   fieldcatset 'WERKS'   '工厂Factory' sy-tabix.
   fieldcatset 'VTWEG'   '分销渠道Area' sy-tabix.
@@ -1529,9 +1550,10 @@ FORM catalog.
   fieldcatset 'ZTERM'   '付款方式Terms of Payment' sy-tabix.
   fieldcatset 'WAERK'   '订单币种Currency' sy-tabix.
   fieldcatset 'KURSK'   '汇率Exchange Rate' sy-tabix.
-  fieldcatset 'KBETR'   '含税单价Unit price' sy-tabix.
-  fieldcatset 'KWERT'   '折扣率%Discount Rate' sy-tabix.
-  fieldcatset 'MWSBP2'   '折扣金额Discount' sy-tabix.
+  fieldcatset 'KBETR'   '折前单价Unit price' sy-tabix.
+  fieldcatset 'KPEIN'   '定价单位' sy-tabix.
+  fieldcatset 'KWERT'   '总折扣率%Discount Rate' sy-tabix.
+  fieldcatset 'MWSBP2'   '总折扣金额Discount' sy-tabix.
   fieldcatset 'KWERTDIS'   '税率Tax Rate' sy-tabix.
   fieldcatset 'MWSBP'   '销项税额' sy-tabix.
   fieldcatset 'NETWR'   '不含税金额Amount（Tax excluding）' sy-tabix.

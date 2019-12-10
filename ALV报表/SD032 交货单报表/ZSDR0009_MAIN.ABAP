@@ -203,7 +203,9 @@ FORM getdata.
           ON kna1~kunnr = vbak~kunnr
           FOR ALL ENTRIES IN @lt_main
           WHERE vbak~vbeln = @lt_main-vgbel
-          AND kna1~sortl IN @psortl.
+          AND kna1~sortl IN @psortl
+          AND vbak~vtweg IN @svtweg
+          AND vbak~vkorg IN @pvkorg.
 
 *    SELECT
 *      vbak~kunnr
@@ -237,6 +239,7 @@ FORM getdata.
         ls_main-kukla = ls_main2-kukla.
         ls_main-vtweg = ls_main2-vtweg.
         ls_main-zckgj = ls_main2-zckgj.
+        ls_main-vtweg = ls_main2-vtweg.
         "出口构架取描述
         SELECT SINGLE
           landx
@@ -287,6 +290,7 @@ FORM getdata.
       IF sy-subrc = 0.
         ls_out-zcustomertext = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
       ENDIF.
+      ls_out-vtweg = ls_main-vtweg.
       "贷方
       ls_out-cmgst = ls_main-cmgst.
       ls_out-zcustom = ls_main-kunag.
@@ -387,15 +391,39 @@ FORM getdata.
 *      ls_out-zhsdat = ls_material-date_from.
       CLEAR ls_material.
       " 打印批号
-      CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
+      DATA:lv_atinn TYPE ausp-atinn.
+      CALL FUNCTION 'CONVERSION_EXIT_ATINN_INPUT'
         EXPORTING
-          matnr  = ls_main-matnr
-          atnam  = 'ZPACK_CHARG'
-        TABLES
-          output = lt_material.
-      READ TABLE lt_material INTO ls_material INDEX 1.
-      ls_out-zpack_charg = ls_material-atwrt.
-      CLEAR ls_material.
+          input  = 'Z_BATCH_DYPC'
+        IMPORTING
+          output = lv_atinn.
+
+      SELECT SINGLE
+        atwrt
+        INTO ls_out-zpack_charg
+        FROM ausp
+        INNER JOIN mcha
+        ON ausp~objek = mcha~cuobj_bm
+        WHERE ausp~atinn = lv_atinn
+        AND ausp~klart = '022'
+        AND mcha~matnr = ls_main-matnr
+        AND mcha~charg = ls_main-charg
+        AND mcha~werks = ls_main-werks.
+
+
+
+*      CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
+*        EXPORTING
+*          matnr  = ls_main-matnr
+*          atnam  = 'Z_BATCH_DYPC'
+*        TABLES
+*          output = lt_material.
+*      READ TABLE lt_material INTO ls_material INDEX 1.
+*      ls_out-zpack_charg = ls_material-atwrt.
+*      CLEAR ls_material.
+
+
+
 
       "规格型号、物料小类编号、物料小类描述
       SELECT SINGLE
@@ -557,8 +585,11 @@ FORM getdata.
       IF sy-subrc <> 0.
 * Implement suitable error handling here
       ENDIF.
-      READ TABLE lines INTO ls_lines INDEX 1.
-      ls_out-z004 = ls_lines-tdline.
+*      READ TABLE lines INTO ls_lines INDEX 1.
+*      ls_out-z004 = ls_lines-tdline.
+      LOOP AT lines INTO ls_lines.
+        ls_out-z004 = ls_out-z004 && ls_lines-tdline.
+      ENDLOOP.
 
       "制单人
       CLEAR ls_adrp.
@@ -613,6 +644,23 @@ FORM getdata.
       ls_out-arktx = ls_main-arktx ."  产品名称
       ls_out-lfimg = ls_main-lfimg ."  销售数量
       ls_out-vrkme = ls_main-vrkme ."  销售单位
+      IF svtweg IS NOT INITIAL AND ls_out-vtweg IS INITIAL.
+        CLEAR ls_out.
+        CONTINUE.
+      ENDIF.
+      IF pvkorg IS NOT INITIAL AND ls_out-vkorg IS INITIAL.
+        CLEAR ls_out.
+        CONTINUE.
+      ENDIF.
+      "分销渠道取描述
+      SELECT SINGLE
+        vtext
+        INTO ls_out-vtweg2
+        FROM tvtwt
+        WHERE tvtwt~spras = '1'
+        AND   tvtwt~vtweg = ls_out-vtweg.
+
+
       CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
         EXPORTING
           input          = ls_main-vrkme
@@ -920,6 +968,7 @@ FORM getdata.
 
                 "礼合装子件销售数量
                 ls_out2-zsum = ( ls_stb-menge / ls_stko-bmeng ) * ls_out-baxssl.
+
                 MOVE-CORRESPONDING ls_out TO ls_out2.
                 APPEND ls_out2 TO lt_out2.
                 CLEAR ls_out2.
@@ -1012,6 +1061,8 @@ FORM catalog USING flag_b.
   fieldcatset   'WBSTA'   '交货单状态'   sy-tabix.
   fieldcatset   'WADAT'   '过账日期'    sy-tabix.
   fieldcatset   'VKORG'   '销售组织'    sy-tabix.
+  fieldcatset   'VTWEG'   '销售渠道'    sy-tabix.
+  fieldcatset   'VTWEG2'   '销售渠道描述'    sy-tabix.
   fieldcatset   'WERKS'   '工厂Factory'    sy-tabix.
   fieldcatset   'ERNAM'     '制单人Prepared by'   sy-tabix.
   fieldcatset   'VBELN'   '交货单Serial Number'   sy-tabix.
@@ -1056,7 +1107,7 @@ FORM catalog USING flag_b.
   fieldcatset   'ZYPSL'     '样品数量Sample QTY'    sy-tabix.
   fieldcatset   'KURSK'      '汇率'    sy-tabix.
   fieldcatset   'DDPPRICE'      'DDP价格DDP Price'   sy-tabix.
-  fieldcatset   'PERPRICE'      '折前单价Unit price'    sy-tabix.
+  fieldcatset   'PERPRICE'      '折后单价Unit price'    sy-tabix.
   fieldcatset   'DISCLV'      '折扣率Discount Rate'   sy-tabix.
   fieldcatset   'DISCNUM'     '折扣金额Discount'    sy-tabix.
   fieldcatset   'KBETR'     '税率(%)Tax Rate'    sy-tabix.

@@ -102,7 +102,7 @@ FORM getdata.
     FOR ALL ENTRIES IN lt_vbapk2
     WHERE mseg~mblnr = lt_vbapk2-mblnr
     AND mseg~zeile = lt_vbapk2-zeile
-    AND mseg~wempf <> '此单结束'.
+    AND mseg~wempf NOT LIKE '此单结束'.
 
   "获取MSEG表里面的数据，剔除行
   SELECT
@@ -153,7 +153,8 @@ FORM getdata.
     AND vbak~ernam IN s_ernam
     AND vbak~vbeln IN s_vbeln
     AND vbak~vkorg IN s_vkorg
-    AND vbak~vtweg IN s_vtweg.
+    AND vbak~vtweg IN s_vtweg
+    AND vbap~abgru <> ''.
 *    AND aufm~budat IN s_budat
 *    AND aufm~werks IN s_werks.
   LOOP AT lt_vbapk INTO ls_vbapk.

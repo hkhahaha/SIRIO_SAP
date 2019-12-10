@@ -28,6 +28,7 @@ TYPES:BEGIN OF ty_alv,
         etenr         TYPE  vbep-etenr, "计划行
         name_text     TYPE adrp-name_text, "用户名
         status2       TYPE string, "操作的详细信息
+        storage       TYPE p DECIMALS 3, "其他库存
       END OF ty_alv.
 
 "定义用于存储VBAP、VBAK、VBEP字段的结构

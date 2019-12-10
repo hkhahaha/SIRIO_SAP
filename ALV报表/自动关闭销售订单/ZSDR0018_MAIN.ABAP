@@ -109,7 +109,10 @@ FORM getdata.
     smbln
     smblp
     INTO CORRESPONDING FIELDS OF TABLE lt_mseg2
-    FROM mseg.
+    FROM mseg
+    FOR ALL ENTRIES IN lt_vbapk2
+    WHERE mseg~smbln = lt_vbapk2-mblnr
+    AND mseg~smblp = lt_vbapk2-zeile.
 
   "已经关闭的销售订单，VBEP
   SELECT
@@ -142,7 +145,7 @@ FORM getdata.
 *    INNER JOIN aufm
 *    ON aufm~kdauf = vbap~vbeln
 *    AND aufm~kdpos = vbap~posnr
-    WHERE vbap~kwmeng <= '1'
+    WHERE vbap~kwmeng <= '0.01'
     AND vbap~kwmeng > '0'
     AND vbak~auart LIKE 'ZA%'
     AND vbap~posnr IN s_posnr
@@ -236,7 +239,7 @@ FORM getdata.
     WHERE vbep~vbeln = lt_alv-vbeln
     AND vbep~posnr = lt_alv-posnr.
 
-  SORT lt_vbep BY vbeln posnr edatu DESCENDING.
+  SORT lt_vbep BY vbeln posnr edatu.
   MOVE-CORRESPONDING lt_alv TO lt_alv2.
 
   "取出全部的凭证类型描述
@@ -326,6 +329,10 @@ FORM getdata.
                                                 posnv = ls_alv-posnr
                                                 vbtyp_n = 'h' BINARY SEARCH.
       ls_alv-number1 = ( ls_alv-number1 - ls_vbfa-rfmng ) / ls_alv-rate.
+      IF ls_alv-number1 >= ls_alv-kwmeng.
+        CLEAR ls_alv.
+        CONTINUE.
+      ENDIF.
     ENDIF.
 
 *    MODIFY TABLE lt_alv2 FROM ls_alv.

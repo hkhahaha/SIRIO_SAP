@@ -640,6 +640,15 @@ FORM frm_get_test_speciality USING uv_pruef LIKE p_pruef
         MOVE-CORRESPONDING ls_qprs2 TO ls_qprs.
       ENDIF.
     ENDLOOP.
+    IF ls_qprs IS NOT INITIAL.
+      CLEAR ls_qprn.
+      "抓取采样图形信息采集编号/批准日期
+      SELECT SINGLE plos,pn_nr,frgdt
+      INTO CORRESPONDING FIELDS OF @ls_qprn
+            FROM qprn
+            WHERE plos EQ @uv_pruef
+              AND pn_nr EQ @ls_qprs-pn_nr.
+    ENDIF.
 ***********************************end************************************************
     IF ls_qprs IS NOT INITIAL.
       "抓取样本单位文本

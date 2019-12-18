@@ -599,12 +599,48 @@ FORM frm_get_test_speciality USING uv_pruef LIKE p_pruef
 
   IF ls_qprn IS NOT INITIAL.
     "抓取详细样本信息
-    SELECT SINGLE pn_nr,menge,meinh,gbtyp
-    INTO @DATA(ls_qprs)
+    DATA ls_qprs TYPE qprs.
+    SELECT SINGLE pn_nr,menge,meinh,gbtyp,objnr
+    INTO CORRESPONDING FIELDS OF @ls_qprs
     FROM qprs
     WHERE pn_nr EQ @ls_qprn-pn_nr
       AND prtyp EQ '1'.
-
+****************************Seashell Huang 2019.12.17***************排除STAT包含I0076的条目*************
+    DATA:status    LIKE TABLE OF jstat,
+         ls_status LIKE LINE OF status,
+         ls_qprs2  TYPE qprs,
+         lt_qprs   TYPE TABLE OF qprs.
+    SELECT  pn_nr,menge,meinh,gbtyp,objnr
+    INTO CORRESPONDING FIELDS OF TABLE @lt_qprs
+          FROM qprs
+          WHERE plos2 EQ @uv_pruef.
+    CLEAR ls_qprs.
+    LOOP AT lt_qprs INTO ls_qprs2.
+      CALL FUNCTION 'STATUS_READ'
+        EXPORTING
+          client           = sy-mandt
+          objnr            = ls_qprs2-objnr
+          only_active      = 'X'
+* IMPORTING
+*         OBTYP            =
+*         STSMA            =
+*         STONR            =
+        TABLES
+          status           = status
+        EXCEPTIONS
+          object_not_found = 1
+          OTHERS           = 2.
+      IF sy-subrc <> 0.
+* Implement suitable error handling here
+      ENDIF.
+      READ TABLE status INTO ls_status WITH KEY stat = 'I0076'.
+      IF sy-subrc = 0.
+        CLEAR ls_qprs.
+      ELSEIF sy-subrc <> 0.
+        MOVE-CORRESPONDING ls_qprs2 TO ls_qprs.
+      ENDIF.
+    ENDLOOP.
+***********************************end************************************************
     IF ls_qprs IS NOT INITIAL.
       "抓取样本单位文本
       SELECT SINGLE msehi,msehl
@@ -1279,8 +1315,8 @@ FORM frm_get_gelatin_test USING uv_aufnr LIKE qals-aufnr                        
       IF gs_gelatin-verwmerkm NE ''.
         gs_gelatin-sortfeld      = ls_qpmk-sortfeld.
 
-      CONCATENATE sy-mandt <fs_qamv>-qpmk_werks <fs_qamv>-verwmerkm <fs_qamv>-mkversion '1' INTO lv_fname.
-      PERFORM frm_get_longtext USING 'QPMT' '1' lv_fname 'QPMERKMAL' CHANGING lt_line.
+        CONCATENATE sy-mandt <fs_qamv>-qpmk_werks <fs_qamv>-verwmerkm <fs_qamv>-mkversion '1' INTO lv_fname.
+        PERFORM frm_get_longtext USING 'QPMT' '1' lv_fname 'QPMERKMAL' CHANGING lt_line.
         IF lt_line IS NOT INITIAL.
           LOOP AT lt_line INTO ls_line.
             CONCATENATE gs_gelatin-qamv_kurztext ls_line-tdline INTO gs_gelatin-qamv_kurztext.

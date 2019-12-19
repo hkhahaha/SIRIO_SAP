@@ -8,6 +8,9 @@
 
 FORM frm_get_data .
   DATA: lv_obtyp TYPE obtyp.
+  DATA:atinn   TYPE ausp-atinn,
+       matnr90 TYPE ausp-objek.
+
 
   " 定义所需的结构体
 
@@ -23,7 +26,8 @@ FORM frm_get_data .
         ls_mseg1 LIKE LINE OF lt_mseg1.
 
   TYPES:BEGIN OF lv_qals,
-          qprs_objnr TYPE qprs-objnr.
+          qprs_objnr TYPE qprs-objnr,
+          pn_nr      TYPE qprs-pn_nr.
           INCLUDE TYPE qals.
         TYPES END OF lv_qals.
 
@@ -162,6 +166,8 @@ FORM frm_get_data .
   a~kdauf
   a~objnr
   b~objnr AS qprs_objnr   "20191205 新增
+  b~pn_nr
+  a~aufnr
 
   FROM qals AS a
   INNER JOIN qprs AS b
@@ -178,7 +184,7 @@ FORM frm_get_data .
   AND a~art IN s_art
   AND lagortchrg IN s_lagort
   AND a~kdauf IN s_kdauf
-  AND qprn~frgdt IN s_aendt.
+  AND b~aendt IN s_aendt.
 
 
   IF lt_qals IS NOT INITIAL.
@@ -190,13 +196,14 @@ FORM frm_get_data .
     meinh
     prtyp
     objnr
+    qprs~pn_nr
     INTO CORRESPONDING FIELDS OF TABLE lt_qprs
     FROM qprs
     INNER JOIN qprn
     ON qprn~pn_nr = qprs~pn_nr
     FOR ALL ENTRIES IN lt_qals
     WHERE plos2 = lt_qals-prueflos AND prtyp = '1'
-    AND qprn~frgdt IN s_aendt.
+    AND qprs~aendt IN s_aendt.
 
     LOOP AT lt_qprs INTO ls_qprs. " 取出取样状态,通过函数STATUS_READ，读取OBTYP
       CLEAR ls_obtyp.
@@ -221,8 +228,10 @@ FORM frm_get_data .
         READ TABLE lt_stat1 TRANSPORTING NO FIELDS WITH KEY stat = 'I0076'."20191205 新增
         IF sy-subrc = 0."20191205 新增
 
-          DELETE lt_obtyp WHERE stat NE'I0002'.  "20191205 新增
+*          DELETE lt_obtyp WHERE stat NE'I0002'.  "20191205 新增
           DELETE lt_qals WHERE  qprs_objnr = ls_qprs-objnr."20191205 新增
+          ls_qprs-aendt = ''.        "20191216 新增
+          MODIFY lt_qprs FROM ls_qprs.     " 20191216新增
 
         ELSE."20191205 新增
 
@@ -232,6 +241,13 @@ FORM frm_get_data .
             ls_obtyp-stat = 'I0002'.
 
           ENDIF.
+
+          READ TABLE lt_stat1 TRANSPORTING NO FIELDS WITH KEY stat = 'I0001'.
+          IF sy-subrc = 0.
+            ls_qprs-aendt = ''.
+            MODIFY lt_qprs FROM ls_qprs.
+          ENDIF.
+
           APPEND ls_obtyp TO lt_obtyp.
         ENDIF.
 
@@ -667,10 +683,12 @@ msehl
           MOVE-CORRESPONDING ls_qals TO gs_alv.
 *      gs_alv-charg = gs_alv-charg.
 
-          READ TABLE  lt_qprs INTO ls_qprs WITH KEY plos2 = ls_qals-prueflos.  " 将QPRS 表字段赋予
+          READ TABLE  lt_qprs INTO ls_qprs WITH KEY plos2 = ls_qals-prueflos
+                                                    objnr = ls_qals-qprs_objnr.  " 将QPRS 表字段赋予
           IF sy-subrc = 0 .
             MOVE-CORRESPONDING ls_qprs TO gs_alv.
             gs_alv-charg = ls_qals-charg.
+            gs_alv-pn_nr = ls_qals-pn_nr. "20191212增加删除的样本，取第2个样本
 
             "处理样本单位，获取转换之后的值
             CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
@@ -780,7 +798,7 @@ msehl
 
               lv_name = sy-mandt && gs_alv-werk && |{ gs_alv-mkmnr PAD = ' ' WIDTH = 8 }| && gs_alv-version && sy-langu.
 
-              PERFORM frm_read_text USING 'QPMT' 'QPMERKMAL' lv_name sy-langu
+              PERFORM frm_read_text USING 'QPMT' 'QPMERKMAL' lv_name 'E'
                                     CHANGING gs_alv-ltextkz5.
             ELSE.
               "读取短文本
@@ -923,7 +941,36 @@ msehl
                     IF sy-subrc = 0.
                       gs_alv-zpack_sta = ls_output-atwrt.
                     ENDIF.
+                    matnr90 = gs_alv-matnr.
+                    CALL FUNCTION 'CONVERSION_EXIT_ATINN_INPUT'
+                      EXPORTING
+                        input  = 'ZPRONA'
+                      IMPORTING
+                        output = atinn.
 
+                    SELECT SINGLE
+                    atwrt
+                    INTO gs_alv-partname
+                    FROM ausp
+                    WHERE ausp~objek = matnr90
+                    AND ausp~atinn = atinn.
+****************************END*****************************************************
+************************Seashell Huang  2019.12.11  添加品名列**********************
+                  ELSEIF gs_alv-mtart = 'Z030'.
+                    matnr90 = gs_alv-matnr.
+                    CALL FUNCTION 'CONVERSION_EXIT_ATINN_INPUT'
+                      EXPORTING
+                        input  = 'ZPRONA'
+                      IMPORTING
+                        output = atinn.
+
+                    SELECT SINGLE
+                      atwrt
+                    INTO gs_alv-partname
+                    FROM ausp
+                    WHERE ausp~objek = matnr90
+                      AND ausp~atinn = atinn.
+****************************END*****************************************************
                   ENDIF.
 
 
@@ -966,6 +1013,18 @@ msehl
                     IF sy-subrc = 0.
                       gs_alv-zpack_charg = ls_allocvalueschar-value_char.  "打印包装批号，分类类BATCH_CP
                     ENDIF.
+************************Seashell Huang 20191212 添加工艺批号字段********************************
+                    SELECT SINGLE
+                      charg
+                    FROM resb
+                    INNER JOIN mara
+                    ON mara~matnr = resb~matnr
+                    INTO gs_alv-charg2
+                    WHERE resb~aufnr = ls_qals-aufnr
+                      AND mara~mtart = 'Z030'.
+
+**********************************END*************************************
+
                   ELSE.
                     gs_alv-zpack_charg = ''.
                   ENDIF.
@@ -1101,7 +1160,8 @@ msehl
             version
           INTO CORRESPONDING FIELDS OF ls_qmtt
           FROM qmtt
-          WHERE pmtnr = ls_qamv2-pmethode
+          WHERE sprache = '1'  "20191218检验方法只取中文 waymon
+            AND pmtnr = ls_qamv2-pmethode
             AND version = ls_qamv2-pmtversion
             AND werks = ls_qamv2-qmtb_werks. "20191209 新增
 
@@ -1155,7 +1215,11 @@ msehl
           "覆盖掉内控标准
           CLEAR ls_qpmt.
           SELECT SINGLE
-          kurztext
+            zaehler
+            kurztext
+            ltextkz
+            mkmnr
+            version
           INTO CORRESPONDING FIELDS OF ls_qpmt
           FROM qpmt
           WHERE qpmt~sprache = 'Z'
@@ -1166,7 +1230,7 @@ msehl
           IF ls_qpmt-ltextkz = 'X'.
             "读取主检验特征长文本 20191206
 
-            lv_name = sy-mandt && ls_qpmt-zaehler && |{ ls_qpmt-mkmnr PAD = ' ' WIDTH = 8 }| && ls_qpmt-version && sy-langu.
+            lv_name = sy-mandt && ls_qpmt-zaehler && |{ ls_qpmt-mkmnr PAD = ' ' WIDTH = 8 }| && ls_qpmt-version && 'Z'.
 
             PERFORM frm_read_text USING 'QPMT' 'QPMERKMAL' lv_name sy-langu
                                   CHANGING gs_alv-ltextkz2.
@@ -1180,7 +1244,11 @@ msehl
           "覆盖掉规定标准EN
           CLEAR ls_qpmt.
           SELECT SINGLE
-          kurztext
+            zaehler
+            kurztext
+            ltextkz
+            mkmnr
+            version
           INTO CORRESPONDING FIELDS OF ls_qpmt
           FROM qpmt
           WHERE qpmt~sprache = 'E'
@@ -1191,9 +1259,9 @@ msehl
           IF ls_qpmt-ltextkz = 'X'.
             "读取主检验特征长文本 20191206
 
-            lv_name = sy-mandt && ls_qpmt-zaehler && |{ ls_qpmt-mkmnr PAD = ' ' WIDTH = 8 }| && ls_qpmt-version && sy-langu.
+            lv_name = sy-mandt && ls_qpmt-zaehler && |{ ls_qpmt-mkmnr PAD = ' ' WIDTH = 8 }| && ls_qpmt-version && 'E'.
 
-            PERFORM frm_read_text USING 'QPMT' 'QPMERKMAL' lv_name sy-langu
+            PERFORM frm_read_text USING 'QPMT' 'QPMERKMAL' lv_name 'E'
                                   CHANGING gs_alv-ltextkz5.
           ELSE.
             "读取短文本
@@ -1211,13 +1279,13 @@ msehl
 *&修改记录：修改接检日期
 *&---------------------------------------------------------------------*
           "覆盖接检日期
-          CLEAR gs_alv-aendt.
-          SELECT SINGLE
-            frgdt
-          INTO gs_alv-aendt
-          FROM qprn
-          WHERE qprn~plos = gs_alv-prueflos
-            AND qprn~frgna NE '' .    "   20191206取下达人不为空的
+*          CLEAR gs_alv-aendt.
+*          SELECT SINGLE
+*            frgdt
+*          INTO gs_alv-aendt
+*          FROM qprn
+*          WHERE qprn~plos = gs_alv-prueflos
+*            AND qprn~frgna NE '' .    "   20191206取下达人不为空的
 *********************修改结束位置02.12.2019 16:31:16*************
 
 *         检验岗位编码转为文本
@@ -1290,7 +1358,7 @@ msehl
 *        DELETE ADJACENT DUPLICATES FROM gt_alv COMPARING ALL FIELDS.
       ENDIF.
     ENDIF.
-
+    CLEAR ls_qals.
   ENDLOOP.
 
 
@@ -1327,7 +1395,9 @@ FORM frm_dis_alv .
   l_colpos 'PRUEFLOS'    '样品编号'     '' ' ' ' ' '' '' '',
   l_colpos 'MATNR'    '物料编码'     '' ' ' ' ' '' '' '',
   l_colpos 'MAKTX'    '物料名称'     '' ' ' ' ' '' '' '',
+  l_colpos 'PARTNAME'    '品名'     '' ' ' ' ' '' '' '',
   l_colpos 'CHARG'    '成品批号'     '' ' ' ' ' '' '' '',
+  l_colpos 'CHARG2'    '工艺批号'     '' ' ' ' ' '' '' '',
   l_colpos 'ZPACK_CHARG'    '打印包装批号'     '' ' ' ' ' '' '' '',
 *  l_colpos 'CHARG'    'SAP批次号'     '' ' ' ' ' '' '' '',
   l_colpos 'GROES'    '规格型号'     '' ' ' ' ' '' '' '',

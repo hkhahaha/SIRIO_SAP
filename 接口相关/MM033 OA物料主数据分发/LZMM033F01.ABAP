@@ -770,6 +770,10 @@ FORM frm_plant_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
           lw_plantdatax-cert_type = 'X'.
         ENDIF.
       ENDIF.
+*********************************Seashell Huang 20191219  质量管理视图添加“QM物料授权"
+      lw_plantdata-qm_authgrp = 'ZQM001'.
+      lw_plantdatax-qm_authgrp = 'X'.
+******************************END*****************************************************
 *      lw_plantdata-pur_group = ls_werks-ekgrp.                          " 采购组
 *      lw_plantdata-sourcelist = ls_werks-kordb.                         " 源清单
 *      lw_plantdata-batch_mgmt = ls_werks-xchpf.                         " 批次管理

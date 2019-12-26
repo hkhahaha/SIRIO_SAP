@@ -2181,29 +2181,31 @@ FORM frm_change_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
       LOOP AT lt_smeinh INTO ls_smeinh.
         CLEAR: lv_meinh.
         cunit_input: ls_smeinh-meinh lv_meinh.
-        IF lv_meinh <> ls_mara-meins.
-          lw_unitsofmeasure-gross_wt = us_input-brgew.          " 毛重
-          lw_unitsofmeasurex-gross_wt = 'X'.
-          lw_unitsofmeasure-volume = us_input-volum.            " 体积
-          lw_unitsofmeasurex-volume = 'X'.
-          IF us_input-gewei IS NOT INITIAL.
-            lw_unitsofmeasure-unit_of_wt = us_input-gewei.      " 重量单位
-          ELSE.
-            lw_unitsofmeasure-unit_of_wt = 'KG'.
-          ENDIF.
-          lw_unitsofmeasurex-unit_of_wt = 'X'.
-          lw_unitsofmeasure-volumeunit = us_input-voleh.        " 体积单位
-          lw_unitsofmeasurex-volumeunit = 'X'.
-          lw_unitsofmeasure-denominatr = ls_smeinh-umren.       " 转换为基本计量单位的分母
-          lw_unitsofmeasurex-denominatr = 'X'.
-          lw_unitsofmeasure-alt_unit = lv_meinh.                " 用于显示的计量单位
-          lw_unitsofmeasurex-alt_unit = lv_meinh.
-          lw_unitsofmeasure-numerator = ls_smeinh-umrez.        " 基本计量单位转换分子
-          lw_unitsofmeasurex-numerator = 'X'.
-          APPEND lw_unitsofmeasure TO lt_unitsofmeasure.
-          APPEND lw_unitsofmeasurex TO lt_unitsofmeasurex.
-          CLEAR: lw_unitsofmeasure, lw_unitsofmeasurex.
+********************2019.12.23  Seashell Huang*******************
+        lw_unitsofmeasure-gross_wt = us_input-brgew.          " 毛重
+        lw_unitsofmeasurex-gross_wt = 'X'.
+        lw_unitsofmeasure-volume = us_input-volum.            " 体积
+        lw_unitsofmeasurex-volume = 'X'.
+        IF us_input-gewei IS NOT INITIAL.
+          lw_unitsofmeasure-unit_of_wt = us_input-gewei.      " 重量单位
+        ELSE.
+          lw_unitsofmeasure-unit_of_wt = 'KG'.
         ENDIF.
+        lw_unitsofmeasurex-unit_of_wt = 'X'.
+        lw_unitsofmeasure-volumeunit = us_input-voleh.        " 体积单位
+        lw_unitsofmeasurex-volumeunit = 'X'.
+********************END******************************************
+*        IF lv_meinh <> ls_mara-meins."旧版通过判断单位是否相等，不相等的话正常，但是相等的话会报错，所以去掉
+        lw_unitsofmeasure-denominatr = ls_smeinh-umren.       " 转换为基本计量单位的分母
+        lw_unitsofmeasurex-denominatr = 'X'.
+        lw_unitsofmeasure-alt_unit = lv_meinh.                " 用于显示的计量单位
+        lw_unitsofmeasurex-alt_unit = lv_meinh.
+        lw_unitsofmeasure-numerator = ls_smeinh-umrez.        " 基本计量单位转换分子
+        lw_unitsofmeasurex-numerator = 'X'.
+*        ENDIF.
+        APPEND lw_unitsofmeasure TO lt_unitsofmeasure.
+        APPEND lw_unitsofmeasurex TO lt_unitsofmeasurex.
+        CLEAR: lw_unitsofmeasure, lw_unitsofmeasurex.
       ENDLOOP.
       LOOP AT lt_marm INTO DATA(ls_marm).
         READ TABLE lt_unitsofmeasure TRANSPORTING NO FIELDS WITH KEY alt_unit = ls_marm-meinh.

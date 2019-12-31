@@ -535,38 +535,43 @@ FORM frm_get_data.
       gs_s_info-aufnr = ls_mseg-aufnr.
       gs_s_info-charg = ls_mseg-charg.
 
-      "抓取S码批次对应的检验批号
-      SELECT SINGLE prueflos,charg,aufnr,objnr
-      INTO @DATA(ls_qals_s)
+      "抓取S码批次对应的检验批号(原先取的是单条数据)
+      SELECT prueflos,charg,aufnr,objnr
+      INTO TABLE @DATA(lt_qals_s)
       FROM qals
       WHERE charg EQ @ls_mseg-charg.
-      gs_s_info-prueflos = ls_qals_s-prueflos.
+      DATA ls_qals_s LIKE LINE OF lt_qals_s.
+***************************读取循环内表数据************************8
+      LOOP AT lt_qals_s INTO ls_qals_s.
 *************************Seashell Huang 20191219*****************
-      "修改S码检验结果的取数逻辑，修改的DS版本为第二版
-      DATA:status    LIKE TABLE OF jstat,
-           ls_status LIKE LINE OF status.
-      CALL FUNCTION 'STATUS_READ'
-        EXPORTING
-          client           = sy-mandt
-          objnr            = ls_qals_s-objnr
-          only_active      = 'X'
+        "修改S码检验结果的取数逻辑，修改的DS版本为第二版
+        DATA:status    LIKE TABLE OF jstat,
+             ls_status LIKE LINE OF status.
+        CALL FUNCTION 'STATUS_READ'
+          EXPORTING
+            client           = sy-mandt
+            objnr            = ls_qals_s-objnr
+            only_active      = 'X'
 *       IMPORTING
-*         OBTYP            =
-*         STSMA            =
-*         STONR            =
-        TABLES
-          status           = status
-        EXCEPTIONS
-          object_not_found = 1
-          OTHERS           = 2.
-      IF sy-subrc <> 0.
+*           OBTYP            =
+*           STSMA            =
+*           STONR            =
+          TABLES
+            status           = status
+          EXCEPTIONS
+            object_not_found = 1
+            OTHERS           = 2.
+        IF sy-subrc <> 0.
 * Implement suitable error handling here
-      ENDIF.
-      READ TABLE status INTO ls_status WITH KEY stat = 'I0224'.
-      IF sy-subrc = 0.
-        CLEAR ls_qals_s.
-      ENDIF.
+        ENDIF.
+        READ TABLE status INTO ls_status WITH KEY stat = 'I0224'.
+        IF sy-subrc = 0.
+          CLEAR ls_qals_s.
+        ENDIF.
 *****************************END**********************************
+      ENDLOOP.
+***************************End****************************************
+      gs_s_info-prueflos = ls_qals_s-prueflos.
       PERFORM frm_get_test_speciality USING ls_qals_s-prueflos CHANGING gt_test_s gs_s_sample.
       PERFORM frm_get_untest_speciality USING ls_qals_s-prueflos .
       PERFORM frm_get_gelatin_test USING ls_qals_s-aufnr.

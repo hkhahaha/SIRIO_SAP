@@ -8,13 +8,13 @@
 *       TEXT：添加明胶物料代码RANGE
 *----------------------------------------------------------------------*
 DEFINE def_set_range_matnr.
-  gs_matnr_mj-SIGN   = 'I'.
+  gs_matnr_mj-sign   = 'I'.
   gs_matnr_mj-option = 'EQ'.
   CALL FUNCTION 'CONVERSION_EXIT_MATN1_INPUT'
   EXPORTING
-    INPUT        = &1
+    input        = &1
   IMPORTING
-    OUTPUT       = lv_str.
+    output       = lv_str.
 *                  EXCEPTIONS
 *                    LENGTH_ERROR       = 1
 *                    OTHERS             = 2
@@ -29,83 +29,83 @@ END-OF-DEFINITION.
 FORM frm_download.
   DATA: lv_app_name  TYPE char200,
         lv_sheetname TYPE char50,
-        lv_inplace   TYPE C VALUE 'X'.
+        lv_inplace   TYPE c VALUE 'X'.
 
   CALL FUNCTION 'SAPGUI_PROGRESS_INDICATOR'
-  EXPORTING
-    TEXT = '正在输出,请稍等。。。'.
+    EXPORTING
+      text = '正在输出,请稍等。。。'.
 
   CHECK gv_initialized IS INITIAL.
 
 * first get the SAP DOI i_oi_container_control interface
   CALL METHOD c_oi_container_control_creator=>get_container_control
-  IMPORTING
-    CONTROL = grf_control
-    error   = gs_error.
+    IMPORTING
+      control = grf_control
+      error   = gs_error.
 
 * check no errors occured
   CALL METHOD gs_error->raise_message
-  EXPORTING
-    TYPE = 'E'.
+    EXPORTING
+      type = 'E'.
   lv_app_name = sy-repid.
   CALL METHOD grf_control->init_control
-  EXPORTING
-    r3_application_name      = lv_app_name
-    inplace_enabled          = lv_inplace
-    inplace_scroll_documents = 'X'
-    parent                   = cl_gui_container=>screen0
-  IMPORTING
-    error                    = gt_error.
+    EXPORTING
+      r3_application_name      = lv_app_name
+      inplace_enabled          = lv_inplace
+      inplace_scroll_documents = 'X'
+      parent                   = cl_gui_container=>screen0
+    IMPORTING
+      error                    = gt_error.
   APPEND gt_error.
 * ask the SAP DOI GRF_container for a i_oi_document_proxy for Excel
   CALL METHOD grf_control->get_document_proxy
-  EXPORTING
-    document_type  = 'Excel.Sheet'
-    no_flush       = 'X'
-  IMPORTING
-    document_proxy = grf_document
-    error          = gt_error.
+    EXPORTING
+      document_type  = 'Excel.Sheet'
+      no_flush       = 'X'
+    IMPORTING
+      document_proxy = grf_document
+      error          = gt_error.
   APPEND gt_error.
   LOOP AT gt_error.
     CALL METHOD gt_error->raise_message
-    EXPORTING
-      TYPE = 'E'.
+      EXPORTING
+        type = 'E'.
   ENDLOOP.
 *   Open an existing docu from BDS
   PERFORM frm_get_document_url.
 *  open a document saved in business document service.
   CALL METHOD grf_document->open_document
-  EXPORTING
-    open_inplace = lv_inplace
-    document_url = gv_item_url.
+    EXPORTING
+      open_inplace = lv_inplace
+      document_url = gv_item_url.
 
-  DATA: lv_has TYPE I.
+  DATA: lv_has TYPE i.
   CALL METHOD grf_document->has_spreadsheet_interface
-  EXPORTING
-    no_flush     = ''
-  IMPORTING
-    is_available = lv_has
-    error        = gt_error.
+    EXPORTING
+      no_flush     = ''
+    IMPORTING
+      is_available = lv_has
+      error        = gt_error.
   APPEND gt_error.
 
   CALL METHOD grf_document->get_spreadsheet_interface
-  EXPORTING
-    no_flush        = ''
-  IMPORTING
-    sheet_interface = grf_spreadsheet
-    error           = gt_error.
+    EXPORTING
+      no_flush        = ''
+    IMPORTING
+      sheet_interface = grf_spreadsheet
+      error           = gt_error.
   APPEND gt_error.
 
   LOOP AT gt_error.
     CALL METHOD gt_error->raise_message
-    EXPORTING
-      TYPE = 'E'.
+      EXPORTING
+        type = 'E'.
   ENDLOOP.
   FREE gt_error.
   lv_sheetname = cns_sheetname.
   CALL METHOD grf_spreadsheet->select_sheet
-  EXPORTING
-    name = lv_sheetname.
+    EXPORTING
+      name = lv_sheetname.
 
   FREE gt_error.
   gv_initialized = 'X'.
@@ -114,8 +114,8 @@ FORM frm_download.
 
   lv_sheetname = cns_sheetname2.
   CALL METHOD grf_spreadsheet->select_sheet
-  EXPORTING
-    name = lv_sheetname.
+    EXPORTING
+      name = lv_sheetname.
 ENDFORM.
 
 *&---------------------------------------------------------------------*
@@ -135,13 +135,13 @@ FORM frm_get_document_url .
   APPEND ls_doc_signature TO lt_doc_signature.
   CREATE OBJECT lo_bds_instance.
   CALL METHOD lo_bds_instance->get_with_url
-  EXPORTING
-    classname  = cns_doc_classname
-    classtype  = cns_doc_classtype
-    object_key = cns_doc_object_key
-  CHANGING
-    uris       = lt_doc_uris
-    signature  = lt_doc_signature.
+    EXPORTING
+      classname  = cns_doc_classname
+      classtype  = cns_doc_classtype
+      object_key = cns_doc_object_key
+    CHANGING
+      uris       = lt_doc_uris
+      signature  = lt_doc_signature.
   FREE lo_bds_instance.
   CLEAR gv_item_url.
 *  READ TABLE lt_doc_uris INTO ls_doc_uris INDEX 1.
@@ -159,16 +159,16 @@ FORM frm_range_dim USING uv_i uv_j uv_rows uv_cols uv_name.
   REFRESH gt_range.
   REFRESH gt_excel_input.
   CALL METHOD grf_spreadsheet->insert_range_dim
-  EXPORTING
-    name     = uv_name
-    no_flush = 'X'
-    top      = uv_i
-    LEFT     = uv_j
-    ROWS     = uv_rows
-    columns  = uv_cols.
+    EXPORTING
+      name     = uv_name
+      no_flush = 'X'
+      top      = uv_i
+      left     = uv_j
+      rows     = uv_rows
+      columns  = uv_cols.
   gs_range-name         = uv_name.
   gs_range-columns      = uv_cols.
-  gs_range-ROWS         = uv_rows.
+  gs_range-rows         = uv_rows.
   APPEND gs_range TO gt_range.
 ENDFORM.
 
@@ -182,7 +182,7 @@ DEFINE def_set_range_input.
   gs_excel_input-column = &2.
   lv_str = &3.
   SHIFT lv_str LEFT DELETING LEADING space.
-  gs_excel_input-VALUE = lv_str.
+  gs_excel_input-value = lv_str.
 *  CONDENSE gs_excel_input-value NO-GAPS.
   APPEND gs_excel_input TO gt_excel_input.
 END-OF-DEFINITION.
@@ -193,40 +193,40 @@ END-OF-DEFINITION.
 *       TEXT：将数据输出至EXCEL
 *----------------------------------------------------------------------*
 FORM frm_fill_excel.
-  DATA:lv_i        TYPE I VALUE 1, "行
-        lv_j        TYPE I VALUE 1, "列序号
-        lv_str(256) TYPE C. "临时字符串用作去除空格
+  DATA:lv_i        TYPE i VALUE 1, "行
+       lv_j        TYPE i VALUE 1, "列序号
+       lv_str(256) TYPE c. "临时字符串用作去除空格
 
   "输出检验计划信息
   PERFORM frm_range_dim USING 2 2 8 1 'RANGE_PLOS'.
   DO 8 TIMES.
-    ASSIGN COMPONENT sy-INDEX OF STRUCTURE gs_plos TO FIELD-SYMBOL(<fs_plos>).
+    ASSIGN COMPONENT sy-index OF STRUCTURE gs_plos TO FIELD-SYMBOL(<fs_plos>).
     IF <fs_plos> IS NOT INITIAL.
-      def_set_range_input sy-INDEX 1 <fs_plos>.
+      def_set_range_input sy-index 1 <fs_plos>.
     ELSE.
-      def_set_range_input sy-INDEX 1 space.
+      def_set_range_input sy-index 1 space.
     ENDIF.
   ENDDO.
   CALL METHOD grf_spreadsheet->set_ranges_data
-  EXPORTING
-    RANGES   = gt_range
-    contents = gt_excel_input
-    no_flush = 'X'.
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
   "输出物料数据信息
   PERFORM frm_range_dim USING 2 7 11 1 'RANGE_MARA'.
   DO 11 TIMES.
-    ASSIGN COMPONENT sy-INDEX OF STRUCTURE gs_material TO FIELD-SYMBOL(<fs_material>).
+    ASSIGN COMPONENT sy-index OF STRUCTURE gs_material TO FIELD-SYMBOL(<fs_material>).
     IF <fs_material> IS NOT INITIAL.
-      def_set_range_input sy-INDEX 1 <fs_material>.
+      def_set_range_input sy-index 1 <fs_material>.
     ELSE.
-      def_set_range_input sy-INDEX 1 space.
+      def_set_range_input sy-index 1 space.
     ENDIF.
   ENDDO.
   CALL METHOD grf_spreadsheet->set_ranges_data
-  EXPORTING
-    RANGES   = gt_range
-    contents = gt_excel_input
-    no_flush = 'X'.
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
 
   "输出检验计划文本
   PERFORM frm_range_dim USING 14 2 1 1 'RANGE_PLOS_KTEXT'.
@@ -236,74 +236,74 @@ FORM frm_fill_excel.
     def_set_range_input 1 1 space.
   ENDIF.
   CALL METHOD grf_spreadsheet->set_ranges_data
-  EXPORTING
-    RANGES   = gt_range
-    contents = gt_excel_input
-    no_flush = 'X'.
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
 
   "输出样本信息
   PERFORM frm_range_dim USING 18 2 5 1 'RANGE_SAMPLE'.
   DO 5 TIMES.
-    ASSIGN COMPONENT sy-INDEX OF STRUCTURE gs_sample TO FIELD-SYMBOL(<fs_sample>).
+    ASSIGN COMPONENT sy-index OF STRUCTURE gs_sample TO FIELD-SYMBOL(<fs_sample>).
     IF <fs_sample> IS NOT INITIAL.
-      def_set_range_input sy-INDEX 1 <fs_sample>.
+      def_set_range_input sy-index 1 <fs_sample>.
     ELSE.
-      def_set_range_input sy-INDEX 1 space.
+      def_set_range_input sy-index 1 space.
     ENDIF.
   ENDDO.
   CALL METHOD grf_spreadsheet->set_ranges_data
-  EXPORTING
-    RANGES   = gt_range
-    contents = gt_excel_input
-    no_flush = 'X'.
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
 
   "输出S码样本信息
   PERFORM frm_range_dim USING 18 7 5 1 'RANGE_S_SAMPLE'.
   DO 5 TIMES.
-    ASSIGN COMPONENT sy-INDEX OF STRUCTURE gs_s_sample TO FIELD-SYMBOL(<fs_s_sample>).
+    ASSIGN COMPONENT sy-index OF STRUCTURE gs_s_sample TO FIELD-SYMBOL(<fs_s_sample>).
     IF <fs_s_sample> IS NOT INITIAL.
-      def_set_range_input sy-INDEX 1 <fs_s_sample>.
+      def_set_range_input sy-index 1 <fs_s_sample>.
     ELSE.
-      def_set_range_input sy-INDEX 1 space.
+      def_set_range_input sy-index 1 space.
     ENDIF.
   ENDDO.
   CALL METHOD grf_spreadsheet->set_ranges_data
-  EXPORTING
-    RANGES   = gt_range
-    contents = gt_excel_input
-    no_flush = 'X'.
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
 
   "输出批次信息
   PERFORM frm_range_dim USING 2 15 3 1 'RANGE_CHARG'.
   DO 3 TIMES.
-    ASSIGN COMPONENT sy-INDEX OF STRUCTURE gs_charg TO FIELD-SYMBOL(<fs_charg>).
+    ASSIGN COMPONENT sy-index OF STRUCTURE gs_charg TO FIELD-SYMBOL(<fs_charg>).
     IF <fs_charg> IS NOT INITIAL.
-      def_set_range_input sy-INDEX 1 <fs_charg>.
+      def_set_range_input sy-index 1 <fs_charg>.
     ELSE.
-      def_set_range_input sy-INDEX 1 space.
+      def_set_range_input sy-index 1 space.
     ENDIF.
   ENDDO.
   CALL METHOD grf_spreadsheet->set_ranges_data
-  EXPORTING
-    RANGES   = gt_range
-    contents = gt_excel_input
-    no_flush = 'X'.
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
 
   "输出S码信息
   PERFORM frm_range_dim USING 10 15 3 1 'RANGE_S_INFO'.
   DO 3 TIMES.
-    ASSIGN COMPONENT sy-INDEX OF STRUCTURE gs_s_info TO FIELD-SYMBOL(<fs_s_info>).
+    ASSIGN COMPONENT sy-index OF STRUCTURE gs_s_info TO FIELD-SYMBOL(<fs_s_info>).
     IF <fs_s_info> IS NOT INITIAL.
-      def_set_range_input sy-INDEX 1 <fs_s_info>.
+      def_set_range_input sy-index 1 <fs_s_info>.
     ELSE.
-      def_set_range_input sy-INDEX 1 space.
+      def_set_range_input sy-index 1 space.
     ENDIF.
   ENDDO.
   CALL METHOD grf_spreadsheet->set_ranges_data
-  EXPORTING
-    RANGES   = gt_range
-    contents = gt_excel_input
-    no_flush = 'X'.
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
 
   "输出M码已检特性信息
   DESCRIBE TABLE gt_test LINES DATA(lv_rows).
@@ -323,10 +323,10 @@ FORM frm_fill_excel.
   ENDLOOP.
 
   CALL METHOD grf_spreadsheet->set_ranges_data
-  EXPORTING
-    RANGES   = gt_range
-    contents = gt_excel_input
-    no_flush = 'X'.
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
 
   "输出S码已检特性信息
   DESCRIBE TABLE gt_test_s LINES lv_rows.
@@ -346,10 +346,10 @@ FORM frm_fill_excel.
     lv_i = lv_i + 1.
   ENDLOOP.
   CALL METHOD grf_spreadsheet->set_ranges_data
-  EXPORTING
-    RANGES   = gt_range
-    contents = gt_excel_input
-    no_flush = 'X'.
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
 
   "输出S码未检特性信息
   DESCRIBE TABLE gt_untest_s LINES lv_rows.
@@ -369,10 +369,10 @@ FORM frm_fill_excel.
     lv_i = lv_i + 1.
   ENDLOOP.
   CALL METHOD grf_spreadsheet->set_ranges_data
-  EXPORTING
-    RANGES   = gt_range
-    contents = gt_excel_input
-    no_flush = 'X'.
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
 
   "输出明胶检验信息
   DESCRIBE TABLE gt_gelatin LINES lv_rows.
@@ -392,10 +392,10 @@ FORM frm_fill_excel.
     lv_i = lv_i + 1.
   ENDLOOP.
   CALL METHOD grf_spreadsheet->set_ranges_data
-  EXPORTING
-    RANGES   = gt_range
-    contents = gt_excel_input
-    no_flush = 'X'.
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
 ENDFORM.
 
 *&---------------------------------------------------------------------*
@@ -484,11 +484,11 @@ FORM frm_get_data.
 
     MOVE-CORRESPONDING ls_qals TO gs_plos.
     CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
-    EXPORTING
-      matnr  = ls_qals-matnr
+      EXPORTING
+        matnr  = ls_qals-matnr
 *       ATINN  =
-    TABLES
-      OUTPUT = lt_material_value[].
+      TABLES
+        output = lt_material_value[].
 
     gs_charg-hsdat = ls_mcha-hsdat.
     PERFORM frm_get_charg_speciailty USING ls_qals-matnr ls_qals-werk ls_qals-charg CHANGING gs_charg gs_material-zpack_sta.
@@ -546,21 +546,21 @@ FORM frm_get_data.
 *************************Seashell Huang 20191219*****************
         "修改S码检验结果的取数逻辑，修改的DS版本为第二版
         DATA:status    LIKE TABLE OF jstat,
-              ls_status LIKE LINE OF status.
+             ls_status LIKE LINE OF status.
         CALL FUNCTION 'STATUS_READ'
-        EXPORTING
-          CLIENT           = sy-mandt
-          objnr            = ls_qals_s-objnr
-          only_active      = 'X'
+          EXPORTING
+            client           = sy-mandt
+            objnr            = ls_qals_s-objnr
+            only_active      = 'X'
 *       IMPORTING
 *           OBTYP            =
 *           STSMA            =
 *           STONR            =
-        TABLES
-          status           = status
-        EXCEPTIONS
-          object_not_found = 1
-          OTHERS           = 2.
+          TABLES
+            status           = status
+          EXCEPTIONS
+            object_not_found = 1
+            OTHERS           = 2.
         IF sy-subrc <> 0.
 * Implement suitable error handling here
         ENDIF.
@@ -597,9 +597,9 @@ ENDFORM.
 *----------------------------------------------------------------------*
 FORM frm_sub_set_sheet .
   CALL METHOD grf_spreadsheet->fit_widest
-  EXPORTING
-    name     = space
-    no_flush = 'X'.
+    EXPORTING
+      name     = space
+      no_flush = 'X'.
 ENDFORM.
 
 *&---------------------------------------------------------------------*
@@ -613,7 +613,7 @@ CHANGING ct_test TYPE STANDARD TABLE
   "T-已检特性 S-S码已检
   DATA: lv_date   LIKE  sy-datum, "标准日期
         lv_time   LIKE  sy-uzeit, "标准时间
-        lv_strlen TYPE  I.        "字符串长度
+        lv_strlen TYPE  i.        "字符串长度
 
   "根据检验批号抓取检验组供后续检查
   SELECT SINGLE prueflos,plnnr,plnty,aufpl
@@ -637,9 +637,9 @@ CHANGING ct_test TYPE STANDARD TABLE
     AND prtyp EQ '1'.
 ****************************Seashell Huang 2019.12.17***************排除STAT包含I0076的条目*************
     DATA:status    LIKE TABLE OF jstat,
-          ls_status LIKE LINE OF status,
-          ls_qprs2  TYPE qprs,
-          lt_qprs   TYPE TABLE OF qprs.
+         ls_status LIKE LINE OF status,
+         ls_qprs2  TYPE qprs,
+         lt_qprs   TYPE TABLE OF qprs.
     SELECT  pn_nr,menge,meinh,gbtyp,objnr
     INTO CORRESPONDING FIELDS OF TABLE @lt_qprs
     FROM qprs
@@ -647,26 +647,26 @@ CHANGING ct_test TYPE STANDARD TABLE
     CLEAR ls_qprs.
     LOOP AT lt_qprs INTO ls_qprs2.
       CALL FUNCTION 'STATUS_READ'
-      EXPORTING
-        CLIENT           = sy-mandt
-        objnr            = ls_qprs2-objnr
-        only_active      = 'X'
+        EXPORTING
+          client           = sy-mandt
+          objnr            = ls_qprs2-objnr
+          only_active      = 'X'
 * IMPORTING
 *         OBTYP            =
 *         STSMA            =
 *         STONR            =
-      TABLES
-        status           = status
-      EXCEPTIONS
-        object_not_found = 1
-        OTHERS           = 2.
+        TABLES
+          status           = status
+        EXCEPTIONS
+          object_not_found = 1
+          OTHERS           = 2.
       IF sy-subrc <> 0.
 * Implement suitable error handling here
       ENDIF.
       READ TABLE status INTO ls_status WITH KEY stat = 'I0076'.
       IF sy-subrc = 0.
         CLEAR ls_qprs.
-    ELSEIF sy-subrc <> 0.
+      ELSEIF sy-subrc <> 0.
         MOVE-CORRESPONDING ls_qprs2 TO ls_qprs.
       ENDIF.
     ENDLOOP.
@@ -742,7 +742,7 @@ CHANGING ct_test TYPE STANDARD TABLE
             WHERE prfql EQ @lt_qamv-pruefquali.
 
       "抓取工厂,检验版本信息
-      SELECT mkmnr,werks,version,sortfeld
+      SELECT mkmnr,werks,version,sortfeld,dummy40
       INTO TABLE @DATA(lt_qpmk)
             FROM qpmk
             FOR ALL ENTRIES IN @lt_qamv
@@ -838,8 +838,10 @@ CHANGING ct_test TYPE STANDARD TABLE
     ENDIF.
 
     IF gs_test-verwmerkm NE ''.
-      gs_test-sortfeld         = ls_qpmk-sortfeld.
-
+*      gs_test-sortfeld         = ls_qpmk-sortfeld.
+****************HK 20200102修改DUmmy40的取值
+      gs_test-sortfeld         = ls_qpmk-dummy40.
+***************END******************
       CONCATENATE sy-mandt ls_qamv-qpmk_werks ls_qamv-verwmerkm ls_qamv-mkversion '1' INTO lv_fname.
       PERFORM frm_get_longtext USING 'QPMT' '1' lv_fname 'QPMERKMAL' CHANGING lt_line.
       IF lt_line IS NOT INITIAL.
@@ -856,7 +858,7 @@ CHANGING ct_test TYPE STANDARD TABLE
       ENDIF.
       gs_test-pmtversion       = ls_qamv-pmtversion.
 
-      lv_strlen = STRLEN( ls_qamv-steuerkz ) - 1.
+      lv_strlen = strlen( ls_qamv-steuerkz ) - 1.
       IF lv_strlen > 0.
         gs_test-steuerkz = ls_qamv-steuerkz+25(1)."是否打印
       ENDIF.
@@ -899,12 +901,12 @@ CHANGING ct_test TYPE STANDARD TABLE
 
       "时戳转换为标准日期
       CALL FUNCTION 'IB_CONVERT_FROM_TIMESTAMP'
-      EXPORTING
-        i_timestamp = ls_signs_index3-sign_tstamp
+        EXPORTING
+          i_timestamp = ls_signs_index3-sign_tstamp
 *         I_TZONE     = SY-ZONLO
-      IMPORTING
-        e_datlo     = lv_date
-        e_timlo     = lv_time.
+        IMPORTING
+          e_datlo     = lv_date
+          e_timlo     = lv_time.
 
       CONCATENATE lv_date '' lv_time INTO gs_test-tstamp.
       CONDENSE gs_test-tstamp NO-GAPS.
@@ -959,7 +961,7 @@ ENDFORM.
 *----------------------------------------------------------------------*
 FORM frm_get_untest_speciality USING uv_pruef LIKE p_pruef.
   DATA: lv_vorglfnr LIKE qamr-vorglfnr, "节点编号
-        lv_strlen   TYPE I.             "字符串长度
+        lv_strlen   TYPE i.             "字符串长度
 
   "抓取特性组
   SELECT SINGLE prueflos,plnnr,plnty,aufpl
@@ -1084,7 +1086,7 @@ FORM frm_get_untest_speciality USING uv_pruef LIKE p_pruef.
         gs_untest_s-qamv_kurztext  = <fs_qamv>-kurztext.
       ENDIF.
       gs_untest_s-pmtversion       = <fs_qamv>-pmtversion.
-      lv_strlen = STRLEN( <fs_qamv>-steuerkz ) - 1.
+      lv_strlen = strlen( <fs_qamv>-steuerkz ) - 1.
       IF lv_strlen > 0.
         gs_untest_s-steuerkz = <fs_qamv>-steuerkz+25(1)."是否打印
       ENDIF.
@@ -1179,7 +1181,7 @@ CHANGING cs_charg TYPE typ_charg
         lv_obtab              TYPE tabelle,
         lv_klart              TYPE klassenart,
         lv_class              TYPE klasse_d,
-        lv_fltp_to_string(16) TYPE C,
+        lv_fltp_to_string(16) TYPE c,
         "批次特性通用返回类型表 num型 char型 curr型
         lt_num                TYPE TABLE OF bapi1003_alloc_values_num,
         lt_char               TYPE TABLE OF bapi1003_alloc_values_char,
@@ -1187,35 +1189,35 @@ CHANGING cs_charg TYPE typ_charg
         lt_return             TYPE TABLE OF bapiret2.
 
   CALL FUNCTION 'VB_BATCH_2_CLASS_OBJECT'
-  EXPORTING
-    i_matnr = uv_matnr
-    i_charg = uv_charg
-    i_werks = uv_werks
-  IMPORTING
-    e_objek = lv_objek "对象
-    e_obtab = lv_obtab "表
-    e_klart = lv_klart "类型
-    e_class = lv_class. "类
+    EXPORTING
+      i_matnr = uv_matnr
+      i_charg = uv_charg
+      i_werks = uv_werks
+    IMPORTING
+      e_objek = lv_objek "对象
+      e_obtab = lv_obtab "表
+      e_klart = lv_klart "类型
+      e_class = lv_class. "类
   CALL FUNCTION 'BAPI_OBJCL_GETDETAIL'
-  EXPORTING
-    objectkey_long  = lv_objek
-    objecttable     = lv_obtab
-    classnum        = lv_class
-    classtype       = lv_klart
-  TABLES
-    allocvaluesnum  = lt_num
-    allocvalueschar = lt_char
-    allocvaluescurr = lt_curr
-    RETURN          = lt_return.
+    EXPORTING
+      objectkey_long  = lv_objek
+      objecttable     = lv_obtab
+      classnum        = lv_class
+      classtype       = lv_klart
+    TABLES
+      allocvaluesnum  = lt_num
+      allocvalueschar = lt_char
+      allocvaluescurr = lt_curr
+      return          = lt_return.
 
   LOOP AT lt_char ASSIGNING FIELD-SYMBOL(<fs_char>).
     CASE <fs_char>-charact.
-    WHEN cns_zchargl."原辅包长批号
-      cs_charg-zchargl = <fs_char>-value_neutral_long.
-    WHEN cns_z_batch_dypc."成品打印批号
-      cs_charg-z_batch_dypc = <fs_char>-value_neutral_long.
-    WHEN cns_zpack_sta.
-      cs_zpack_sta = <fs_char>-value_neutral_long.
+      WHEN cns_zchargl."原辅包长批号
+        cs_charg-zchargl = <fs_char>-value_neutral_long.
+      WHEN cns_z_batch_dypc."成品打印批号
+        cs_charg-z_batch_dypc = <fs_char>-value_neutral_long.
+      WHEN cns_zpack_sta.
+        cs_zpack_sta = <fs_char>-value_neutral_long.
     ENDCASE.
   ENDLOOP.
 ENDFORM.
@@ -1237,7 +1239,7 @@ FORM frm_get_gelatin_test USING uv_aufnr LIKE qals-aufnr                        
         FROM zqmt010.
 
   "添加明胶物料代码RANGE
-  DATA lv_str(40) TYPE C. "临时变量用于添加前导0
+  DATA lv_str(40) TYPE c. "临时变量用于添加前导0
   LOOP AT lt_zqmt009 INTO DATA(ls_zqmt009).
     def_set_range_matnr ls_zqmt009-zgelatin.
   ENDLOOP.
@@ -1394,21 +1396,21 @@ ENDFORM.
 FORM frm_get_longtext USING uv_id uv_langu uv_name uv_objet
 CHANGING ct_line TYPE STANDARD TABLE.
   CALL FUNCTION 'READ_TEXT'
-  EXPORTING
-    CLIENT                  = sy-mandt
-    ID                      = uv_id
-    LANGUAGE                = uv_langu
-    name                    = uv_name
-    object                  = uv_objet
-  TABLES
-    LINES                   = ct_line
-  EXCEPTIONS
-    ID                      = 1
-    LANGUAGE                = 2
-    name                    = 3
-    not_found               = 4
-    object                  = 5
-    reference_check         = 6
-    wrong_access_to_archive = 7
-    OTHERS                  = 8.
+    EXPORTING
+      client                  = sy-mandt
+      id                      = uv_id
+      language                = uv_langu
+      name                    = uv_name
+      object                  = uv_objet
+    TABLES
+      lines                   = ct_line
+    EXCEPTIONS
+      id                      = 1
+      language                = 2
+      name                    = 3
+      not_found               = 4
+      object                  = 5
+      reference_check         = 6
+      wrong_access_to_archive = 7
+      OTHERS                  = 8.
 ENDFORM.

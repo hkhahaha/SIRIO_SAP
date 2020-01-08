@@ -556,7 +556,7 @@ FORM frm_get_data.
     gs_plos-name1      = ls_lfa1-name1.
     gs_plos-ktext      = ls_plko-ktext.
     gs_plos-mseht      = ls_t006a1-msehl.
-******************HK 添加销售订单信息区域、S码检验计划数据*******************
+******************HK 添加销售订单信息区域*******************
     IF ls_qals-kdauf IS NOT INITIAL.
       SELECT SINGLE
       partner AS kunnr
@@ -566,47 +566,6 @@ FORM frm_get_data.
       INNER JOIN vbak
       ON vbak~kunnr = but000~partner
       WHERE vbak~vbeln = ls_qals-kdauf.
-    ENDIF.
-    "取长文本描述
-    DATA name LIKE  thead-tdname.
-    name = sy-mandt && ls_qals-plnty && ls_qals-plnnr && ls_qals-plnal && ls_qals-zaehl.
-    DATA: lines    LIKE TABLE OF tline,
-          ls_lines LIKE LINE OF lines.
-    CALL FUNCTION 'READ_TEXT'
-      EXPORTING
-        client                  = sy-mandt
-        id                      = 'PLKO'
-        language                = sy-langu
-        name                    = name
-        object                  = 'ROUTING'
-      TABLES
-        lines                   = lines
-      EXCEPTIONS
-        id                      = 1
-        language                = 2
-        name                    = 3
-        not_found               = 4
-        object                  = 5
-        reference_check         = 6
-        wrong_access_to_archive = 7
-        OTHERS                  = 8.
-    IF sy-subrc <> 0.
-* Implement suitable error handling here
-    ENDIF.
-    CLEAR gs_range_plandata_s-detail.
-    IF lines IS NOT INITIAL.
-      LOOP AT lines INTO ls_lines.
-        gs_range_plandata_s-detail = gs_range_plandata_s-detail && ls_lines-tdline.
-      ENDLOOP.
-    ELSE.
-      SELECT SINGLE
-        ktext
-      INTO gs_range_plandata_s-detail
-      FROM plko
-      WHERE plko~plnty = ls_qals-plnty
-        AND plko~plnnr = ls_qals-plnnr
-        AND plko~plnal = ls_qals-plnal
-        AND plko~zaehl = ls_qals-zaehl.
     ENDIF.
 ************************END ************************************
 
@@ -654,6 +613,59 @@ FORM frm_get_data.
       ENDLOOP.
 ***************************End****************************************
       gs_s_info-prueflos = ls_qals_s-prueflos.
+******************** HK S码检验计划数据***************************
+      SELECT SINGLE
+        prueflos,
+        plnty,
+        plnnr,
+        plnal,
+        zaehl
+      INTO @DATA(ls_qals2)
+      FROM qals
+      WHERE qals~prueflos = @ls_qals_s-prueflos.
+      "取长文本描述
+      DATA name LIKE  thead-tdname.
+      name = sy-mandt && ls_qals2-plnty && ls_qals2-plnnr && ls_qals2-plnal && ls_qals2-zaehl.
+      DATA: lines    LIKE TABLE OF tline,
+            ls_lines LIKE LINE OF lines.
+      CALL FUNCTION 'READ_TEXT'
+        EXPORTING
+          client                  = sy-mandt
+          id                      = 'PLKO'
+          language                = sy-langu
+          name                    = name
+          object                  = 'ROUTING'
+        TABLES
+          lines                   = lines
+        EXCEPTIONS
+          id                      = 1
+          language                = 2
+          name                    = 3
+          not_found               = 4
+          object                  = 5
+          reference_check         = 6
+          wrong_access_to_archive = 7
+          OTHERS                  = 8.
+      IF sy-subrc <> 0.
+* Implement suitable error handling here
+      ENDIF.
+      CLEAR gs_range_plandata_s-detail.
+      IF lines IS NOT INITIAL.
+        LOOP AT lines INTO ls_lines.
+          gs_range_plandata_s-detail = gs_range_plandata_s-detail && ls_lines-tdline.
+        ENDLOOP.
+      ELSE.
+        "长文本 没有的话取短文本
+        SELECT SINGLE
+        ktext
+        INTO gs_range_plandata_s-detail
+        FROM plko
+        WHERE plko~plnty = ls_qals2-plnty
+        AND plko~plnnr = ls_qals2-plnnr
+        AND plko~plnal = ls_qals2-plnal
+        AND plko~zaehl = ls_qals2-zaehl.
+      ENDIF.
+********************END***********************************
       PERFORM frm_get_test_speciality USING ls_qals_s-prueflos CHANGING gt_test_s gs_s_sample.
       PERFORM frm_get_untest_speciality USING ls_qals_s-prueflos .
       PERFORM frm_get_gelatin_test USING ls_qals_s-aufnr.

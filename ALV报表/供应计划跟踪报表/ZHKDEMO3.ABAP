@@ -126,6 +126,7 @@ END-OF-SELECTION.
 *定义子程序
 FORM getdata."查询语句
   w_repid = sy-repid.
+  DATA p_closed2(1).
   "获取ZMMWMS_POL表里面涉及到的数据
   IF p_closed IS INITIAL.
     SELECT
@@ -139,9 +140,9 @@ FORM getdata."查询语句
     AND zmmwms_pol~pdlv_date IN pdlv_dat.
   ELSE."如果前台的关闭标识为空的话，修改关闭标识的查询条件为%
     IF p_closed = '1'.
-      p_closed = ''.
+      p_closed2 = ''.
     ELSEIF p_closed = '2'.
-      p_closed = 'X'.
+      p_closed2 = 'X'.
     ENDIF.
     SELECT
     *
@@ -152,43 +153,44 @@ FORM getdata."查询语句
     AND zmmwms_pol~matnr IN s_matnr
     AND zmmwms_pol~st_code IN st_code
     AND zmmwms_pol~pdlv_date IN pdlv_dat
-    AND zmmwms_pol~xclosed = p_closed.
+    AND zmmwms_pol~xclosed = p_closed2.
   ENDIF.
 
   IF lt_zmmwms_pol IS NOT INITIAL.
 
     "接下来取采购订单抬头EKKO和采购订单行项目EKPO
-    SELECT
-        zmmwms_pol~dlv_planno  " 送料匹配计划号
-        zmmwms_pol~dlv_itemno  " 计划行
-        zmmwms_pol~origin  " 源头
-        zmmwms_pol~ebeln " 采购凭证编号
-        zmmwms_pol~ebelp " 采购凭证的项目编号
-        zmmwms_pol~guid  " 唯一标识
-        zmmwms_pol~uniqueid  " 连接 EBELN 和 EBELP
-        zmmwms_pol~duoge " 是否匹配多个临时表数据
-        zmmwms_pol~matnr " 物料编号
-        zmmwms_pol~pdlv_date " 计划交货日期
-        zmmwms_pol~pdlv_date_ext " 调整后计划交货日期
-        zmmwms_pol~pdlv_menge  " 计划送货数量
-        zmmwms_pol~meins " 基本计量单位
-        zmmwms_pol~werks " 工厂
-        zmmwms_pol~lgort " 库存地点
-        zmmwms_pol~st_code " 特殊标准
-        zmmwms_pol~producer  " 生产商
-        zmmwms_pol~mfrpn " 制造商零件编号
-        zmmwms_pol~uebto " 过量交货限度
-        zmmwms_pol~received_quan " 已收数量
-        zmmwms_pol~zaps_sts  " 状态
-        zmmwms_pol~wms_sts " 下发WMS状态
-        zmmwms_pol~xclosed " 关闭标记
-        ekko~ekorg "采购组织
-        ekko~ekgrp "采购组
-        ekko~lifnr "供应商编号
-        mara~matkl "物料组
-        ekko~ernam "订单创建人姓名
-        ekpo~lgort AS lgort2"库存地点
-        ekpo~menge "采购订单数量
+    IF p_closed IS INITIAL.
+      SELECT
+      zmmwms_pol~dlv_planno  " 送料匹配计划号
+      zmmwms_pol~dlv_itemno  " 计划行
+      zmmwms_pol~origin  " 源头
+      zmmwms_pol~ebeln " 采购凭证编号
+      zmmwms_pol~ebelp " 采购凭证的项目编号
+      zmmwms_pol~guid  " 唯一标识
+      zmmwms_pol~uniqueid  " 连接 EBELN 和 EBELP
+      zmmwms_pol~duoge " 是否匹配多个临时表数据
+      zmmwms_pol~matnr " 物料编号
+      zmmwms_pol~pdlv_date " 计划交货日期
+      zmmwms_pol~pdlv_date_ext " 调整后计划交货日期
+      zmmwms_pol~pdlv_menge  " 计划送货数量
+      zmmwms_pol~meins " 基本计量单位
+      zmmwms_pol~werks " 工厂
+      zmmwms_pol~lgort " 库存地点
+      zmmwms_pol~st_code " 特殊标准
+      zmmwms_pol~producer  " 生产商
+      zmmwms_pol~mfrpn " 制造商零件编号
+      zmmwms_pol~uebto " 过量交货限度
+      zmmwms_pol~received_quan " 已收数量
+      zmmwms_pol~zaps_sts  " 状态
+      zmmwms_pol~wms_sts " 下发WMS状态
+      zmmwms_pol~xclosed " 关闭标记
+      ekko~ekorg "采购组织
+      ekko~ekgrp "采购组
+      ekko~lifnr "供应商编号
+      mara~matkl "物料组
+      ekko~ernam "订单创建人姓名
+      ekpo~lgort AS lgort2"库存地点
+      ekpo~menge "采购订单数量
       INTO CORRESPONDING FIELDS OF TABLE lt_ekko_po
       FROM ekpo
       INNER JOIN ekko
@@ -200,13 +202,66 @@ FORM getdata."查询语句
       ON zmmwms_pol~matnr = mara~matnr
       FOR ALL ENTRIES IN lt_zmmwms_pol
       WHERE ekpo~ebeln = lt_zmmwms_pol-ebeln
-        AND ekpo~ebelp = lt_zmmwms_pol-ebelp
-        AND ekko~ekorg IN s_ekorg
-        AND ekko~ekgrp IN s_ekgrp
-        AND ekko~lifnr IN s_lifnr
-        AND mara~matkl IN s_matkl
-        AND ekko~ernam IN s_ernam
-        AND ekpo~ebeln IN s_ebeln.
+      AND ekpo~ebelp = lt_zmmwms_pol-ebelp
+      AND ekko~ekorg IN s_ekorg
+      AND ekko~ekgrp IN s_ekgrp
+      AND ekko~lifnr IN s_lifnr
+      AND mara~matkl IN s_matkl
+      AND ekko~ernam IN s_ernam
+      AND ekpo~ebeln IN s_ebeln.
+    ELSE.
+      SELECT
+      zmmwms_pol~dlv_planno  " 送料匹配计划号
+      zmmwms_pol~dlv_itemno  " 计划行
+      zmmwms_pol~origin  " 源头
+      zmmwms_pol~ebeln " 采购凭证编号
+      zmmwms_pol~ebelp " 采购凭证的项目编号
+      zmmwms_pol~guid  " 唯一标识
+      zmmwms_pol~uniqueid  " 连接 EBELN 和 EBELP
+      zmmwms_pol~duoge " 是否匹配多个临时表数据
+      zmmwms_pol~matnr " 物料编号
+      zmmwms_pol~pdlv_date " 计划交货日期
+      zmmwms_pol~pdlv_date_ext " 调整后计划交货日期
+      zmmwms_pol~pdlv_menge  " 计划送货数量
+      zmmwms_pol~meins " 基本计量单位
+      zmmwms_pol~werks " 工厂
+      zmmwms_pol~lgort " 库存地点
+      zmmwms_pol~st_code " 特殊标准
+      zmmwms_pol~producer  " 生产商
+      zmmwms_pol~mfrpn " 制造商零件编号
+      zmmwms_pol~uebto " 过量交货限度
+      zmmwms_pol~received_quan " 已收数量
+      zmmwms_pol~zaps_sts  " 状态
+      zmmwms_pol~wms_sts " 下发WMS状态
+      zmmwms_pol~xclosed " 关闭标记
+      ekko~ekorg "采购组织
+      ekko~ekgrp "采购组
+      ekko~lifnr "供应商编号
+      mara~matkl "物料组
+      ekko~ernam "订单创建人姓名
+      ekpo~lgort AS lgort2"库存地点
+      ekpo~menge "采购订单数量
+      INTO CORRESPONDING FIELDS OF TABLE lt_ekko_po
+      FROM ekpo
+      INNER JOIN ekko
+      ON ekko~ebeln = ekpo~ebeln
+      INNER JOIN zmmwms_pol
+      ON zmmwms_pol~ebeln = ekpo~ebeln
+      AND zmmwms_pol~ebelp = ekpo~ebelp
+      INNER JOIN mara
+      ON zmmwms_pol~matnr = mara~matnr
+      FOR ALL ENTRIES IN lt_zmmwms_pol
+      WHERE ekpo~ebeln = lt_zmmwms_pol-ebeln
+      AND ekpo~ebelp = lt_zmmwms_pol-ebelp
+      AND ekko~ekorg IN s_ekorg
+      AND ekko~ekgrp IN s_ekgrp
+      AND ekko~lifnr IN s_lifnr
+      AND mara~matkl IN s_matkl
+      AND ekko~ernam IN s_ernam
+      AND ekpo~ebeln IN s_ebeln
+      AND zmmwms_pol~xclosed = p_closed2.
+    ENDIF.
+
   ENDIF.
   "接下来从MATK里面取物料描述
   SELECT
@@ -550,33 +605,43 @@ FORM getdata."查询语句
     WHERE matdoc~bwart = '101'
       AND matdoc~ebeln = @ls_ekko_po-ebeln
       AND matdoc~ebelp = @ls_ekko_po-ebelp.
-    SELECT
+    IF lv_matdoc-charg IS NOT INITIAL.
+      SELECT
       SUM( menge )
-    INTO @DATA(lv_number2)
-    FROM matdoc
-    WHERE matdoc~charg = @lv_matdoc-charg
-      AND matdoc~bwart = '343'.
-    SELECT
-    SUM( menge )
-    INTO @DATA(lv_number3)
-          FROM matdoc
-          WHERE matdoc~charg = @lv_matdoc-charg
-          AND matdoc~bwart = '344'.
-    ls_alv-number = lv_number + lv_number2 - lv_number3.
+      INTO @DATA(lv_number2)
+            FROM matdoc
+            WHERE matdoc~charg = @lv_matdoc-charg
+            AND matdoc~bwart = '343'.
+      SELECT
+      SUM( menge )
+      INTO @DATA(lv_number3)
+            FROM matdoc
+            WHERE matdoc~charg = @lv_matdoc-charg
+            AND matdoc~bwart = '344'.
+      ls_alv-number = lv_number + lv_number2 - lv_number3.
+    ELSE.
+      CLEAR ls_alv-number.
+    ENDIF.
+
 
 
     "2.2获取344的数量
     "关闭标志
     ls_alv-close = ls_ekko_po-xclosed.
     "答复状态
-    READ TABLE lt_zmmaps_temp INTO ls_zmmaps_temp WITH KEY dlv_planno = ls_ekko_po-dlv_planno
-                                                           dlv_itemno = ls_ekko_po-dlv_itemno.
-    IF sy-subrc = 0.
-      IF ls_zmmaps_temp-pdlv_date IS INITIAL.
-        ls_alv-answer = '未答复'.
-      ELSE.
-        ls_alv-answer  = '已答复'.
-      ENDIF.
+*    READ TABLE lt_zmmaps_temp INTO ls_zmmaps_temp WITH KEY dlv_planno = ls_ekko_po-dlv_planno
+*                                                           dlv_itemno = ls_ekko_po-dlv_itemno.
+*    IF sy-subrc = 0.
+*      IF ls_zmmaps_temp-pdlv_date IS INITIAL.
+*        ls_alv-answer = '未答复'.
+*      ELSE.
+*        ls_alv-answer  = '已答复'.
+*      ENDIF.
+*    ENDIF.
+    IF ls_alv-pdlv_date IS NOT INITIAL.
+      ls_alv-answer = '已答复'.
+    ELSE.
+      ls_alv-answer = '未答复'.
     ENDIF.
     "质检状态数量
     "非限制状态数量
@@ -612,8 +677,10 @@ FORM getdata."查询语句
     INTO ls_alv-or_order
     FROM eket
     WHERE eket~ebeln = ls_ekko_po-ebeln
-      AND eket~ebelp = ls_ekko_po-dlv_itemno
-      AND eket~etenr = ls_ekko_po-dlv_planno.
+      AND eket~ebelp = ls_ekko_po-dlv_itemno.
+    IF ls_ekko_po-origin = 'M'."如果是按单的话，原订单到货时间为订单交货日期
+      ls_alv-or_order = ls_alv-pay_date.
+    ENDIF.
     "原订单数量
     ls_alv-or_order_num = ls_ekko_po-menge.
 

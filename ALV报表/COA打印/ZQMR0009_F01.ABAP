@@ -198,8 +198,8 @@ FORM frm_fill_excel.
        lv_str(256) TYPE c. "临时字符串用作去除空格
 
   "输出检验计划信息
-  PERFORM frm_range_dim USING 2 2 8 1 'RANGE_PLOS'.
-  DO 8 TIMES.
+  PERFORM frm_range_dim USING 2 2 9 1 'RANGE_PLOS'.
+  DO 9 TIMES.
     ASSIGN COMPONENT sy-index OF STRUCTURE gs_plos TO FIELD-SYMBOL(<fs_plos>).
     IF <fs_plos> IS NOT INITIAL.
       def_set_range_input sy-index 1 <fs_plos>.
@@ -240,7 +240,37 @@ FORM frm_fill_excel.
       ranges   = gt_range
       contents = gt_excel_input
       no_flush = 'X'.
+**************HK 添加销售订单信息区域、S码检验计划数据**************
+  "输出检验计划文本
+  PERFORM frm_range_dim USING 2 23 2 1 'RANGE_SALES'.
+  DO 2 TIMES.
+    ASSIGN COMPONENT sy-index OF STRUCTURE gs_range_sales TO FIELD-SYMBOL(<fs_sales>).
+    IF <fs_sales> IS NOT INITIAL.
+      def_set_range_input sy-index 1 <fs_sales>.
+    ELSE.
+      def_set_range_input sy-index 1 space.
+    ENDIF.
+  ENDDO.
+  CALL METHOD grf_spreadsheet->set_ranges_data
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
 
+  PERFORM frm_range_dim USING 14 7 1 1 'RANGE_PLOS_KTEXT'.
+  IF gs_range_plandata_s-detail IS NOT INITIAL.
+    def_set_range_input 1 1 gs_range_plandata_s-detail.
+  ELSE.
+    def_set_range_input 1 1 space.
+  ENDIF.
+  CALL METHOD grf_spreadsheet->set_ranges_data
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
+
+
+***********************END**************************
   "输出样本信息
   PERFORM frm_range_dim USING 18 2 5 1 'RANGE_SAMPLE'.
   DO 5 TIMES.
@@ -290,8 +320,8 @@ FORM frm_fill_excel.
       no_flush = 'X'.
 
   "输出S码信息
-  PERFORM frm_range_dim USING 10 15 3 1 'RANGE_S_INFO'.
-  DO 3 TIMES.
+  PERFORM frm_range_dim USING 10 15 4 1 'RANGE_S_INFO'.
+  DO 4 TIMES.
     ASSIGN COMPONENT sy-index OF STRUCTURE gs_s_info TO FIELD-SYMBOL(<fs_s_info>).
     IF <fs_s_info> IS NOT INITIAL.
       def_set_range_input sy-index 1 <fs_s_info>.
@@ -408,7 +438,7 @@ FORM frm_get_data.
 
   "抓取检验批次计划
   SELECT SINGLE prueflos,charg,offennlzmk,lmengeist,mengeneinh,matnr,sellifnr,
-  plnnr,plnal,aufnr,werk
+  plnnr,plnal,aufnr,werk,kdauf,plnty,zaehl
   INTO @DATA(ls_qals)
         FROM qals
         WHERE prueflos EQ @p_pruef.
@@ -526,7 +556,59 @@ FORM frm_get_data.
     gs_plos-name1      = ls_lfa1-name1.
     gs_plos-ktext      = ls_plko-ktext.
     gs_plos-mseht      = ls_t006a1-msehl.
-
+******************HK 添加销售订单信息区域、S码检验计划数据*******************
+    IF ls_qals-kdauf IS NOT INITIAL.
+      SELECT SINGLE
+      partner AS kunnr
+      bu_sort1
+      INTO CORRESPONDING FIELDS OF gs_range_sales
+      FROM but000
+      INNER JOIN vbak
+      ON vbak~kunnr = but000~partner
+      WHERE vbak~vbeln = ls_qals-kdauf.
+    ENDIF.
+    "取长文本描述
+    DATA name LIKE  thead-tdname.
+    name = sy-mandt && ls_qals-plnty && ls_qals-plnnr && ls_qals-plnal && ls_qals-zaehl.
+    DATA: lines    LIKE TABLE OF tline,
+          ls_lines LIKE LINE OF lines.
+    CALL FUNCTION 'READ_TEXT'
+      EXPORTING
+        client                  = sy-mandt
+        id                      = 'PLKO'
+        language                = sy-langu
+        name                    = name
+        object                  = 'ROUTING'
+      TABLES
+        lines                   = lines
+      EXCEPTIONS
+        id                      = 1
+        language                = 2
+        name                    = 3
+        not_found               = 4
+        object                  = 5
+        reference_check         = 6
+        wrong_access_to_archive = 7
+        OTHERS                  = 8.
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+    ENDIF.
+    CLEAR gs_range_plandata_s-detail.
+    IF lines IS NOT INITIAL.
+      LOOP AT lines INTO ls_lines.
+        gs_range_plandata_s-detail = gs_range_plandata_s-detail && ls_lines-tdline.
+      ENDLOOP.
+    ELSE.
+      SELECT SINGLE
+        ktext
+      INTO gs_range_plandata_s-detail
+      FROM plko
+      WHERE plko~plnty = ls_qals-plnty
+        AND plko~plnnr = ls_qals-plnnr
+        AND plko~plnal = ls_qals-plnal
+        AND plko~zaehl = ls_qals-zaehl.
+    ENDIF.
+************************END ************************************
 
     MOVE-CORRESPONDING ls_mara TO gs_material.
     gs_material-maktx = ls_makt-maktx.
@@ -534,7 +616,7 @@ FORM frm_get_data.
     IF ls_mseg IS NOT INITIAL.
       gs_s_info-aufnr = ls_mseg-aufnr.
       gs_s_info-charg = ls_mseg-charg.
-
+      gs_s_info-matnr = ls_mseg-matnr.
       "抓取S码批次对应的检验批号(原先取的是单条数据)
       SELECT prueflos,charg,aufnr,objnr
       INTO TABLE @DATA(lt_qals_s)
@@ -643,7 +725,8 @@ CHANGING ct_test TYPE STANDARD TABLE
     SELECT  pn_nr,menge,meinh,gbtyp,objnr
     INTO CORRESPONDING FIELDS OF TABLE @lt_qprs
     FROM qprs
-    WHERE plos2 EQ @uv_pruef.
+    WHERE plos2 EQ @uv_pruef
+      AND qprs~prtyp = '1'.
     CLEAR ls_qprs.
     LOOP AT lt_qprs INTO ls_qprs2.
       CALL FUNCTION 'STATUS_READ'

@@ -663,7 +663,8 @@ FORM getdata."查询语句
     ENDIF.
     "如果POL表里面有数据，但是数据还没有下传，去掉垃圾项数据，从TEMP表里面取,答复状态改成未答复
     READ TABLE lt_zmmaps_temp2 INTO ls_zmmaps_temp WITH KEY ebeln = ls_ekko_po-ebeln
-    ebelp = ls_ekko_po-ebelp.
+                                                            ebelp = ls_ekko_po-ebelp
+                                                            reqdate = ls_alv-aps_req_date.
     IF sy-subrc = 0.
       ls_alv-answer = '未答复'.
     ENDIF.

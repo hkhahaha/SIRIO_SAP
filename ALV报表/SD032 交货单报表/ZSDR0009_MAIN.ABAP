@@ -444,11 +444,59 @@ FORM getdata.
       "客户合同单号
       SELECT SINGLE
       bstkd_e
-      kursk
-      INTO (ls_out-bstkd_e,ls_out-kursk)
+      INTO ls_out-bstkd_e
       FROM vbkd
       WHERE vbkd~vbeln = ls_main-vbeln_vbak
       AND vbkd~posnr = ls_main-posnr_vbap.
+      "汇率
+      IF ls_main-wadat IS NOT INITIAL.
+        DATA:lv_date(10) TYPE c,
+             lv_date2(10) TYPE c.
+        CLEAR lv_date.
+        lv_date = ls_main-wadat.
+        CALL FUNCTION 'CONVERSION_EXIT_INVDT_INPUT'
+          EXPORTING
+            input  = lv_date
+          IMPORTING
+            output = lv_date.
+        IF lv_date IS NOT INITIAL.
+          lv_date = lv_date+0(6).
+          lv_date2 = '%' && lv_date && '%'.
+          SELECT SINGLE
+          ukurs
+          INTO ls_out-kursk
+          FROM tcurr
+          WHERE tcurr~kurst = 'M'
+          AND tcurr~tcurr = 'CNY'
+          AND tcurr~fcurr = ls_main-waerk
+          AND tcurr~gdatu LIKE lv_date2.
+        ENDIF.
+        IF ls_out-kursk IS INITIAL.
+          lv_date = lv_date && '98'.
+          SELECT
+          ukurs
+          INTO TABLE @DATA(lv_kursk)
+          FROM tcurr
+          WHERE tcurr~kurst = 'M'
+          AND tcurr~tcurr = 'CNY'
+          AND tcurr~fcurr = @ls_main-waerk
+          AND tcurr~gdatu < @lv_date
+          ORDER BY gdatu DESCENDING.
+          READ TABLE lv_kursk INTO DATA(ls_kursk) INDEX 1.
+          ls_out-kursk = ls_kursk-ukurs.
+        ENDIF.
+      ENDIF.
+      IF ls_main-waerk = 'CNY'.
+        ls_out-kursk = '1.0000'.
+      ENDIF.
+      IF ls_out-kursk IS INITIAL.
+        SELECT SINGLE
+        kursk
+        INTO ls_out-kursk
+        FROM vbkd
+        WHERE vbkd~vbeln = ls_main-vbeln_vbak
+        AND vbkd~posnr = ls_main-posnr_vbap.
+      ENDIF.
       IF ls_out-bstkd_e IS INITIAL.
         SELECT SINGLE
         bstkd_e

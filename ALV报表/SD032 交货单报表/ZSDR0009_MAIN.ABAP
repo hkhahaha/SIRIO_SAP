@@ -138,6 +138,7 @@ FORM getdata.
   likp~cmgst
   likp~sdabw
   vbap~zkhwl
+  vbap~shkzg
 
   INTO CORRESPONDING FIELDS OF TABLE lt_main
   FROM lips
@@ -156,7 +157,8 @@ FORM getdata.
   AND likp~vbeln IN pvbeln
   AND vbap~vbeln IN pvbeln2
   AND likp~ernam IN puser
-  AND likp~kunag IN pcustom.
+  AND likp~kunag IN pcustom
+  AND likp~kunnr IN pkunnr.
 
   "客户
   SELECT
@@ -450,7 +452,7 @@ FORM getdata.
       AND vbkd~posnr = ls_main-posnr_vbap.
       "汇率
       IF ls_main-wadat IS NOT INITIAL.
-        DATA:lv_date(10) TYPE c,
+        DATA:lv_date(10)  TYPE c,
              lv_date2(10) TYPE c.
         CLEAR lv_date.
         lv_date = ls_main-wadat.
@@ -837,6 +839,25 @@ FORM getdata.
 *      IF sy-subrc <> 0.
 ** Implement suitable error handling here
 *      ENDIF.
+      "针对父件、有退货标识的话，所有的金额、数量带上符号。
+      IF ls_main-shkzg = 'X'.
+        ls_out-lfimg = ls_out-lfimg * -1.
+*        ls_out-zlxsl = ls_out-zlxsl * -1.
+        ls_out-zlfimg = ls_out-zlfimg * -1.
+        ls_out-baxssl = ls_out-baxssl * -1.
+        ls_out-zypsl = ls_out-zypsl * -1.
+        ls_out-kpsum = ls_out-kpsum * -1.
+        ls_out-ddpprice = ls_out-ddpprice * -1.
+*        ls_out-perprice = ls_out-perprice * -1.
+        ls_out-disclv = ls_out-disclv * -1.
+        ls_out-discnum = ls_out-discnum * -1.
+        ls_out-price = ls_out-price * -1.
+        ls_out-price2 = ls_out-price2 * -1.
+        ls_out-mwsbp = ls_out-mwsbp * -1.
+        ls_out-netwr = ls_out-netwr * -1.
+      ENDIF.
+
+
 
       IF ls_out-zlfimg IS NOT INITIAL.
         " 当是铝盒装的时候：

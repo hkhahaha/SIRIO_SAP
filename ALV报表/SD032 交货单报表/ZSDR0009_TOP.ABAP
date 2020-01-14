@@ -40,7 +40,7 @@ TYPES:BEGIN OF lv_out,
         matnr           TYPE    lips-matnr  , "  产品代号
         arktx           TYPE    lips-arktx  , "  产品名称
         lfimg           TYPE    lips-lfimg  , "  销售数量
-        vrkme(4)           TYPE    C  , "  销售单位
+        vrkme(4)        TYPE    c  , "  销售单位
         zjians          TYPE    lips-zjians , "  件数
         zlxsl           TYPE    lips-zlxsl  , "  零箱数量
         zlfimg          TYPE    lips-lfimg  , "  实发销售数量
@@ -123,7 +123,7 @@ TYPES:
   matnr       TYPE    lips-matnr  , "  产品代号
   arktx       TYPE    lips-arktx  , "  产品名称
   lfimg       TYPE    lips-lfimg  , "  销售数量
-  vrkme(4)       TYPE    C  , "  销售单位
+  vrkme(4)    TYPE    c  , "  销售单位
   zjians      TYPE    lips-zjians , "  件数
   zlxsl       TYPE    lips-zlxsl  , "  零箱数量
   zlfimg      TYPE    lips-lfimg  , "  实发销售数量
@@ -191,7 +191,8 @@ TYPES:
   cmgst       TYPE string, "贷方
   sdabw       TYPE string, "特殊处理标
   zkhwl       TYPE string, "客户物料编码
-  posnr_vbap  TYPE    vbap-posnr.   "  销售订单
+  posnr_vbap  TYPE    vbap-posnr,   "  销售订单
+  shkzg       TYPE vbap-shkzg.  "退货
 
 TYPES:END OF lv_main.
 

@@ -146,7 +146,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zappsou2(70)   TYPE    c      , "  批文来源2
         zcotype        TYPE    string      , "  合作类型
         meins(10)      TYPE    c, "  基本计量单位
-        number(13)         TYPE   P DECIMALS 3   , "  基本计量数量
+        number(13)     TYPE   p DECIMALS 3   , "  基本计量数量
         kwmeng         TYPE    vbap-kwmeng , "  销售数量
         zypsl(40)      TYPE    c  , "  样品数量
         vrkme(10)      TYPE    c, "  销售单位
@@ -1615,6 +1615,12 @@ FORM catalog.
     fieldcatset   'ZSUM'      '礼合装子件销售数量'    sy-tabix.
     fieldcatset   'ZSUM2'      '礼合装子件基本数量'    sy-tabix.
   ENDIF.
+
+  READ TABLE fieldcat INDEX 5."读取报表第三列
+  fieldcat-hotspot = 'X'."鼠标热点事件
+  fieldcat-key = 'X'."定义为主键（颜色改变）
+  MODIFY fieldcat INDEX 5."修改样式
+
 ENDFORM.
 
 FORM alvshow.
@@ -1625,7 +1631,7 @@ FORM alvshow.
 *     I_BUFFER_ACTIVE          =
       i_callback_program       = sy-repid
       i_callback_pf_status_set = 'FRM_USER_STATUS'
-*     i_callback_user_command  = 'FRM_USER_COMMAND'
+      i_callback_user_command  = 'FRM_USER_COMMAND'
 *     I_CALLBACK_TOP_OF_PAGE   = ' '
 *     I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
 *     I_CALLBACK_HTML_END_OF_LIST       = ' '
@@ -1719,5 +1725,17 @@ FORM frm_authority_check.
     ENDIF.
     CLEAR ls_pvkorg.
   ENDLOOP.
+
+ENDFORM.
+
+*响应鼠标点击时间的子程序
+FORM frm_user_command USING r_ucomm LIKE sy-ucomm
+      rs_selfield TYPE slis_selfield.
+  CASE r_ucomm.
+    WHEN '&IC1'."默认的值就是这个，网上查资料据说能修改~
+      READ TABLE lt_out INTO ls_out INDEX rs_selfield-tabindex.
+      SET PARAMETER ID 'AUN' FIELD ls_out-vbeln.
+      CALL TRANSACTION 'VA03' AND SKIP FIRST SCREEN.
+  ENDCASE.
 
 ENDFORM.

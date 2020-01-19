@@ -1648,8 +1648,8 @@ FORM frm_mrp_aera_create  USING    us_input  TYPE zdt_oa2sap_mdm_mara
         lw_fields-xdispo = ls_detail-zdispo.          " MRP控制者/物料需求计划控制员
         lw_fields-xdisls = ls_detail-zdisls.          " 批量大小
         lw_fields-xsobsl = ls_detail-zsobsl.          " 特殊采购类
-        lw_fields-xbstma = ls_detail-zbstmi.          " 最大批量大小
-        lw_fields-xbstmi = ls_detail-zbstma.          " 最小批量大小
+        lw_fields-xbstma = ls_detail-zbstma.          " 最大批量大小
+        lw_fields-xbstmi = ls_detail-zbstmi.          " 最小批量大小
         lw_fields-xbstrf = ls_detail-zbstrf.          " 舍入值
         lw_fields-xbstfe = ls_detail-zbstfe.          " 固定批量
         lw_fields-xlgfsb = ls_detail-zlgfsb.          " 外部采购仓储地点

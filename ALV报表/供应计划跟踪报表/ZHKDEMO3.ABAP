@@ -10,7 +10,7 @@ DATA:fieldcat TYPE slis_t_fieldcat_alv WITH HEADER LINE,
      layout   TYPE slis_layout_alv,
      w_repid  TYPE sy-repid, "记录系统当前的程序名
      list     TYPE vrm_values.
-TABLES:ekko,zmmwms_pol,mara,lfa1,ekpo,zmmaps_temp,t006a,marc,eket.
+TABLES:ekko,zmmwms_pol,mara,lfa1,ekpo,zmmaps_temp,t006a,marc,eket,ekbe.
 DATA:lbkpf LIKE STANDARD TABLE OF bkpf WITH HEADER LINE."标准表格式的内表lbkpf
 "定义ALV涉及到的相关字段
 DATA:BEGIN OF lv_alv,
@@ -108,7 +108,8 @@ INITIALIZATION.
     s_matnr FOR mara-matnr,
     st_code FOR zmmwms_pol-st_code NO INTERVALS,
     pdlv_dat FOR zmmwms_pol-pdlv_date,
-    s_ernam FOR ekko-ernam.
+    s_ernam FOR ekko-ernam,
+    s_planno FOR zmmwms_pol-dlv_planno.
 *  xclosed FOR zmmwms_pol-xclosed.
   PARAMETERS: p_closed(1) AS LISTBOX VISIBLE LENGTH 8.     "关闭标识
   SELECTION-SCREEN END OF BLOCK blk.
@@ -139,7 +140,8 @@ FORM getdata."查询语句
     AND zmmwms_pol~ebeln IN s_ebeln
     AND zmmwms_pol~matnr IN s_matnr
     AND zmmwms_pol~st_code IN st_code
-    AND zmmwms_pol~pdlv_date IN pdlv_dat.
+    AND zmmwms_pol~pdlv_date IN pdlv_dat
+    AND zmmwms_pol~dlv_planno IN s_planno.
   ELSE."如果前台的关闭标识为空的话，修改关闭标识的查询条件为%
     IF p_closed = '1'.
       p_closed2 = ''.
@@ -155,7 +157,8 @@ FORM getdata."查询语句
     AND zmmwms_pol~matnr IN s_matnr
     AND zmmwms_pol~st_code IN st_code
     AND zmmwms_pol~pdlv_date IN pdlv_dat
-    AND zmmwms_pol~xclosed = p_closed2.
+    AND zmmwms_pol~xclosed = p_closed2
+    AND zmmwms_pol~dlv_planno IN s_planno.
   ENDIF.
 
   IF lt_zmmwms_pol IS NOT INITIAL.
@@ -210,7 +213,8 @@ FORM getdata."查询语句
       AND ekko~lifnr IN s_lifnr
       AND mara~matkl IN s_matkl
       AND ekko~ernam IN s_ernam
-      AND ekpo~ebeln IN s_ebeln.
+      AND ekpo~ebeln IN s_ebeln
+      AND zmmwms_pol~dlv_planno IN s_planno.
     ELSE.
       SELECT
       zmmwms_pol~dlv_planno  " 送料匹配计划号
@@ -261,36 +265,12 @@ FORM getdata."查询语句
       AND mara~matkl IN s_matkl
       AND ekko~ernam IN s_ernam
       AND ekpo~ebeln IN s_ebeln
-      AND zmmwms_pol~xclosed = p_closed2.
+      AND zmmwms_pol~xclosed = p_closed2
+      AND zmmwms_pol~dlv_planno IN s_planno.
     ENDIF.
-
   ENDIF.
 
 
-
-  "接下来从MATK里面取物料描述
-  SELECT
-    matnr
-    maktx
-    INTO CORRESPONDING FIELDS OF TABLE lt_makt
-    FROM makt
-    FOR ALL ENTRIES IN lt_ekko_po
-    WHERE makt~matnr EQ lt_ekko_po-matnr
-      AND makt~spras EQ '1'.
-
-  "接下来取供应商名称存到内表里面
-  SELECT
-    lifnr
-    name1
-    name2
-    name3
-    name4
-    INTO CORRESPONDING FIELDS OF TABLE lt_lfa1
-    FROM lfa1
-    FOR ALL ENTRIES IN lt_ekko_po
-    WHERE lfa1~lifnr EQ lt_ekko_po-lifnr
-       OR lfa1~lifnr EQ lt_ekko_po-producer.
-  SORT lt_lfa1 BY lifnr.
   "获取ZMMAPS_TEMP表中的数据
   SELECT
     uniqueid
@@ -386,25 +366,38 @@ FORM getdata."查询语句
 *  ENDLOOP.
   IF lt_ekko_po IS NOT INITIAL.
     SELECT
-      *
+    *
     INTO CORRESPONDING FIELDS OF TABLE lt_zmmaps_temp2
     FROM zmmaps_temp
     FOR ALL ENTRIES IN lt_ekko_po
     WHERE zmmaps_temp~ebeln = lt_ekko_po-ebeln
-      AND zmmaps_temp~ebelp = lt_ekko_po-ebelp
-      AND zmmaps_temp~dlv_planno = ''.
+    AND zmmaps_temp~ebelp = lt_ekko_po-ebelp
+    AND zmmaps_temp~dlv_planno = ''.
     SORT lt_zmmaps_temp2 BY ebeln ebelp.
   ENDIF.
   "上面已经取到POL表里面需要的数据到lt_ekko_po里面，现在需要把还未下发WMS的数据但是已经存在TEMP表中的数据放在lt_ekko_po里面
-  IF lt_ekko_po IS NOT INITIAL.
+  IF lt_ekko_po IS NOT INITIAL AND s_planno IS INITIAL.
     SELECT
-      *
+    *
     APPENDING CORRESPONDING FIELDS OF TABLE lt_ekko_po
     FROM zmmaps_temp
+*    LEFT JOIN zmmwms_pol
+*    ON zmmwms_pol~ebeln = zmmaps_temp~ebeln
+*    AND zmmwms_pol~ebelp = zmmaps_temp~ebelp
     FOR ALL ENTRIES IN lt_ekko_po
     WHERE zmmaps_temp~ebeln = lt_ekko_po-ebeln
-      AND zmmaps_temp~dlv_planno = ''
-      AND zmmaps_temp~inactive <> 'X'.
+    AND zmmaps_temp~dlv_planno = ''
+    AND zmmaps_temp~inactive <> 'X'.
+  ELSEIF lt_ekko_po IS INITIAL AND s_planno IS INITIAL.
+    SELECT
+    *
+    APPENDING CORRESPONDING FIELDS OF TABLE lt_ekko_po
+    FROM zmmaps_temp
+    WHERE zmmaps_temp~dlv_planno = ''
+      AND zmmaps_temp~dlv_itemno = ''
+      AND zmmaps_temp~ebeln IN s_ebeln
+      AND zmmaps_temp~inactive <> 'X'
+      AND zmmaps_temp~released <> 'X'.
   ENDIF.
   "关联PL表，获取APS需求数量
   IF lt_ekko_po IS NOT INITIAL.
@@ -416,6 +409,32 @@ FORM getdata."查询语句
     WHERE zmmaps_pl~guid = lt_ekko_po-guid.
     SORT lt_zmmaps_pl2 BY uniqueid pdlv_date.
   ENDIF.
+
+
+  "接下来从MATK里面取物料描述
+  SELECT
+  matnr
+  maktx
+  INTO CORRESPONDING FIELDS OF TABLE lt_makt
+  FROM makt
+  FOR ALL ENTRIES IN lt_ekko_po
+  WHERE makt~matnr EQ lt_ekko_po-matnr
+  AND makt~spras EQ '1'.
+
+  "接下来取供应商名称存到内表里面
+  SELECT
+  lifnr
+  name1
+  name2
+  name3
+  name4
+  INTO CORRESPONDING FIELDS OF TABLE lt_lfa1
+  FROM lfa1
+  FOR ALL ENTRIES IN lt_ekko_po
+  WHERE lfa1~lifnr EQ lt_ekko_po-lifnr
+  OR lfa1~lifnr EQ lt_ekko_po-producer.
+  SORT lt_lfa1 BY lifnr.
+
 
 
 
@@ -580,9 +599,9 @@ FORM getdata."查询语句
     SELECT COUNT( * ) AS number2
     FROM matdoc
     WHERE matdoc~ebeln = @ls_ekko_po-ebeln
-    AND matdoc~bwart = '101'
+    AND matdoc~bwart = '102'
     INTO @DATA(count2).
-    ls_alv-po_num = count1 - count2.
+    ls_alv-po_num = count1.
     "最小订购批量
     READ TABLE lt_marc INTO ls_marc WITH KEY matnr = ls_ekko_po-matnr BINARY SEARCH.
     IF sy-subrc = 0.
@@ -635,7 +654,7 @@ FORM getdata."查询语句
         output = lt_atinn.
     READ TABLE lt_atinn INTO ls_atinn INDEX 1.
     IF sy-subrc = 0.
-      ls_alv-zoriadd = ls_atinn-atwrt.
+      ls_alv-xprecious = ls_atinn-atwrt.
     ENDIF.
     CLEAR ls_atinn.
     "质检放行数量
@@ -680,6 +699,9 @@ FORM getdata."查询语句
     "2.2获取344的数量
     "关闭标志
     ls_alv-close = ls_ekko_po-xclosed.
+    IF p_closed2 IS NOT INITIAL.
+      CHECK ls_alv-close EQ p_closed2.
+    ENDIF.
     "答复状态
 *    READ TABLE lt_zmmaps_temp INTO ls_zmmaps_temp WITH KEY dlv_planno = ls_ekko_po-dlv_planno
 *                                                           dlv_itemno = ls_ekko_po-dlv_itemno.
@@ -701,6 +723,44 @@ FORM getdata."查询语句
                                                             reqdate = ls_alv-reqdate.
     IF sy-subrc = 0.
       ls_alv-answer = '未答复'.
+    ENDIF.
+    IF ls_alv-answer = '未答复'.
+      "未答复的确认计划送货数量取TEMP表里面的分配数量
+      SELECT SINGLE
+      assign_menge
+      INTO ls_alv-pdlv_menge
+      FROM zmmaps_temp
+      WHERE zmmaps_temp~ebeln = ls_ekko_po-ebeln
+      AND zmmaps_temp~ebelp = ls_ekko_po-ebelp
+      AND zmmaps_temp~inactive <> 'X'
+      AND zmmaps_temp~released <> 'X'.
+      "未答复的制造商和制造商名称
+      SELECT SINGLE
+        producer
+      INTO ls_alv-producer
+      FROM zmmwms_pol
+      WHERE zmmwms_pol~ebeln = ls_ekko_po-ebeln
+        AND zmmwms_pol~ebelp = ls_ekko_po-ebelp.
+      "名称
+      READ TABLE lt_lfa1 INTO ls_lfa1 WITH KEY lifnr = ls_alv-producer.
+      IF sy-subrc = 0.
+        CONCATENATE ls_lfa1-name1 ls_lfa1-name2 ls_lfa1-name3 ls_lfa1-name4
+        INTO ls_alv-producer_nam SEPARATED BY ' '.
+      ENDIF.
+      ls_alv-origin = 'APS'.
+      "采购部门负责人
+      SELECT SINGLE
+        ernam
+      INTO ls_ekko_po-ernam
+      FROM ekko
+      WHERE ekko~ebeln = ls_ekko_po-ebeln.
+      CALL FUNCTION 'ZGET_USERNAME'
+        EXPORTING
+          i_uname = ls_ekko_po-ernam
+        IMPORTING
+          e_uname = ls_alv-responsible.
+      "未答复的未到货延期天数是空的
+      CLEAR ls_alv-delay.
     ENDIF.
     "质检状态数量
     "非限制状态数量

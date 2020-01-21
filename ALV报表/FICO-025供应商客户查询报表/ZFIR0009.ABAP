@@ -146,6 +146,10 @@ FORM getdata."查询语句
       AND knvv~kunnr = @ls_alv-partner
       AND tvtwt~spras = '1'.
     DATA ls_vtweg LIKE LINE OF lt_vtweg.
+    "去除分销渠道的重复项
+    SORT lt_vtweg BY vtweg.
+    DELETE ADJACENT DUPLICATES FROM lt_vtweg COMPARING vtweg.
+
     IF lt_vtweg IS NOT INITIAL.
       LOOP AT lt_vtweg INTO ls_vtweg.
         CONCATENATE ls_alv-vtweg ls_vtweg-vtweg INTO ls_alv-vtweg SEPARATED BY ','.

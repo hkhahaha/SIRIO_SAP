@@ -582,21 +582,28 @@ FORM getdata."查询语句
       ls_alv-apsreq_menge = ls_ekko_po-menge.
     ENDIF.
     "净收货量:借方减去贷方
-    READ TABLE lt_zmatdoc INTO ls_zmatdoc WITH KEY dlv_planno = ls_ekko_po-dlv_planno
-                                                   dlv_itemno = ls_ekko_po-dlv_itemno
-                                                   shkzg = 'S'
-                                                   BINARY SEARCH.
+*    READ TABLE lt_zmatdoc INTO ls_zmatdoc WITH KEY dlv_planno = ls_ekko_po-dlv_planno
+*                                                   dlv_itemno = ls_ekko_po-dlv_itemno
+*                                                   shkzg = 'S'
+*                                                   BINARY SEARCH.
+    LOOP AT lt_zmatdoc INTO ls_zmatdoc WHERE dlv_planno = ls_ekko_po-dlv_planno AND dlv_itemno = ls_ekko_po-dlv_itemno AND shkzg = 'S'.
+      ls_alv-recv_menge = ls_alv-recv_menge + ls_zmatdoc-menge.
+      CLEAR ls_zmatdoc.
+    ENDLOOP.
     IF sy-subrc = 0."上面查到的是收货的数量
-      ls_alv-recv_menge = ls_zmatdoc-menge.
+*      ls_alv-recv_menge = ls_zmatdoc-menge.
       ls_alv-charg = ls_zmatdoc-charg.
     ENDIF.
     CLEAR ls_zmatdoc.
-    READ TABLE lt_zmatdoc INTO ls_zmatdoc WITH KEY dlv_planno = ls_ekko_po-dlv_planno
-                                                   dlv_itemno = ls_ekko_po-dlv_itemno
-                                                   shkzg = 'H'
-                                                   BINARY SEARCH.
-    IF sy-subrc = 0."上面查到的是退货数量，需要用收货数量减去退货数量
+*    READ TABLE lt_zmatdoc INTO ls_zmatdoc WITH KEY dlv_planno = ls_ekko_po-dlv_planno
+*                                                   dlv_itemno = ls_ekko_po-dlv_itemno
+*                                                   shkzg = 'H'
+*                                                   BINARY SEARCH.
+    LOOP AT lt_zmatdoc INTO ls_zmatdoc WHERE dlv_planno = ls_ekko_po-dlv_planno AND dlv_itemno = ls_ekko_po-dlv_itemno AND shkzg = 'H'.
       ls_alv-recv_menge = ls_alv-recv_menge - ls_zmatdoc-menge.
+    ENDLOOP.
+    IF sy-subrc = 0."上面查到的是退货数量，需要用收货数量减去退货数量
+*      ls_alv-recv_menge = ls_alv-recv_menge - ls_zmatdoc-menge.
       ls_alv-charg = ls_zmatdoc-charg.
     ENDIF.
     CLEAR ls_zmatdoc.

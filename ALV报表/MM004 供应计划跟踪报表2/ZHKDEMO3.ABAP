@@ -158,12 +158,19 @@ FORM getdata."查询语句
     *
     INTO CORRESPONDING FIELDS OF TABLE lt_zmmwms_pol
     FROM zmmwms_pol
+    INNER JOIN ekko
+    ON ekko~ebeln = zmmwms_pol~ebeln
+    INNER JOIN mara
+    ON mara~matnr = zmmwms_pol~matnr
     WHERE zmmwms_pol~werks IN s_werks
     AND zmmwms_pol~ebeln IN s_ebeln
     AND zmmwms_pol~matnr IN s_matnr
     AND zmmwms_pol~st_code IN st_code
     AND zmmwms_pol~pdlv_date IN pdlv_dat
-    AND zmmwms_pol~dlv_planno IN s_planno.
+    AND zmmwms_pol~dlv_planno IN s_planno
+    AND ekko~lifnr IN s_lifnr
+    AND mara~matkl IN s_matkl
+    AND ekko~ekgrp IN s_ekgrp.
   ELSE."如果前台的关闭标识为空的话，修改关闭标识的查询条件为%
     IF p_closed = '1'.
       p_closed2 = ''.
@@ -174,13 +181,20 @@ FORM getdata."查询语句
     *
     INTO CORRESPONDING FIELDS OF TABLE lt_zmmwms_pol
     FROM zmmwms_pol
+    INNER JOIN ekko
+    ON ekko~ebeln = zmmwms_pol~ebeln
+    INNER JOIN mara
+    ON mara~matnr = zmmwms_pol~matnr
     WHERE zmmwms_pol~werks IN s_werks
     AND zmmwms_pol~ebeln IN s_ebeln
     AND zmmwms_pol~matnr IN s_matnr
     AND zmmwms_pol~st_code IN st_code
     AND zmmwms_pol~pdlv_date IN pdlv_dat
     AND zmmwms_pol~xclosed = p_closed2
-    AND zmmwms_pol~dlv_planno IN s_planno.
+    AND zmmwms_pol~dlv_planno IN s_planno
+    AND ekko~lifnr IN s_lifnr
+    AND mara~matkl IN s_matkl
+    AND ekko~ekgrp IN s_ekgrp.
   ENDIF.
 
   IF lt_zmmwms_pol IS NOT INITIAL.
@@ -236,6 +250,7 @@ FORM getdata."查询语句
       AND mara~matkl IN s_matkl
       AND ekko~ernam IN s_ernam
       AND ekpo~ebeln IN s_ebeln
+      AND zmmwms_pol~pdlv_date IN pdlv_dat
       AND zmmwms_pol~dlv_planno IN s_planno.
     ELSE.
       SELECT
@@ -287,6 +302,7 @@ FORM getdata."查询语句
       AND mara~matkl IN s_matkl
       AND ekko~ernam IN s_ernam
       AND ekpo~ebeln IN s_ebeln
+      AND zmmwms_pol~pdlv_date IN pdlv_dat
       AND zmmwms_pol~xclosed = p_closed2
       AND zmmwms_pol~dlv_planno IN s_planno.
     ENDIF.
@@ -410,14 +426,23 @@ FORM getdata."查询语句
     AND ekpo~ebelp = zmmaps_temp~ebelp
     INNER JOIN ekko
     ON ekko~ebeln = ekpo~ebeln
+    INNER JOIN mara
+    ON mara~matnr = zmmaps_temp~matnr
 *    LEFT JOIN zmmwms_pol
 *    ON zmmwms_pol~ebeln = zmmaps_temp~ebeln
 *    AND zmmwms_pol~ebelp = zmmaps_temp~ebelp
 *    FOR ALL ENTRIES IN @lt_ekko_po
 *    WHERE zmmaps_temp~ebeln = @lt_ekko_po-ebeln
     WHERE zmmaps_temp~ebeln IN @s_ebeln
+    AND zmmaps_temp~werks IN @s_werks
+    AND zmmaps_temp~matnr IN @s_matnr
+    AND zmmaps_temp~st_code IN @st_code
+    AND zmmaps_temp~pdlv_date IN @pdlv_dat
     AND zmmaps_temp~dlv_planno = ''
-    AND zmmaps_temp~inactive <> 'X'.
+    AND zmmaps_temp~inactive <> 'X'
+    AND ekko~lifnr IN @s_lifnr
+    AND mara~matkl IN @s_matkl
+    AND ekko~ekgrp IN @s_ekgrp.
   ELSEIF lt_ekko_po IS INITIAL AND s_planno IS INITIAL.
     SELECT
     zmmaps_temp~*,
@@ -430,11 +455,20 @@ FORM getdata."查询语句
     AND ekpo~ebelp = zmmaps_temp~ebelp
     INNER JOIN ekko
     ON ekko~ebeln = ekpo~ebeln
+    INNER JOIN mara
+    ON mara~matnr = zmmaps_temp~matnr
     WHERE zmmaps_temp~dlv_planno = ''
       AND zmmaps_temp~dlv_itemno = ''
       AND zmmaps_temp~ebeln IN @s_ebeln
+      AND zmmaps_temp~werks IN @s_werks
+      AND zmmaps_temp~matnr IN @s_matnr
+      AND zmmaps_temp~st_code IN @st_code
+      AND zmmaps_temp~pdlv_date IN @pdlv_dat
       AND zmmaps_temp~inactive <> 'X'
-      AND zmmaps_temp~released <> 'X'.
+      AND zmmaps_temp~released <> 'X'
+      AND ekko~lifnr IN @s_lifnr
+      AND mara~matkl IN @s_matkl
+      AND ekko~ekgrp IN @s_ekgrp.
   ENDIF.
   "关联PL表，获取APS需求数量
   IF lt_ekko_po IS NOT INITIAL.
@@ -553,7 +587,7 @@ FORM getdata."查询语句
                                                    shkzg = 'S'
                                                    BINARY SEARCH.
     IF sy-subrc = 0."上面查到的是收货的数量
-*      ls_alv-recv_menge = ls_zmatdoc-menge.
+      ls_alv-recv_menge = ls_zmatdoc-menge.
       ls_alv-charg = ls_zmatdoc-charg.
     ENDIF.
     CLEAR ls_zmatdoc.
@@ -562,12 +596,12 @@ FORM getdata."查询语句
                                                    shkzg = 'H'
                                                    BINARY SEARCH.
     IF sy-subrc = 0."上面查到的是退货数量，需要用收货数量减去退货数量
-*      ls_alv-recv_menge = ls_alv-recv_menge - ls_zmatdoc-menge.
+      ls_alv-recv_menge = ls_alv-recv_menge - ls_zmatdoc-menge.
       ls_alv-charg = ls_zmatdoc-charg.
     ENDIF.
     CLEAR ls_zmatdoc.
     "净收货量
-    ls_alv-recv_menge = ls_ekko_po-received_quan.
+*    ls_alv-recv_menge = ls_ekko_po-received_quan.
     "剩余未到货量
     ls_alv-undlv_mende = ls_alv-pdlv_menge - ls_alv-recv_menge.
     "未到货延期天数

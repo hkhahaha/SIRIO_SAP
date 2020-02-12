@@ -38,14 +38,20 @@ TYPES:BEGIN OF ty_alv,
         zqmsamp(80),"开箱量计算标识
         cctj            TYPE zqmt011-cctj, "存储条件
         zmatdet(80),"材质明细
-        zsamping(80),"QM取样量
+        zsamping(80),"QA取样量
         time            TYPE ekko-aedat, "最近下单时间
       END OF ty_alv.
+TYPES:BEGIN OF ty_all.
+        INCLUDE TYPE ty_alv.
+      TYPES:END OF ty_all.
+
+DATA:gt_alv TYPE TABLE OF ty_alv,
+     gs_alv LIKE LINE OF gt_alv.
 
 
 
 
-SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE t0."定义屏幕
+SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001."定义屏幕
 SELECT-OPTIONS:s_werks FOR eord-werks,"条件输入框，一个for对应一个\工厂
                s_matnr FOR eord-matnr,"for前面的是字段显示的名称，可以修改，但是注意不要超过8个字符，否则会报错、物料编码
                s_lifnr FOR eord-lifnr,"制造商编码

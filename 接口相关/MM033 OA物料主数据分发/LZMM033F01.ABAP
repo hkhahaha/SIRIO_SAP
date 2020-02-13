@@ -518,17 +518,17 @@ FORM frm_plant_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
 *      lw_clientdatax-minremlife = 'X'.
 *      lw_clientdatax-period_ind_expiration_date = 'X'.
 *      lw_clientdatax-round_up_rule_expiration_date = 'X'.
-
+********************因为特殊采购标识字段作废，所以下面这段逻辑判断作废*******
       " 制造商部件的参数文件
-      IF us_input-mtart = 'Z010' AND ls_werks-sobsl IS INITIAL.
-        IF ls_mara-mprof IS INITIAL OR ls_mara IS INITIAL.
-          lw_clientdata-manuf_prof = 'IMPN'.
-          lw_clientdatax-manuf_prof = 'X'.
-        ENDIF.
-*        lw_clientdata-manuf_prof = 'IMPN'.
-*        lw_clientdatax-manuf_prof = 'X'.
+*      IF us_input-mtart = 'Z010' AND ls_werks-sobsl IS INITIAL.
+      IF ls_mara-mprof <> ls_mara-mprof OR ls_mara IS INITIAL.
+        lw_clientdata-manuf_prof = us_input-mprof.
+        lw_clientdatax-manuf_prof = 'X'.
       ENDIF.
-
+**        lw_clientdata-manuf_prof = 'IMPN'.
+**        lw_clientdatax-manuf_prof = 'X'.
+*      ENDIF.
+*******************作废结束*************************************************
       CLEAR: lw_plantdata, lw_plantdatax.
       lw_plantdata-plant = ls_werks-werks.                              " 工厂
       lw_plantdatax-plant = ls_werks-werks.
@@ -1187,14 +1187,20 @@ FORM frm_plant_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
           lw_clientdata-shelf_life = ls_werks-mhdhb.                          " 总货架寿命
           lw_clientdata-period_ind_expiration_date = ls_werks-iprkz.          " 期间标识
           lw_clientdata-round_up_rule_expiration_date = ls_werks-rdmhd.       " 舍入规则
+*********************虚拟工厂添加批次管理标识和外部采购仓储地点   HK  2020.1.20.
+          lw_clientdata-batch_mgmt = ls_werks-xchpf.                          " 批次管理标识
+          lw_plantdata-sloc_exprc = ls_werks-lgfsb.                " 外部采购仓储地点
+          lw_plantdatax-sloc_exprc = 'X'.
+          lw_clientdatax-batch_mgmt = 'X'.
+*********************END***************************************
           lw_clientdatax-temp_conds = 'X'.
           lw_clientdatax-stor_conds = 'X'.
           lw_clientdatax-minremlife = 'X'.
           lw_clientdatax-shelf_life = 'X'.
           lw_clientdatax-period_ind_expiration_date = 'X'.
           lw_clientdatax-round_up_rule_expiration_date = 'X'.
-          IF us_input-mtart = 'Z010' AND ls_werks-sobsl IS INITIAL.
-            lw_clientdata-manuf_prof = 'IMPN'.
+          IF us_input-mtart = 'Z010'.
+            lw_clientdata-manuf_prof = us_input-mprof.
             lw_clientdatax-manuf_prof = 'X'.
           ENDIF.
           lw_plantdata-del_flag = ls_werks-lvoma.                             " 删除标记
@@ -1217,26 +1223,26 @@ FORM frm_plant_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
           ENDIF.
 
 **********************add by sujx 20191130***********************************************
-          SELECT SINGLE * INTO ls_mbew
-                  FROM mbew
-                 WHERE matnr = uv_matnr
-                   AND bwkey =  lw_plantdata-plant.
-
-          SELECT SINGLE * INTO ls_marc
-            FROM marc
-           WHERE matnr = uv_matnr
-             AND werks =  lw_plantdata-plant.
-
-          IF ls_marc IS NOT INITIAL.
-            lw_plantdata-batch_mgmt = ''.     " 批次管理
-            lw_plantdatax-batch_mgmt = ''.
-          ENDIF.
-
-          IF ls_mbew IS NOT INITIAL.
-            lw_plantdata-profit_ctr = ''.     "利润中心
-            lw_plantdatax-profit_ctr = ''.
-          ENDIF.
-          CLEAR: ls_marc,ls_mbew.
+*          SELECT SINGLE * INTO ls_mbew
+*                  FROM mbew
+*                 WHERE matnr = uv_matnr
+*                   AND bwkey =  lw_plantdata-plant.
+*
+*          SELECT SINGLE * INTO ls_marc
+*            FROM marc
+*           WHERE matnr = uv_matnr
+*             AND werks =  lw_plantdata-plant.
+*
+**          IF ls_marc IS NOT INITIAL.
+**            lw_plantdata-batch_mgmt = ''.     " 批次管理
+**            lw_plantdatax-batch_mgmt = ''.
+**          ENDIF.
+*
+*          IF ls_mbew IS NOT INITIAL.
+*            lw_plantdata-profit_ctr = ''.     "利润中心
+*            lw_plantdatax-profit_ctr = ''.
+*          ENDIF.
+*          CLEAR: ls_marc,ls_mbew.
 ********************** end add ************************************************
 
         ENDIF.

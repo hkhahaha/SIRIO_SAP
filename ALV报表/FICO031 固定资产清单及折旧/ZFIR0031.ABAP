@@ -11,36 +11,36 @@ DATA:fieldcat TYPE slis_t_fieldcat_alv WITH HEADER LINE,
      w_repid  TYPE sy-repid. "记录系统当前的程序名
 TABLES:anla,anlb,anlz,ankt,bseg,anlc,anlp,t006,t087t,t001.
 TYPES:BEGIN OF ty_alv,
-        bukrs TYPE anla-bukrs, "公司代码
-        anln1 TYPE anla-anln1, "资产号
-        txt50 TYPE anla-txt50, "资产名称
-        invnr TYPE anla-invnr, "旧资产代码
-        anlkl TYPE anla-anlkl, "类别代码
-        txk20 TYPE ankt-txk20, "类别名称
+        bukrs     TYPE anla-bukrs, "公司代码
+        anln1     TYPE anla-anln1, "资产号
+        txt50     TYPE anla-txt50, "资产名称
+        invnr     TYPE anla-invnr, "旧资产代码
+        anlkl     TYPE anla-anlkl, "类别代码
+        txk20     TYPE ankt-txk20, "类别名称
         "型号
-        msehi TYPE t006-msehi, "单位
-        menge TYPE anla-menge, "数量
-        ordtx TYPE t087t-ordtx, "增加方式
-        aktiv TYPE anla-aktiv, "资本化日期
-        waers TYPE t001-waers, "币别
-        "汇率（原币除以本币）
-        wrbtr TYPE bseg-wrbtr, "原值原币
-        dmbtr TYPE bseg-dmbtr, "原值本币
-        knafa TYPE anlc-knafa, "累计折旧额
-        "净值
-        kaufw TYPE anlc-kaufw, "减值准备
-        "净额
-        nafaz TYPE anlp-nafaz, "本期折旧额
-        nafag TYPE anlc-nafag, "本年累计折旧额
+        msehi     TYPE t006-msehi, "单位
+        menge     TYPE anla-menge, "数量
+        ordtx     TYPE t087t-ordtx, "增加方式
+        aktiv     TYPE anla-aktiv, "资本化日期
+        waers     TYPE t001-waers, "币别
+        rate(8)   TYPE p DECIMALS 4, "汇率（原币除以本币）
+        wrbtr     TYPE bseg-wrbtr, "原值原币
+        dmbtr     TYPE bseg-dmbtr, "原值本币
+        knafa     TYPE anlc-knafa, "累计折旧额
+        netval    TYPE bseg-wrbtr, "净值
+        kaufw     TYPE anlc-kaufw, "减值准备
+        amount1   TYPE bseg-wrbtr, "净额
+        nafaz     TYPE anlp-nafaz, "本期折旧额
+        nafag     TYPE anlc-nafag, "本年累计折旧额
         "预计净残值
-        ndjar TYPE anlb-ndjar, "使用年限
-        ndabj TYPE anlc-ndabj, "剩余年限
-        kostl TYPE anlz-kostl, "成本中心代码
-        ktext TYPE cskt-ktext, "成本中心描述
+        ndjar     TYPE anlb-ndjar, "使用年限
+        ndabj(10) TYPE c, "剩余年限
+        kostl     TYPE anlz-kostl, "成本中心代码
+        ktext     TYPE cskt-ktext, "成本中心描述
         "存放地点
-        afasl TYPE anlb-afasl, "折旧码
-        ord41 TYPE anla-ord41, "使用情况
-        lifnr TYPE anla-lifnr, "供应商
+        afasl     TYPE anlb-afasl, "折旧码
+        ord41     TYPE anla-ord41, "使用情况
+        lifnr     TYPE anla-lifnr, "供应商
         "进项税额
         "文本
       END OF ty_alv.
@@ -68,7 +68,9 @@ DATA:gt_alv   TYPE TABLE OF ty_alv,
      lt_anlc  TYPE TABLE OF anlc,
      ls_anlc  TYPE anlc,
      lt_anlp  TYPE TABLE OF anlp,
-     ls_anlp  TYPE anlp.
+     ls_anlp  TYPE anlp,
+     lt_cskt  TYPE TABLE OF cskt,
+     ls_cskt  TYPE cskt.
 
 
 
@@ -115,6 +117,7 @@ FORM getdata."查询语句
     "anlz表里面的字段
     anlz~kostl
   INTO CORRESPONDING FIELDS OF TABLE gt_all
+  UP TO 500 ROWS
   FROM anlb
   INNER JOIN anla
   ON anla~bukrs = anlb~bukrs
@@ -135,6 +138,7 @@ FORM getdata."查询语句
     AND anlb~anln1 IN s_anln1
     AND anlz~kostl IN s_kostl
     AND anlb~afabe = '1'.
+
 
   CHECK gt_all IS NOT INITIAL.
   "下面对其他表的内容进行操作
@@ -186,6 +190,226 @@ FORM getdata."查询语句
     AND bseg~anbwa = '100'
     AND bseg~shkzg = 'S'.
 
+  SELECT
+    kostl
+    ktext
+  INTO CORRESPONDING FIELDS OF TABLE lt_cskt
+  FROM cskt
+  FOR ALL ENTRIES IN gt_all
+  WHERE cskt~kostl = gt_all-kostl
+    AND cskt~spras = '1'.
+
+  "下面是比较特殊的查询
+  SELECT
+    anln1
+    bukrs
+    gjahr
+    afblpe
+    knafa
+    kaufw
+    nafag
+    ndabj
+  INTO CORRESPONDING FIELDS OF TABLE lt_anlc
+  FROM anlc
+  FOR ALL ENTRIES IN gt_all
+  WHERE anlc~anln1 = gt_all-anln1
+  AND anlc~bukrs = gt_all-bukrs
+  AND anlc~afabe = '01'.
+
+*    "获取ANLP表里面的数据
+  SELECT
+    anln1
+    bukrs
+    nafaz
+    gjahr
+    peraf
+  INTO CORRESPONDING FIELDS OF TABLE lt_anlp
+  FROM anlp
+  FOR ALL ENTRIES IN gt_all
+  WHERE anlp~anln1 = gt_all-anln1
+    AND anlp~bukrs = gt_all-bukrs
+    AND anlp~afaber = '01'.
+
+
+
+
+
+  LOOP AT gt_all INTO gs_all.
+    CLEAR:ls_anlc,ls_anlp.
+*    "定义2个变量，用于存储查询需要的月份跟年份
+*    DATA:year(4),month(4).
+*    CLEAR:year,month.
+*    IF gs_all-zugdt IS INITIAL.
+*      year = sy-datum+0(4).
+*      month = sy-datum+4(2).
+*    ELSE.
+*      year = gs_all-zugdt+0(4).
+*      IF year IS INITIAL.
+*        year = sy-datum+0(4).
+*      ENDIF.
+*      month = gs_all-zugdt+4(2).
+*      IF month IS INITIAL.
+*        month = sy-datum+4(2).
+*      ENDIF.
+*    ENDIF.
+*    "获取ANLC表里面的数据
+*    CLEAR ls_anlc.
+*    SELECT SINGLE
+*      anln1
+*      bukrs
+*      gjahr
+*      afblpe
+*      knafa
+*      kaufw
+*      nafag
+*      ndabj
+*    INTO CORRESPONDING FIELDS OF ls_anlc
+*    FROM anlc
+*    WHERE anlc~anln1 = gs_all-anln1
+*      AND anlc~bukrs = gs_all-bukrs
+*      AND anlc~afabe = '01'
+*      AND anlc~gjahr = year
+*      AND anlc~afblpe = month.
+*
+*    "获取ANLP表里面的数据
+*    CLEAR ls_anlp.
+*    SELECT SINGLE
+*      anln1
+*      bukrs
+*      nafaz
+*      gjahr
+*      peraf
+*    INTO CORRESPONDING FIELDS OF ls_anlp
+*    FROM anlp
+*    WHERE anlp~anln1 = gs_all-anln1
+*      AND anlp~bukrs = gs_all-bukrs
+*      AND anlp~afaber = '01'
+*      AND anlp~gjahr = year
+*      AND anlp~peraf = month.
+    "先把已经查询到的数据塞到GS_ALV结构里面
+    MOVE-CORRESPONDING gs_all TO gs_alv.
+
+
+
+
+    "类别名称
+    CLEAR ls_ankt.
+    READ TABLE lt_ankt INTO ls_ankt WITH KEY anlkl = gs_all-anlkl.
+    IF sy-subrc = 0.
+      gs_alv-txk20 = ls_ankt-txk20.
+    ENDIF.
+
+    "单位
+    CLEAR ls_t006a.
+    READ TABLE lt_t006a INTO ls_t006a WITH KEY msehi = gs_all-meins.
+    IF sy-subrc = 0.
+      gs_alv-msehi = ls_t006a-mseht.
+    ENDIF.
+
+    "增加方式
+    CLEAR ls_t087t.
+    READ TABLE lt_t087t INTO ls_t087t WITH KEY ord4x = gs_all-ord42.
+    IF sy-subrc = 0.
+      gs_alv-ordtx = ls_t087t-ordtx.
+    ENDIF.
+
+    "币别
+    CLEAR ls_t001.
+    READ TABLE lt_t001 INTO ls_t001 WITH KEY bukrs = gs_all-bukrs.
+    IF sy-subrc = 0.
+      gs_alv-waers = ls_t001-waers.
+    ENDIF.
+
+    "原值原币、原值本币
+    CLEAR ls_bseg.
+    READ TABLE lt_bseg INTO ls_bseg WITH KEY anln1 = gs_all-anln1.
+    IF sy-subrc = 0.
+      gs_alv-wrbtr = ls_bseg-wrbtr.
+      gs_alv-dmbtr = ls_bseg-dmbtr.
+    ENDIF.
+    "汇率= 原币 / 本币
+    gs_alv-rate = gs_alv-wrbtr / gs_alv-dmbtr.
+
+    "累计折旧额、减值准备、本年累计折旧额、剩余年限
+    CLEAR ls_anlc.
+    IF gs_all-zugdt IS INITIAL.
+      READ TABLE lt_anlc INTO ls_anlc WITH KEY anln1 = gs_all-anln1
+                                               bukrs = gs_all-bukrs
+                                               gjahr = sy-datum+0(4)
+                                               afblpe = sy-datum+4(2).
+      IF sy-subrc = 0.
+        gs_alv-knafa = ls_anlc-knafa.
+        gs_alv-kaufw = ls_anlc-kaufw.
+        gs_alv-nafag = ls_anlc-nafag.
+        gs_alv-ndabj = gs_all-ndjar - ls_anlc-ndabj.
+        IF gs_alv-ndabj < 0.
+          gs_alv-ndabj = 0.
+        ENDIF.
+      ENDIF.
+    ELSEIF gs_all-zugdt IS NOT INITIAL.
+      READ TABLE lt_anlc INTO ls_anlc WITH KEY anln1 = gs_all-anln1
+                                               bukrs = gs_all-bukrs
+                                               gjahr = gs_all-zugdt+0(4)
+                                               afblpe = gs_all-zugdt+4(2).
+      IF sy-subrc = 0.
+        gs_alv-knafa = ls_anlc-knafa.
+        gs_alv-kaufw = ls_anlc-kaufw.
+        gs_alv-nafag = ls_anlc-nafag.
+        gs_alv-ndabj = gs_all-ndjar - ls_anlc-ndabj.
+        IF gs_alv-ndabj < 0.
+          gs_alv-ndabj = 0.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+
+    MOVE ls_anlc-knafa TO gs_alv-knafa.
+    MOVE ls_anlc-kaufw TO gs_alv-kaufw.
+    MOVE ls_anlc-nafag TO gs_alv-nafag.
+    "剩余使用年限
+    gs_alv-ndabj = gs_all-ndjar - ls_anlc-ndabj.
+
+    "本期折旧额
+    CLEAR ls_anlp.
+    IF gs_all-zugdt IS INITIAL.
+      READ TABLE lt_anlp INTO ls_anlp WITH KEY anln1 = gs_all-anln1
+                                               bukrs = gs_all-bukrs
+                                               gjahr = sy-datum+0(4)
+                                               peraf = sy-datum+4(2).
+      IF sy-subrc = 0.
+        gs_alv-nafaz = ls_anlp-nafaz.
+      ENDIF.
+    ELSEIF gs_all-zugdt IS NOT INITIAL.
+      READ TABLE lt_anlp INTO ls_anlp WITH KEY anln1 = gs_all-anln1
+                                               bukrs = gs_all-bukrs
+                                               gjahr = gs_all-zugdt+0(4)
+                                               peraf = gs_all-zugdt+4(2).
+      IF sy-subrc = 0.
+        gs_alv-nafaz = ls_anlp-nafaz.
+      ENDIF.
+    ENDIF.
+
+
+    "净值 = 原币 - 累计折旧
+    gs_alv-netval = gs_alv-wrbtr - gs_alv-knafa.
+
+    "净额 = 原始原币 - 累计折旧 - 减值准备
+    gs_alv-amount1 = gs_alv-wrbtr - gs_alv-knafa - gs_alv-kaufw.
+
+    "成本中心描述
+    CLEAR ls_cskt.
+    READ TABLE lt_cskt INTO ls_cskt WITH KEY kostl = gs_alv-kostl.
+    IF sy-subrc = 0.
+      gs_alv-ktext = ls_cskt-ktext.
+    ENDIF.
+
+
+    APPEND gs_alv TO gt_alv.
+    CLEAR:gs_all,gs_alv.
+  ENDLOOP.
+
+
+
+
 
 
 ENDFORM.
@@ -204,17 +428,40 @@ FORM catalog."表头
   END-OF-DEFINITION.
 
 
-  fieldcatset 'BUKRS' '公司代码' sy-tabix.
-  fieldcatset 'gjahr' '会计年度' sy-tabix.
-  fieldcatset 'BUKRS' '会计期间' sy-tabix.
-  fieldcatset 'BELNR' '凭证编号' sy-tabix.
-  fieldcatset 'BLART' '凭证类型' sy-tabix.
-  fieldcatset 'BLDAT' '凭证日期' sy-tabix.
-  fieldcatset 'BUDAT' '过账日期' sy-tabix.
-  fieldcatset 'XSTOV' '冲销标识' sy-tabix.
-  fieldcatset 'STBLG' '冲销凭证' sy-tabix.
-  fieldcatset 'PPNAM' '制单人' sy-tabix.
-  fieldcatset 'USNAM' '过账人' sy-tabix.
+  fieldcatset   'BUKRS'   '公司代码'    sy-tabix  .
+  fieldcatset   'ANLN1'   '资产号'   sy-tabix  .
+  fieldcatset   'TXT50'   '资产名称'    sy-tabix  .
+  fieldcatset   'INVNR'   '旧资产代码'   sy-tabix  .
+  fieldcatset   'ANLKL'   '类别代码'    sy-tabix  .
+  fieldcatset   'TXK20'   '类别名称'    sy-tabix  .
+*  fieldcatset    '   '   ' 型号  '   sy-tabix  .
+  fieldcatset   'MSEHI'   '单位'    sy-tabix  .
+  fieldcatset   'MENGE'   '数量'    sy-tabix  .
+  fieldcatset   'ORDTX'   '增加方式'    sy-tabix  .
+  fieldcatset   'AKTIV'   '资本化日期'   sy-tabix  .
+  fieldcatset   'WAERS'   '币别 '   sy-tabix  .
+  fieldcatset   'RATE'    '汇率 '   sy-tabix  .
+  fieldcatset   'WRBTR'   '原值原币 '   sy-tabix  .
+  fieldcatset   'DMBTR'   '原值本币 '   sy-tabix  .
+  fieldcatset   'KNAFA'   '累计折旧额  '   sy-tabix  .
+  fieldcatset   'NETVAL'    '净值 '   sy-tabix  .
+  fieldcatset   'KAUFW'   '减值准备 '   sy-tabix  .
+  fieldcatset   'AMOUNT1'   '净额 '   sy-tabix  .
+  fieldcatset   'NAFAZ'   '本期折旧额  '   sy-tabix  .
+  fieldcatset   'NAFAG'   '本年累计折旧额  '   sy-tabix  .
+*  fieldcatset    '   '   ' 预计净残值 '   sy-tabix  .
+  fieldcatset   'NDJAR'   '使用年限 '   sy-tabix  .
+  fieldcatset   'NDABJ'   '剩余年限 '   sy-tabix  .
+  fieldcatset   'KOSTL'   '成本中心代码 '   sy-tabix  .
+  fieldcatset   'KTEXT'   '成本中心描述 '   sy-tabix  .
+*  fieldcatset    '   '   ' 存放地点  '   sy-tabix  .
+  fieldcatset   'AFASL'   '折旧码  '   sy-tabix  .
+  fieldcatset   'ORD41'   '使用情况 '   sy-tabix  .
+  fieldcatset   'LIFNR'   '供应商  '   sy-tabix  .
+*  fieldcatset    '   '   ' 进项税额  '   sy-tabix  .
+*  fieldcatset    '   '   ' 文本  '   sy-tabix  .
+
+
 
   READ TABLE fieldcat INDEX 3."读取报表第三列
   fieldcat-hotspot = 'X'."鼠标热点事件
@@ -249,9 +496,7 @@ FORM catalog."表头
   READ TABLE fieldcat INDEX 8.
   fieldcat-emphasize = 'C200'.
   MODIFY fieldcat INDEX 8.
-  READ TABLE fieldcat INDEX 9.
-  fieldcat-checkbox = 'X'.
-  MODIFY fieldcat INDEX 9.
+
 
 *layout-colwidth_optimize = 'X'.
   layout-zebra = 'X'."斑马线的样式

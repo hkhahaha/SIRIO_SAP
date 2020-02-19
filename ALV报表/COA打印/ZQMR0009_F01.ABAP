@@ -513,6 +513,52 @@ FORM frm_get_data.
           AND spras EQ @sy-langu.
 
     MOVE-CORRESPONDING ls_qals TO gs_plos.
+************HK M码检验计划描述******************
+    CLEAR gs_plos-ktext.
+    "取长文本描述
+    DATA name LIKE  thead-tdname.
+    name = sy-mandt && ls_qals-plnty && ls_qals-plnnr && ls_qals-plnal && ls_qals-zaehl.
+    DATA: lines    LIKE TABLE OF tline,
+          ls_lines LIKE LINE OF lines.
+    CALL FUNCTION 'READ_TEXT'
+      EXPORTING
+        client                  = sy-mandt
+        id                      = 'PLKO'
+        language                = sy-langu
+        name                    = name
+        object                  = 'ROUTING'
+      TABLES
+        lines                   = lines
+      EXCEPTIONS
+        id                      = 1
+        language                = 2
+        name                    = 3
+        not_found               = 4
+        object                  = 5
+        reference_check         = 6
+        wrong_access_to_archive = 7
+        OTHERS                  = 8.
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+    ENDIF.
+    CLEAR gs_range_plandata_s-detail.
+    IF lines IS NOT INITIAL.
+      LOOP AT lines INTO ls_lines.
+        gs_plos-ktext = gs_plos-ktext && ls_lines-tdline.
+      ENDLOOP.
+    ELSE.
+      "长文本 没有的话取短文本
+      SELECT SINGLE
+      ktext
+      INTO gs_plos-ktext
+      FROM plko
+      WHERE plko~plnty = ls_qals-plnty
+      AND plko~plnnr = ls_qals-plnnr
+      AND plko~plnal = ls_qals-plnal
+      AND plko~zaehl = ls_qals-zaehl.
+    ENDIF.
+    CLEAR:name,lines,ls_lines.
+*********END*******************
     CALL FUNCTION 'Z_FI_GET_MATERIAL_VALUE'
       EXPORTING
         matnr  = ls_qals-matnr
@@ -554,7 +600,7 @@ FORM frm_get_data.
 
     gs_plos-vbewertung = ls_qave-vbewertung.
     gs_plos-name1      = ls_lfa1-name1.
-    gs_plos-ktext      = ls_plko-ktext.
+*    gs_plos-ktext      = ls_plko-ktext.
     gs_plos-mseht      = ls_t006a1-msehl.
 ******************HK 添加销售订单信息区域*******************
     IF ls_qals-kdauf IS NOT INITIAL.
@@ -624,10 +670,7 @@ FORM frm_get_data.
       FROM qals
       WHERE qals~prueflos = @ls_qals_s-prueflos.
       "取长文本描述
-      DATA name LIKE  thead-tdname.
       name = sy-mandt && ls_qals2-plnty && ls_qals2-plnnr && ls_qals2-plnal && ls_qals2-zaehl.
-      DATA: lines    LIKE TABLE OF tline,
-            ls_lines LIKE LINE OF lines.
       CALL FUNCTION 'READ_TEXT'
         EXPORTING
           client                  = sy-mandt
@@ -738,7 +781,8 @@ CHANGING ct_test TYPE STANDARD TABLE
     INTO CORRESPONDING FIELDS OF TABLE @lt_qprs
     FROM qprs
     WHERE plos2 EQ @uv_pruef
-      AND qprs~prtyp = '1'.
+      AND qprs~prtyp = '1'
+    ORDER BY PRIMARY KEY.
     CLEAR ls_qprs.
     LOOP AT lt_qprs INTO ls_qprs2.
       CALL FUNCTION 'STATUS_READ'
@@ -800,7 +844,7 @@ CHANGING ct_test TYPE STANDARD TABLE
 
   IF lt_qamr IS NOT INITIAL.
     "抓取签名ID
-    SELECT prueflos,vorglfnr,merknr,sign_id,original_input,mittelwert,pruefbemkt
+    SELECT prueflos,vorglfnr,merknr,sign_id,original_input,mittelwert,pruefbemkt,prltextkz
     INTO TABLE @DATA(lt_qasr)
           FROM qasr
           FOR ALL ENTRIES IN @lt_qamr
@@ -931,6 +975,11 @@ CHANGING ct_test TYPE STANDARD TABLE
     ELSE.
       gs_test-pruefbemkt  = ls_qasr-pruefbemkt.
     ENDIF.
+****************判断是否有长文本标识，如果有的话取长文本HK
+    IF ls_qasr-prltextkz = 'X'.
+
+    ENDIF.
+**********************END******************************
 
     IF gs_test-verwmerkm NE ''.
 *      gs_test-sortfeld         = ls_qpmk-sortfeld.
@@ -1248,6 +1297,7 @@ FORM frm_get_untest_speciality USING uv_pruef LIKE p_pruef.
       ENDIF.
       gs_untest_s-pqtxt            = ls_tq11t-pqtxt.
       APPEND gs_untest_s TO gt_untest_s.
+      CLEAR gs_untest_s.
     ENDIF.
     CLEAR ls_qpmk.
     CLEAR ls_qpmt_z1.

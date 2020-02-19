@@ -33,7 +33,7 @@ TYPES: BEGIN OF typ_plos, "检验批_检验计划数据
          sellifnr   LIKE qals-sellifnr, "供应商编号
          name1      LIKE lfa1-name1, "供应商名称
          kdauf      LIKE qals-kdauf, "销售订单
-         ktext      LIKE plko-ktext, "检验计划描述
+         ktext(300) TYPE c, "检验计划描述
          werks      LIKE qals-werk, "工厂
        END OF typ_plos,
 
@@ -50,7 +50,7 @@ TYPES: BEGIN OF typ_plos, "检验批_检验计划数据
          sortfeld              LIKE qpmk-sortfeld, "检验特性名称
          qamv_kurztext(256)    TYPE c, "规定标准
          original_input        LIKE qasr-original_input, "初始值
-         mseht                 LIKE t006a-mseht, "检验单位文本
+         mseht                 LIKE t006a-msehl, "检验单位文本
          qpmt_kurztext_z1(256) TYPE c, "内控标准
          mbewertg              LIKE qamr-mbewertg, "评估结果
          qmtt_kurztext_z1(256) TYPE c, "检验方法

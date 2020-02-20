@@ -11,9 +11,20 @@ DATA:fieldcat TYPE slis_t_fieldcat_alv WITH HEADER LINE,
      w_repid  TYPE sy-repid. "记录系统当前的程序名
 TABLES:vbak,zsdt0019,but000,vbpa,knvp,makt,vbap.
 TYPES:BEGIN OF ty_alv,
-        objnr TYPE vbak-objnr. "对象编号
+        objnr TYPE vbak-objnr, "对象编号
+        matnr TYPE vbap-matnr,
+        umvkz TYPE vbap-umvkz,
+        umvkn TYPE vbap-umvkn,
+        knumv TYPE vbak-knumv,
+        mwsbp TYPE vbap-mwsbp,
+        ernam TYPE vbak-ernam,
+        werks TYPE vbap-werks,
+        objek TYPE ausp-objek.
         INCLUDE TYPE zsdt0019b.
       TYPES:END OF ty_alv.
+TYPES:BEGIN OF ty_val,
+        objek TYPE ausp-objek,
+      END OF ty_val.
 
 DATA:ls_zsdt0019  TYPE zsdt0019,
      lt_zsdt0019  TYPE TABLE OF zsdt0019, "自定义表1
@@ -33,7 +44,9 @@ DATA:ls_zsdt0019  TYPE zsdt0019,
      lt_vbpa      TYPE TABLE OF vbpa,
      ls_vbpa      TYPE vbpa,
      lt_tvakt     TYPE TABLE OF tvakt,
-     ls_tvakt     TYPE tvakt.
+     ls_tvakt     TYPE tvakt,
+     lt_val       TYPE TABLE OF ty_val,
+     ls_val       TYPE ty_val.
 
 SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001."定义屏幕
 SELECT-OPTIONS:s_auart FOR vbak-auart,"订单类型
@@ -56,13 +69,22 @@ START-OF-SELECTION.
   PERFORM alvshow.
 *定义子程序
 FORM getdata."查询语句
-  DATA ls_s_udate LIKE LINE OF s_udate.
+  DATA:ls_s_udate LIKE LINE OF s_udate,
+       lv_zpspe   TYPE ausp-atinn.
+  "将特性的名称转换成为内码值
+  CALL FUNCTION 'CONVERSION_EXIT_ATINN_INPUT'
+    EXPORTING
+      input  = 'ZPSPE'
+    IMPORTING
+      output = lv_zpspe.
+
+
   "首先，先查询所有的业务员
   SELECT
     *
-  INTO CORRESPONDING FIELDS OF TABLE lt_zsdt0019
+  INTO CORRESPONDING FIELDS OF TABLE @lt_zsdt0019
   FROM zsdt0019
-  WHERE zsdt0019~job IN s_job
+  WHERE zsdt0019~job IN @s_job
     AND zsdt0019~active = 'X'.
   "然后筛选出LT_ZSDT0019里面的区域经理的账号到lt_zsdt_00192
   SELECT
@@ -73,7 +95,7 @@ FORM getdata."查询语句
   "然后重新把区域经理所属的大区重新查询一边，然后append到内表lt_zsdt0019里面
   IF lt_zsdt00192 IS NOT INITIAL.
     SELECT
-    *
+      *
     APPENDING CORRESPONDING FIELDS OF TABLE lt_zsdt0019
     FROM zsdt0019
     FOR ALL ENTRIES IN lt_zsdt00192
@@ -116,6 +138,20 @@ FORM getdata."查询语句
     vbak~vbeln
     vbap~posnr
     vbak~vbeln
+    vbap~matwa
+    vbap~posnr
+    vbap~matnr
+    vbap~kwmeng AS kwmeng2
+    vbap~umvkz
+    vbap~umvkn
+    vbap~meins
+    vbap~vrkme
+    vbap~znbjhq
+    vbap~zatpdfrq
+    vbap~netwr
+    vbap~mwsbp
+    vbak~ernam
+    werks
   INTO CORRESPONDING FIELDS OF TABLE lt_alv
   FROM vbap
   INNER JOIN vbak
@@ -185,7 +221,145 @@ FORM getdata."查询语句
     WHERE tvakt~spras = '1'
       AND tvakt~auart = lt_alv-auart.
 
+    "T052U表
+    SELECT
+      text1,
+      vbeln,
+      posnr
+    INTO TABLE @DATA(lt_t052u)
+    FROM t052u
+    INNER JOIN vbkd
+    ON vbkd~zterm = t052u~zterm
+    FOR ALL ENTRIES IN @lt_alv
+    WHERE t052u~spras = '1'
+      AND vbkd~posnr = @lt_alv-posnr
+      AND vbkd~vbeln = @lt_alv-vbeln.
 
+    "MAKT
+    SELECT
+      matnr,
+      maktx
+    INTO TABLE @DATA(lt_makt)
+    FROM makt
+    FOR ALL ENTRIES IN @lt_alv
+    WHERE makt~spras = '1'
+      AND makt~matnr = @lt_alv-matnr.
+
+    "MARA表
+    SELECT
+      matnr,
+      groes,
+      matkl
+    INTO TABLE @DATA(lt_mara)
+    FROM mara
+    FOR ALL ENTRIES IN @lt_alv
+    WHERE mara~matnr = @lt_alv-matnr.
+
+    "对物料号进行处理
+    LOOP AT lt_alv INTO ls_alv.
+      ls_alv-objek = ls_alv-matnr.
+      MODIFY TABLE lt_alv FROM ls_alv.
+      CLEAR ls_alv.
+    ENDLOOP.
+    "上面处理物料号之后，查询对应的全部AUSP的数据
+    SELECT
+      objek,
+      atwrt
+    INTO TABLE @DATA(lt_ausp)
+    FROM ausp
+    FOR ALL ENTRIES IN @lt_alv
+    WHERE ausp~objek = @lt_alv-objek.
+    "获取文本表的数据
+    SELECT
+      *
+    INTO TABLE @DATA(lt_t006a)
+    FROM t006a.
+    "PRCD_ELEMENTS表
+    SELECT
+      knumv,
+      kschl,
+      kinak,
+      kbetr,
+      kpein
+    INTO TABLE @DATA(lt_prcd_elements)
+    FROM prcd_elements
+    FOR ALL ENTRIES IN @lt_alv
+    WHERE prcd_elements~knumv = @lt_alv-knumv
+      AND kschl IN ('ZP00','ZP02')
+      AND kinak = ''.
+    "VBEP表
+    SELECT
+      vbeln,
+      posnr,
+      ettyp
+    INTO TABLE @DATA(lt_vbep)
+    FROM vbep
+    FOR ALL ENTRIES IN @lt_alv
+    WHERE vbep~vbeln = @lt_alv-vbeln
+      AND vbep~posnr = @lt_alv-posnr.
+    "VBFA表
+    SELECT
+      vbelv,
+      posnv,
+      vbtyp_n,
+      rfmng
+    INTO TABLE @DATA(lt_vbfa_all)
+    FROM vbfa
+    FOR ALL ENTRIES IN @lt_alv
+    WHERE vbfa~vbelv = @lt_alv-vbeln
+      AND vbfa~posnv = @lt_alv-posnr
+      AND vbfa~vbtyp_n IN ('R','h').
+    "保存类型为R的
+    SELECT
+    vbelv,
+    posnv,
+    vbtyp_n,
+    SUM( rfmng ) AS rfmeng
+    FROM @lt_vbfa_all AS a
+    GROUP BY vbelv,posnv,vbtyp_n
+    INTO TABLE @DATA(lt_vbfa_r).
+    "保存类型为h的
+    SELECT
+    vbelv,
+    posnv,
+    vbtyp_n,
+    SUM( rfmng ) AS rfmeng
+    FROM @lt_vbfa_all AS a
+    GROUP BY vbelv,posnv,vbtyp_n
+    INTO TABLE @DATA(lt_vbfa_h).
+    "ADRP表
+    SELECT
+      bname,
+      usr21~persnumber,
+      name_text
+    INTO TABLE @DATA(lt_adrp)
+    FROM adrp
+    INNER JOIN usr21
+    ON adrp~persnumber = usr21~persnumber
+    FOR ALL ENTRIES IN @lt_alv
+    WHERE usr21~bname = @lt_alv-ernam.
+    "MSKA表
+    SELECT
+      vbeln,
+      posnr,
+      matnr,
+      werks,
+      lgort,
+      kalab
+    INTO TABLE @DATA(lt_mska)
+    FROM mska
+    FOR ALL ENTRIES IN @lt_alv
+    WHERE mska~vbeln = @lt_alv-vbeln
+      AND mska~posnr = @lt_alv-posnr
+      AND mska~werks = @lt_alv-werks
+      AND mska~lgort IN ('1040','2040','3040','1070','2070','3070').
+
+    "T023T表
+    SELECT
+      matkl,
+      wgbez
+    INTO TABLE @DATA(lt_t023t)
+    FROM t023t.
 
 
 
@@ -275,19 +449,101 @@ FORM getdata."查询语句
     IF sy-subrc = 0.
       ls_alv-bezei = ls_tvakt-bezei.
     ENDIF.
+    CLEAR ls_tvakt.
+    "付款方式
+    READ TABLE lt_t052u INTO DATA(ls_t052u) WITH KEY vbeln = ls_alv-vbeln
+                                                     posnr = ls_alv-posnr.
+    IF sy-subrc = 0.
+      ls_alv-text1 = ls_t052u-text1.
+    ENDIF.
+    CLEAR ls_t052u.
+    "产品名称
+    READ TABLE lt_makt INTO DATA(ls_makt) WITH KEY matnr = ls_alv-matnr.
+    IF sy-subrc = 0.
+      ls_alv-maktx = ls_makt-maktx.
+    ENDIF.
+    CLEAR ls_makt.
+    "规格型号
+    READ TABLE lt_mara INTO DATA(ls_mara) WITH KEY matnr = ls_alv-matnr.
+    IF sy-subrc = 0.
+      ls_alv-groes = ls_mara-groes.
+      DATA(lv_matkl) = ls_mara-matkl+0(4).
+    ENDIF.
+    CLEAR ls_mara.
+    "包装规格
+    READ TABLE lt_ausp INTO DATA(ls_ausp) WITH KEY objek = ls_alv-objek.
+    IF sy-subrc = 0.
+      ls_alv-atwrt = ls_ausp-atwrt.
+    ENDIF.
+    CLEAR ls_ausp.
+    "基本计量数量
+    IF ls_alv-umvkn IS NOT INITIAL.
+      ls_alv-kwmeng = ls_alv-kwmeng2 * ls_alv-umvkz / ls_alv-umvkn.
+    ENDIF.
+    "基本计量单位、销售单位
+    READ TABLE lt_t006a INTO DATA(ls_t006a) WITH KEY msehi = ls_alv-meins.
+    IF sy-subrc = 0.
+      ls_alv-meins = ls_t006a-msehl.
+    ENDIF.
+    CLEAR ls_t006a.
+    READ TABLE lt_t006a INTO ls_t006a WITH KEY msehi = ls_alv-vrkme.
+    IF sy-subrc = 0.
+      ls_alv-vrkme = ls_t006a-msehl.
+    ENDIF.
+    CLEAR ls_t006a.
+    "价税合计
+    ls_alv-netwr = ls_alv-netwr + ls_alv-mwsbp.
+    "折前单价
+    READ TABLE lt_prcd_elements INTO DATA(ls_prcd_elements) WITH KEY knumv = ls_alv-knumv.
+    IF sy-subrc = 0.
+      ls_alv-kbetr = ls_prcd_elements-kbetr / ls_prcd_elements-kpein.
+    ENDIF.
+    CLEAR ls_prcd_elements.
+    "计划行类型
+    READ TABLE lt_vbep INTO DATA(ls_vbep) WITH KEY vbeln = ls_alv-vbeln
+                                                   posnr = ls_alv-posnr.
+    IF sy-subrc = 0.
+      ls_alv-ettyp = ls_vbep-ettyp.
+    ENDIF.
+    CLEAR ls_vbep.
+    "出库量
+    READ TABLE lt_vbfa_r INTO DATA(ls_vbfa_r) WITH KEY vbelv = ls_alv-vbeln
+                                                       posnv = ls_alv-posnr
+                                                       vbtyp_n = 'R'.
+    IF sy-subrc = 0.
+      READ TABLE lt_vbfa_h INTO DATA(ls_vbfa_h) WITH KEY vbelv = ls_alv-vbeln
+                                                         posnv = ls_alv-posnr
+                                                         vbtyp_n = 'h'.
+      IF sy-subrc = 0.
+        ls_alv-rfmng = ls_vbfa_r-rfmeng - ls_vbfa_h-rfmeng.
+      ENDIF.
+    ENDIF.
+    CLEAR:ls_vbfa_r,ls_vbfa_h.
+    "制单人
+    READ TABLE lt_adrp INTO DATA(ls_adrp) WITH KEY bname = ls_alv-ernam.
+    IF sy-subrc = 0.
+      ls_alv-name_text = ls_alv-name_text.
+    ENDIF.
+    CLEAR ls_adrp.
+    "非限制库存
+    READ TABLE lt_mska INTO DATA(ls_mska) WITH KEY matnr = ls_alv-matnr
+                                                   posnr = ls_alv-posnr
+                                                   vbeln = ls_alv-vbeln
+                                                   werks = ls_alv-werks.
+    IF sy-subrc = 0.
+      ls_alv-kalab = ls_mska-kalab.
+    ENDIF.
+    IF lv_matkl IS NOT INITIAL.
+      READ TABLE lt_t023t INTO DATA(ls_t023t) WITH KEY matkl = lv_matkl.
+      IF sy-subrc = 0.
+        ls_alv-wgbez = ls_t023t-wgbez.
+      ENDIF.
+      CLEAR ls_t023t.
+    ENDIF.
 
 
 
-
-
-
-
-
-
-
-
-
-
+    MOVE-CORRESPONDING ls_alv TO ls_zsdt0019b.
     APPEND ls_zsdt0019b TO lt_zsdt0019b.
     CLEAR:ls_alv,ls_zsdt0019b.
   ENDLOOP.
@@ -301,33 +557,9 @@ FORM getdata."查询语句
 
 
 
-
-
-
-
-
-
-
-  "（1）判断二审日期为空的话，查询全部的数据
-
-
-  "如果二审日期不为空，证明说查询的为E0003业务二审
-
-
-
-
-
-
-
-
-
-
-
-
-
   "如果标识为需要写入后台表的话，就先清空自定义表里面的数据
   IF p_flag = 'X'.
-    DELETE FROM zsdt0019.
+    DELETE FROM zsdt0019B.
   ENDIF.
 
 ENDFORM.

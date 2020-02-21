@@ -1,15 +1,13 @@
 *&---------------------------------------------------------------------*
-*& Report ZHKALV2
+*& Report ZSDR0022B
 *&---------------------------------------------------------------------*
 *&
 *&---------------------------------------------------------------------*
-REPORT zhkalv2.
-* This report provides an example for sending an Excel
-* attachment in Unicode Systems
+REPORT ZSDR0022B.
 
 CONSTANTS:
-  gc_tab  TYPE c VALUE cl_bcs_convert=>gc_tab,
-  gc_crlf TYPE c VALUE cl_bcs_convert=>gc_crlf.
+gc_tab  TYPE C VALUE cl_bcs_convert=>gc_tab,
+gc_crlf TYPE C VALUE cl_bcs_convert=>gc_crlf.
 
 PARAMETERS:
 mailto TYPE ad_smtpadr
@@ -23,12 +21,12 @@ DATA: bcs_exception TYPE REF TO cx_bcs,
 
 DATA main_text      TYPE bcsy_text.
 DATA binary_content TYPE solix_tab.
-DATA size           TYPE so_obj_len.
+DATA SIZE           TYPE so_obj_len.
 DATA sent_to_all    TYPE os_boolean.
 
 START-OF-SELECTION.
-  PERFORM create_content.
-  PERFORM send.
+PERFORM create_content.
+PERFORM send.
 
 *&---------------------------------------------------------------------*
 *&      Form  send
@@ -38,61 +36,61 @@ FORM send.
   TRY.
 
 *     -------- create persistent send request ------------------------
-      send_request = cl_bcs=>create_persistent( ).
+    send_request = cl_bcs=>create_persistent( ).
 
 *     -------- create and set document with attachment ---------------
 *     create document object from internal table with text
-      APPEND '你好' TO main_text.                             "#EC NOTEXT
-      document = cl_document_bcs=>create_document(
-      i_type    = 'RAW'
-      i_text    = main_text
-      i_subject = 'Test Created By BCS_EXAMPLE_7' ).        "#EC NOTEXT
+    APPEND '你好' TO main_text.                             "#EC NOTEXT
+    document = cl_document_bcs=>create_document(
+    i_type    = 'RAW'
+    i_text    = main_text
+    i_subject = 'Test Created By BCS_EXAMPLE_7' ).        "#EC NOTEXT
 
 *     add the spread sheet as attachment to document object
-      document->add_attachment(
-      i_attachment_type    = 'xls'                          "#EC NOTEXT
-      i_attachment_subject = '附件'                           "#EC NOTEXT
-      i_attachment_size    = size
-      i_att_content_hex    = binary_content ).
+    document->add_attachment(
+    i_attachment_type    = 'xls'                          "#EC NOTEXT
+    i_attachment_subject = '附件'                           "#EC NOTEXT
+    i_attachment_size    = SIZE
+    i_att_content_hex    = binary_content ).
 *     发件人
 *     前提是这个邮箱地址能发邮件，并且不需要密码
-      lo_sender = cl_sapuser_bcs=>create( 'MAILSERVER' ).
-      send_request->set_sender( lo_sender ).
+    lo_sender = cl_sapuser_bcs=>create( 'MAILSERVER' ).
+    send_request->set_sender( lo_sender ).
 *     add document object to send request
-      send_request->set_document( document ).
+    send_request->set_document( document ).
 
 *     --------- add recipient (e-mail address) -----------------------
 *     create recipient object
-      recipient = cl_cam_address_bcs=>create_internet_address( mailto ).
+    recipient = cl_cam_address_bcs=>create_internet_address( mailto ).
 *     add recipient object to send request
-      send_request->add_recipient( recipient ).
-      recipient = cl_cam_address_bcs=>create_internet_address( 'zhengde.zhang@sirio.cn' ).
-      send_request->add_recipient( recipient ).
+    send_request->add_recipient( recipient ).
+    recipient = cl_cam_address_bcs=>create_internet_address( 'zhengde.zhang@sirio.cn' ).
+    send_request->add_recipient( recipient ).
 *     ---------- send document ---------------------------------------
 *      sent_to_all = send_request->send( i_with_error_screen = 'X' ).
 
-      send_request->set_send_immediately( 'X' ).  "设置立即发送
-      send_request->send_request->set_link_to_outbox( 'X' ). "与outbox关联
-      CALL METHOD send_request->set_document( document ).
-      CALL METHOD send_request->send(
-        EXPORTING
-          i_with_error_screen = 'X'
-        RECEIVING
-          result              = sent_to_all ).
-      COMMIT WORK AND WAIT.
+    send_request->set_send_immediately( 'X' ).  "设置立即发送
+    send_request->send_request->set_link_to_outbox( 'X' ). "与outbox关联
+    CALL METHOD send_request->set_document( document ).
+    CALL METHOD send_request->send(
+    EXPORTING
+      i_with_error_screen = 'X'
+      RECEIVING
+      result              = sent_to_all ).
+    COMMIT WORK AND WAIT.
 
-      IF sent_to_all = 'X'.
-        MESSAGE '发送成功' TYPE 'S'.
-      ELSE.
-        ROLLBACK WORK.
-        MESSAGE '发送失败' TYPE 'S' DISPLAY LIKE 'E'.
-        STOP.
-      ENDIF.
+    IF sent_to_all = 'X'.
+      MESSAGE '发送成功' TYPE 'S'.
+    ELSE.
+      ROLLBACK WORK.
+      MESSAGE '发送失败' TYPE 'S' DISPLAY LIKE 'E'.
+      STOP.
+    ENDIF.
 
 *   ------------ exception handling ----------------------------------
 *   replace this rudimentary exception handling with your own one !!!
-    CATCH cx_bcs INTO bcs_exception.
-      MESSAGE i865(so) WITH bcs_exception->error_type.
+  CATCH cx_bcs INTO bcs_exception.
+    MESSAGE i865(so) WITH bcs_exception->error_type.
   ENDTRY.
 
 ENDFORM.                    "send
@@ -160,11 +158,11 @@ FORM create_content.
   '物料中类名称'    gc_crlf "#EC NOTEXT                                        "#EC NOTEXT
   INTO lv_string.
   DATA:lv_kwmeng(30),
-       lv_kwmeng2(30),
-       lv_kbetr(30),
-       lv_netwr(30),
-       lv_rfmng(30),
-       lv_kalab(30).
+        lv_kwmeng2(30),
+        lv_kbetr(30),
+        lv_netwr(30),
+        lv_rfmng(30),
+        lv_kalab(30).
 
 * data lines
   SELECT * FROM zsdt0019b INTO ls_zsdt0019b UP TO 20 ROWS.
@@ -242,16 +240,16 @@ FORM create_content.
 * all this is done by new class cl_bcs_convert (see note 1151257)
 
   TRY.
-      cl_bcs_convert=>string_to_solix(
-      EXPORTING
-        iv_string   = lv_string
-        iv_codepage = '4103'  "suitable for MS Excel, leave empty
-        iv_add_bom  = 'X'     "for other doc types
-      IMPORTING
-        et_solix  = binary_content
-        ev_size   = size ).
-    CATCH cx_bcs.
-      MESSAGE e445(so).
+    cl_bcs_convert=>string_to_solix(
+    EXPORTING
+      iv_string   = lv_string
+      iv_codepage = '4103'  "suitable for MS Excel, leave empty
+      iv_add_bom  = 'X'     "for other doc types
+    IMPORTING
+      et_solix  = binary_content
+      ev_size   = SIZE ).
+  CATCH cx_bcs.
+    MESSAGE e445(so).
   ENDTRY.
 
 ENDFORM.                    "create_content

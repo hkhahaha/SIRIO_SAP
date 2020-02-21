@@ -16,7 +16,7 @@ DATA:fieldcat TYPE lvc_t_fcat WITH HEADER LINE, "调用系统存在的FIELDCAT�
      layout   TYPE lvc_s_layo, "调用系统存在的LAYOUT
      "FIELDCAT用于ALV的结构定义，LAYOUT用于定义ALV的输出格式，后者可以覆盖前者，后者是可选的
      w_repid  TYPE sy-repid. "记录系统当前的程序名
-TABLES:vbap,vbak."定义系统存在的透明标
+TABLES:vbap,vbak,vbep."定义系统存在的透明标
 "定义合作类型描述相关的字段
 TYPES:BEGIN OF ty_zco,
         atinn TYPE cawn-atinn, "内部特性号
@@ -224,7 +224,8 @@ swerks    FOR   vbap-werks  ,"  工厂
 skunnr    FOR   vbak-kunnr  ,"  客户
 sernam    FOR   vbak-ernam  ,"  创建人
 serdat    FOR   vbak-erdat  ,"  创建日期
-smatnr    FOR   vbap-matnr  ."  物料编码
+smatnr    FOR   vbap-matnr  ,"  物料编码
+settyp    FOR   vbep-ettyp  ."  计划行类别
 
 SELECTION-SCREEN BEGIN OF LINE.
 SELECTION-SCREEN COMMENT 1(20) TEXT-002.
@@ -234,6 +235,29 @@ SELECTION-SCREEN COMMENT 24(8) TEXT-003 FOR FIELD flag_a.
 SELECTION-SCREEN POSITION 44.
 PARAMETERS flag_b RADIOBUTTON GROUP rg1.
 SELECTION-SCREEN COMMENT 48(8) TEXT-004 FOR FIELD flag_b.
+SELECTION-SCREEN END OF LINE.
+
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN COMMENT 1(20) TEXT-005.
+SELECTION-SCREEN POSITION 23.
+PARAMETERS part_a TYPE c AS CHECKBOX DEFAULT 'X'.
+SELECTION-SCREEN COMMENT 25(6) TEXT-006.
+SELECTION-SCREEN POSITION 34.
+PARAMETERS part_b TYPE c AS CHECKBOX DEFAULT 'X'.
+SELECTION-SCREEN COMMENT 36(6) TEXT-007.
+SELECTION-SCREEN POSITION 45.
+PARAMETERS part_c TYPE c AS CHECKBOX DEFAULT 'X'.
+SELECTION-SCREEN COMMENT 47(6) TEXT-008.
+SELECTION-SCREEN POSITION 56.
+PARAMETERS part_d TYPE c AS CHECKBOX DEFAULT 'X'.
+SELECTION-SCREEN COMMENT 58(6) TEXT-009.
+*PARAMETERS part_c TYPE c AS CHECKBOX DEFAULT 'X'.
+*SELECTION-SCREEN COMMENT 45(6) TEXT-002.
+*PARAMETERS flag_a1 RADIOBUTTON GROUP rg2 DEFAULT 'X'.
+*SELECTION-SCREEN COMMENT 24(8) TEXT-003 FOR FIELD flag_a1.
+*SELECTION-SCREEN POSITION 44.
+*PARAMETERS flag_b1 RADIOBUTTON GROUP rg2.
+*SELECTION-SCREEN COMMENT 48(8) TEXT-004 FOR FIELD flag_b1.
 SELECTION-SCREEN END OF LINE.
 SELECTION-SCREEN END OF BLOCK blk.
 
@@ -302,7 +326,8 @@ FORM getdata.
        lt_likp          TYPE TABLE OF likp,
        ls_likp          TYPE likp,
        lt_zco           TYPE TABLE OF ty_zco,
-       ls_zco           TYPE ty_zco.
+       ls_zco           TYPE ty_zco,
+       ls_ettyp         LIKE LINE OF settyp.
 
   DATA: lt_lines LIKE TABLE OF tline,
         ls_lines LIKE tline.
@@ -469,7 +494,7 @@ FORM getdata.
   "将一部分可以直接插入的数据插入到内表中
   LOOP AT lt_all INTO ls_all.
 
-
+    CLEAR ls_out.
     CLEAR ls_ausp.
     READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
                                              atinn = lv_zappsou.
@@ -492,7 +517,7 @@ FORM getdata.
     ls_out-zpro = ls_ausp-atwrt.
     CLEAR ls_ausp.
 
-
+    CLEAR lt_zco.
     "合作类型取描述
     SELECT
       cawnt~atwtb
@@ -509,7 +534,7 @@ FORM getdata.
     CLEAR ls_zco.
     READ TABLE lt_zco INTO ls_zco WITH KEY atwrt = ls_out-zcotype.
     ls_out-zcotype = ls_zco-atwtb.
-
+*    CLEAR ls_all-augru.
     "订货原因取描述
     IF ls_all-augru IS NOT INITIAL.
       SELECT SINGLE
@@ -529,6 +554,12 @@ FORM getdata.
     FROM vbep
     WHERE vbep~vbeln = ls_all-vbeln
     AND vbep~posnr = ls_all-posnr.
+    IF settyp IS NOT INITIAL.
+      READ TABLE settyp INTO ls_ettyp WITH KEY low = ls_out-ettyp.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+    ENDIF.
 
 
     "售达方编号
@@ -542,12 +573,16 @@ FORM getdata.
     WHERE jest~objnr = ls_all-objnr
     AND jest~stat LIKE 'E%'
     AND jest~inact = ''.
-    IF ls_jest-stat = 'E0001'.
+    IF ls_jest-stat = 'E0001' AND part_a = 'X'.
       ls_out-state = '创建'.
-    ELSEIF ls_jest-stat = 'E0002'.
+    ELSEIF ls_jest-stat = 'E0002' AND part_b = 'X'.
       ls_out-state = '业务一审'.
-    ELSEIF ls_jest-stat = 'E0003'.
+    ELSEIF ls_jest-stat = 'E0003' AND part_c = 'X'.
       ls_out-state = '财务二审'.
+    ELSEIF ls_jest-stat = '' AND part_d = 'X'.
+      ls_out-state = ''.
+    ELSE.
+      CONTINUE.
     ENDIF.
 
 
@@ -609,7 +644,7 @@ FORM getdata.
     ON but000~partner = vbpa~kunnr
     WHERE vbpa~parvw = 'Z3'
       AND vbpa~vbeln = ls_all-vbeln
-    AND vbpa~posnr = ''.
+      AND vbpa~posnr = ''.
     ls_out-saleman = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
     CLEAR ls_but000.
     "检索项

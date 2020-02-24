@@ -559,7 +559,7 @@ FORM getdata."查询语句
 
   "如果标识为需要写入后台表的话，就先清空自定义表里面的数据
   IF p_flag = 'X'.
-    DELETE FROM zsdt0019B.
+*    DELETE FROM zsdt0019b.
   ENDIF.
 
 ENDFORM.
@@ -578,17 +578,43 @@ FORM catalog."表头
   END-OF-DEFINITION.
 
 
-  fieldcatset 'BUKRS' '公司代码' sy-tabix.
-  fieldcatset 'gjahr' '会计年度' sy-tabix.
-  fieldcatset 'BUKRS' '会计期间' sy-tabix.
-  fieldcatset 'BELNR' '凭证编号' sy-tabix.
-  fieldcatset 'BLART' '凭证类型' sy-tabix.
-  fieldcatset 'BLDAT' '凭证日期' sy-tabix.
-  fieldcatset 'BUDAT' '过账日期' sy-tabix.
-  fieldcatset 'XSTOV' '冲销标识' sy-tabix.
-  fieldcatset 'STBLG' '冲销凭证' sy-tabix.
-  fieldcatset 'PPNAM' '制单人' sy-tabix.
-  fieldcatset 'USNAM' '过账人' sy-tabix.
+*  fieldcatset 'BUKRS' '公司代码' sy-tabix.
+  fieldcatset   'STAT'   '订单状态'   sy-tabix.
+  fieldcatset   'STATDETAIL'   '订单状态描述'   sy-tabix.
+  fieldcatset   'UDATE'   '二审日期'   sy-tabix.
+  fieldcatset   'ERDAT'   '创建日期'   sy-tabix.
+  fieldcatset   'KUNNR'   '售达方'   sy-tabix.
+  fieldcatset   'VKORG'   '销售组织'   sy-tabix.
+  fieldcatset   'VTWEG'   '分销渠道'   sy-tabix.
+  fieldcatset   'SPART'   '产品组'   sy-tabix.
+  fieldcatset   'BU_SORT1'   '检索项'   sy-tabix.
+  fieldcatset   'KUNNR2'   '实际客户'   sy-tabix.
+  fieldcatset   'KUNN2'   '业务员'   sy-tabix.
+  fieldcatset   'NAME_ORG1'   '业务员名称'   sy-tabix.
+  fieldcatset   'AUART'   '订单类型'   sy-tabix.
+  fieldcatset   'BEZEI'   '订单类型描述'   sy-tabix.
+  fieldcatset   'VBELN'   '单据号'   sy-tabix.
+  fieldcatset   'TEXT1'   '付款方式'   sy-tabix.
+  fieldcatset   'MATWA'   '产品编号'   sy-tabix.
+  fieldcatset   'POSNR'   '行号'   sy-tabix.
+  fieldcatset   'MAKTX'   '产品名称'   sy-tabix.
+  fieldcatset   'GROES'   '规格型号'   sy-tabix.
+  fieldcatset   'ATWRT'   '包装规格'   sy-tabix.
+  fieldcatset   'KWMENG'   '基本计量数量'   sy-tabix.
+  fieldcatset   'MEINS'   '基本计量单位'   sy-tabix.
+  fieldcatset   'KWMENG2'   '销售数量'   sy-tabix.
+  fieldcatset   'VRKME'   '销售单位'   sy-tabix.
+  fieldcatset   'KBETR'   '折前单价'   sy-tabix.
+  fieldcatset   'NETWR'   '价税合计'   sy-tabix.
+  fieldcatset   'ETTYP'   '计划行类型'   sy-tabix.
+  fieldcatset   'ZNBJHQ'   '内部交货日期'   sy-tabix.
+  fieldcatset   'ZATPDFRQ'   'ATP答复日期'   sy-tabix.
+  fieldcatset   'RFMNG'   '出库量'   sy-tabix.
+  fieldcatset   'NAME_TEXT'   '制单人'   sy-tabix.
+  fieldcatset   'KALAB'   '非限制库存'   sy-tabix.
+  fieldcatset   'WGBEZ'   '物料中类名称'   sy-tabix.
+
+
 
   READ TABLE fieldcat INDEX 3."读取报表第三列
   fieldcat-hotspot = 'X'."鼠标热点事件
@@ -694,7 +720,7 @@ FORM alvshow.
 *     E_EXIT_CAUSED_BY_CALLER  =
 *     ES_EXIT_CAUSED_BY_USER   =
     TABLES
-      t_outtab                 = lt_zsdt0019
+      t_outtab                 = lt_zsdt0019b
     EXCEPTIONS "下面都是默认的
       program_error            = 1
       OTHERS                   = 2.

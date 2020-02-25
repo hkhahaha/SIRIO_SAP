@@ -52,7 +52,9 @@ SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001."定义屏幕
 SELECT-OPTIONS:s_auart FOR vbak-auart,"订单类型
                s_erdat FOR vbak-erdat,"创建日期"for前面的是字段显示的名称，可以修改，但是注意不要超过8个字符，否则会报错
                s_udate FOR vbak-erdat,"二审日期
-               s_job FOR zsdt0019-job."人员职位
+               s_vbeln FOR vbak-vbeln,
+               s_posnr FOR vbap-posnr,
+               s_partn FOR zsdt0019-partner."人员职位
 
 SELECTION-SCREEN BEGIN OF LINE.
 SELECTION-SCREEN COMMENT 1(12) TEXT-002.
@@ -78,54 +80,69 @@ FORM getdata."查询语句
     IMPORTING
       output = lv_zpspe.
 
+*  "如果发送人员职位字段为空的话，从knvp表中查全部
+*  IF s_job IS NOT INITIAL.
+*    "首先，先查询所有的业务员
+*    SELECT
+*    *
+*    INTO CORRESPONDING FIELDS OF TABLE @lt_zsdt0019
+*    FROM zsdt0019
+*    WHERE zsdt0019~job IN @s_job
+*    AND zsdt0019~active = 'X'.
+*    "然后筛选出LT_ZSDT0019里面的区域经理的账号到lt_zsdt_00192
+*    SELECT
+*    *
+*    FROM @lt_zsdt0019 AS a
+*    WHERE a~job = '02'
+*    INTO CORRESPONDING FIELDS OF TABLE @lt_zsdt00192.
+*    "然后重新把区域经理所属的大区重新查询一边，然后append到内表lt_zsdt0019里面
+*    IF lt_zsdt00192 IS NOT INITIAL.
+*      SELECT
+*      *
+*      APPENDING CORRESPONDING FIELDS OF TABLE lt_zsdt0019
+*      FROM zsdt0019
+*      FOR ALL ENTRIES IN lt_zsdt00192
+*      WHERE zsdt0019~zdomain = lt_zsdt00192-zdomain
+*      AND zsdt0019~active = 'X'.
+*    ENDIF.
+*    "然后对数据进行筛选，去掉重复的数据
+*    SORT lt_zsdt0019 BY partner.
+*    DELETE ADJACENT DUPLICATES FROM lt_zsdt0019 COMPARING ALL FIELDS.
+*    "上面已经完成了对自定表1的数据获取的操作，接下来根据查到的业务员到VBAK表中获取相应的数据
+*  ELSE.
+*    "根据上面取到的业务员，到KUNN2取得所需要的字段数据
+*    IF lt_zsdt0019 IS NOT INITIAL AND s_job IS NOT INITIAL.
+*      SELECT
+*      kunnr
+*      vkorg
+*      vtweg
+*      spart
+*      parvw
+*      kunn2
+*      INTO CORRESPONDING FIELDS OF TABLE lt_knvp
+*      FROM knvp
+*      FOR ALL ENTRIES IN lt_zsdt0019
+*      WHERE knvp~kunn2  = lt_zsdt0019-partner
+*      AND knvp~parvw = 'Z3'.
+*    ELSEIF s_job IS INITIAL.
+*      SELECT
+*      kunnr
+*      vkorg
+*      vtweg
+*      spart
+*      parvw
+*      kunn2
+*      INTO CORRESPONDING FIELDS OF TABLE lt_knvp
+*      FROM knvp
+*      WHERE knvp~parvw = 'Z3'.
+*    ELSE.
+*      EXIT.
+*    ENDIF.
+*  ENDIF.
 
-  "首先，先查询所有的业务员
-  SELECT
-    *
-  INTO CORRESPONDING FIELDS OF TABLE @lt_zsdt0019
-  FROM zsdt0019
-  WHERE zsdt0019~job IN @s_job
-    AND zsdt0019~active = 'X'.
-  "然后筛选出LT_ZSDT0019里面的区域经理的账号到lt_zsdt_00192
-  SELECT
-    *
-  FROM @lt_zsdt0019 AS a
-  WHERE a~job = '02'
-  INTO CORRESPONDING FIELDS OF TABLE @lt_zsdt00192.
-  "然后重新把区域经理所属的大区重新查询一边，然后append到内表lt_zsdt0019里面
-  IF lt_zsdt00192 IS NOT INITIAL.
-    SELECT
-      *
-    APPENDING CORRESPONDING FIELDS OF TABLE lt_zsdt0019
-    FROM zsdt0019
-    FOR ALL ENTRIES IN lt_zsdt00192
-    WHERE zsdt0019~zdomain = lt_zsdt00192-zdomain
-      AND zsdt0019~active = 'X'.
-  ENDIF.
-  "然后对数据进行筛选，去掉重复的数据
-  SORT lt_zsdt0019 BY partner.
-  DELETE ADJACENT DUPLICATES FROM lt_zsdt0019 COMPARING ALL FIELDS.
-  "上面已经完成了对自定表1的数据获取的操作，接下来根据查到的业务员到VBAK表中获取相应的数据
 
-  "根据上面取到的业务员，到KUNN2取得所需要的字段数据
-  IF lt_zsdt0019 IS NOT INITIAL.
-    SELECT
-    kunnr
-    vkorg
-    vtweg
-    spart
-    parvw
-    kunn2
-    INTO CORRESPONDING FIELDS OF TABLE lt_knvp
-    FROM knvp
-    FOR ALL ENTRIES IN lt_zsdt0019
-    WHERE knvp~kunn2  = lt_zsdt0019-partner
-      AND knvp~parvw = 'Z3'.
-  ELSE.
-    EXIT.
-  ENDIF.
 
-  "上面已经取到了全部的业务员，接下来关联VBAK、VBAP表进行查询
+
   SELECT
     auart
     vbak~erdat
@@ -151,18 +168,23 @@ FORM getdata."查询语句
     vbap~netwr
     vbap~mwsbp
     vbak~ernam
+    vbak~knumv
     werks
+    knvp~kunn2
   INTO CORRESPONDING FIELDS OF TABLE lt_alv
   FROM vbap
   INNER JOIN vbak
   ON vbap~vbeln = vbak~vbeln
-  FOR ALL ENTRIES IN lt_knvp
+  INNER JOIN knvp
+  ON knvp~kunnr = vbak~kunnr
+  AND knvp~vkorg = vbak~vkorg
+  AND knvp~vtweg = vbak~vtweg
+  AND knvp~spart = vbak~spart
   WHERE vbak~auart IN s_auart
     AND vbak~erdat IN s_erdat
-    AND vbak~kunnr = lt_knvp-kunnr
-    AND vbak~vkorg = lt_knvp-vkorg
-    AND vbak~vtweg = lt_knvp-vtweg
-    AND vbak~spart = lt_knvp-spart.
+    AND vbak~vbeln IN s_vbeln
+    AND vbap~posnr IN s_posnr
+    AND knvp~parvw IN ('Z3','').
 
 
   "下面查询的是来自于其他表的数据
@@ -200,6 +222,14 @@ FORM getdata."查询语句
     FROM but000
     FOR ALL ENTRIES IN lt_alv
     WHERE but000~partner = lt_alv-kunnr.
+    SELECT
+    partner
+    bu_sort1
+    name_org1
+    APPENDING CORRESPONDING FIELDS OF TABLE lt_but000
+    FROM but000
+    FOR ALL ENTRIES IN lt_alv
+    WHERE but000~partner = lt_alv-kunn2.
     "VBPA表
     SELECT
       vbeln
@@ -232,7 +262,6 @@ FORM getdata."查询语句
     ON vbkd~zterm = t052u~zterm
     FOR ALL ENTRIES IN @lt_alv
     WHERE t052u~spras = '1'
-      AND vbkd~posnr = @lt_alv-posnr
       AND vbkd~vbeln = @lt_alv-vbeln.
 
     "MAKT
@@ -258,7 +287,7 @@ FORM getdata."查询语句
     "对物料号进行处理
     LOOP AT lt_alv INTO ls_alv.
       ls_alv-objek = ls_alv-matnr.
-      MODIFY TABLE lt_alv FROM ls_alv.
+      MODIFY lt_alv FROM ls_alv.
       CLEAR ls_alv.
     ENDLOOP.
     "上面处理物料号之后，查询对应的全部AUSP的数据
@@ -273,7 +302,8 @@ FORM getdata."查询语句
     SELECT
       *
     INTO TABLE @DATA(lt_t006a)
-    FROM t006a.
+    FROM t006a
+    WHERE t006a~spras = '1'.
     "PRCD_ELEMENTS表
     SELECT
       knumv,
@@ -291,7 +321,9 @@ FORM getdata."查询语句
     SELECT
       vbeln,
       posnr,
-      ettyp
+      ettyp,
+      umvkz,
+      umvkn
     INTO TABLE @DATA(lt_vbep)
     FROM vbep
     FOR ALL ENTRIES IN @lt_alv
@@ -381,7 +413,7 @@ FORM getdata."查询语句
 
 
 
-
+  DATA id(30) TYPE c VALUE 1.
   "下面开始循环读取数据
   LOOP AT lt_alv INTO ls_alv.
     MOVE-CORRESPONDING ls_alv TO ls_zsdt0019b.
@@ -430,14 +462,18 @@ FORM getdata."查询语句
     ENDIF.
     CLEAR ls_vbpa.
     "业务员
-    READ TABLE lt_knvp INTO ls_knvp WITH KEY kunnr = ls_alv-kunnr
-                                             vkorg = ls_alv-vkorg
-                                             vtweg = ls_alv-vtweg
-                                             spart = ls_alv-spart.
-    IF sy-subrc = 0.
-      ls_alv-kunn2 = ls_alv-kunn2.
-    ENDIF.
-    CLEAR ls_knvp.
+*    IF s_job IS NOT INITIAL.
+*      READ TABLE lt_knvp INTO ls_knvp WITH KEY kunnr = ls_alv-kunnr
+*                                               vkorg = ls_alv-vkorg
+*                                               vtweg = ls_alv-vtweg
+*                                               spart = ls_alv-spart.
+*      IF sy-subrc = 0.
+*        ls_alv-kunn2 = ls_alv-kunn2.
+*      ELSE.
+*        CONTINUE.
+*      ENDIF.
+*      CLEAR ls_knvp.
+*    ENDIF.
     "业务员名称
     READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_alv-kunn2.
     IF sy-subrc = 0.
@@ -451,8 +487,7 @@ FORM getdata."查询语句
     ENDIF.
     CLEAR ls_tvakt.
     "付款方式
-    READ TABLE lt_t052u INTO DATA(ls_t052u) WITH KEY vbeln = ls_alv-vbeln
-                                                     posnr = ls_alv-posnr.
+    READ TABLE lt_t052u INTO DATA(ls_t052u) WITH KEY vbeln = ls_alv-vbeln.
     IF sy-subrc = 0.
       ls_alv-text1 = ls_t052u-text1.
     ENDIF.
@@ -505,7 +540,7 @@ FORM getdata."查询语句
     IF sy-subrc = 0.
       ls_alv-ettyp = ls_vbep-ettyp.
     ENDIF.
-    CLEAR ls_vbep.
+
     "出库量
     READ TABLE lt_vbfa_r INTO DATA(ls_vbfa_r) WITH KEY vbelv = ls_alv-vbeln
                                                        posnv = ls_alv-posnr
@@ -522,7 +557,7 @@ FORM getdata."查询语句
     "制单人
     READ TABLE lt_adrp INTO DATA(ls_adrp) WITH KEY bname = ls_alv-ernam.
     IF sy-subrc = 0.
-      ls_alv-name_text = ls_alv-name_text.
+      ls_alv-name_text = ls_adrp-name_text.
     ENDIF.
     CLEAR ls_adrp.
     "非限制库存
@@ -531,7 +566,7 @@ FORM getdata."查询语句
                                                    vbeln = ls_alv-vbeln
                                                    werks = ls_alv-werks.
     IF sy-subrc = 0.
-      ls_alv-kalab = ls_mska-kalab.
+      ls_alv-kalab = ls_mska-kalab / ls_vbep-umvkz * ls_vbep-umvkn.
     ENDIF.
     IF lv_matkl IS NOT INITIAL.
       READ TABLE lt_t023t INTO DATA(ls_t023t) WITH KEY matkl = lv_matkl.
@@ -542,11 +577,28 @@ FORM getdata."查询语句
     ENDIF.
 
 
-
+    ls_alv-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_alv-matnr i_out = 'X' ).
+    ls_alv-matwa = zcl_bc_public=>conv_by_ddic( i_input = ls_alv-matwa i_out = 'X' ).
     MOVE-CORRESPONDING ls_alv TO ls_zsdt0019b.
+    ls_zsdt0019b-id = id.
     APPEND ls_zsdt0019b TO lt_zsdt0019b.
     CLEAR:ls_alv,ls_zsdt0019b.
+    CLEAR ls_vbep.
+    id = id + 1.
   ENDLOOP.
+  IF s_partn IS NOT INITIAL.
+    LOOP AT lt_alv INTO ls_alv.
+      READ TABLE s_partn INTO DATA(lv_part) WITH KEY low = ls_alv-kunn2.
+      IF sy-subrc <> 0.
+        DELETE lt_alv WHERE kunn2 = lv_part-low.
+        DELETE lt_zsdt0019b WHERE kunn2 = lv_part-low.
+      ENDIF.
+      CLEAR ls_alv.
+    ENDLOOP.
+  ENDIF.
+
+  SORT lt_alv BY vbeln posnr.
+
 
 
 
@@ -559,7 +611,8 @@ FORM getdata."查询语句
 
   "如果标识为需要写入后台表的话，就先清空自定义表里面的数据
   IF p_flag = 'X'.
-*    DELETE FROM zsdt0019b.
+    DELETE FROM zsdt0019b.
+    INSERT zsdt0019b FROM TABLE lt_zsdt0019b.
   ENDIF.
 
 ENDFORM.
@@ -617,12 +670,10 @@ FORM catalog."表头
 
 
   READ TABLE fieldcat INDEX 3."读取报表第三列
-  fieldcat-hotspot = 'X'."鼠标热点事件
   fieldcat-key = 'X'."定义为主键（颜色改变）
   MODIFY fieldcat INDEX 3."修改样式
 
   READ TABLE fieldcat INDEX 4.
-  fieldcat-hotspot = 'X'.
   fieldcat-emphasize = 'C500'.
   MODIFY fieldcat INDEX 4.
 
@@ -650,7 +701,6 @@ FORM catalog."表头
   fieldcat-emphasize = 'C200'.
   MODIFY fieldcat INDEX 8.
   READ TABLE fieldcat INDEX 9.
-  fieldcat-checkbox = 'X'.
   MODIFY fieldcat INDEX 9.
 
 *layout-colwidth_optimize = 'X'.

@@ -73,6 +73,141 @@ START-OF-SELECTION.
   PERFORM alvshow.
 *定义子程序
 FORM getdata."查询语句
+  "先查询的是经销商的数据
+  SELECT
+    werks,
+    eord~matnr,
+    lifnr,
+    ematn,
+    partner,
+    mfrnr,
+    matkl,
+    valid_date_from AS date1,
+    valid_date_to AS date2
+  INTO TABLE @DATA(gt_all)
+  FROM eord
+  INNER JOIN but0id
+  ON but0id~partner = eord~lifnr
+  INNER JOIN mara
+  ON mara~matnr = eord~matnr
+  WHERE eord~matnr IN @s_matnr
+    AND eord~werks IN @s_werks
+    AND eord~lifnr IN @s_lifnr
+    AND but0id~type = 'ZQM999'
+    AND but0id~valid_date_from IN @s_date1
+    AND but0id~valid_date_to IN @s_date2
+    AND mara~mfrnr IN @s_mfrnr
+    AND mara~matkl IN @s_matkl.
+  "然后查询的是生产商的数据
+  SELECT
+    werks,
+    a~matkl,
+    a~matnr,
+    lifnr,
+    ematn,
+    a~partner,
+    a~mfrnr,
+    a~date1,
+    a~date2,
+    valid_date_from AS date3,
+    valid_date_to AS date4
+  FROM @gt_all AS a
+  INNER JOIN mara
+  ON mara~mfrnr = a~partner
+  INNER JOIN but0id
+  ON mara~mfrnr = but0id~partner
+  WHERE but0id~type = 'ZQM999'
+    AND but0id~valid_date_from IN @s_date3
+    AND but0id~valid_date_to IN @s_date4
+    AND mara~matkl IN @s_matkl
+  INTO TABLE @DATA(gt_all2).
+
+
+  IF gt_all2 IS NOT INITIAL.
+    "MAKT表
+    SELECT
+    matnr,
+    maktx
+    INTO TABLE @DATA(lt_makt)
+    FROM makt
+    FOR ALL ENTRIES IN @gt_all2
+    WHERE makt~spras = '1'
+    AND makt~matnr = @gt_all2-matnr.
+
+    "LFA1表
+    SELECT
+      name1,
+      name2,
+      name3,
+      name4,
+      lifnr,
+      stras
+    INTO TABLE @DATA(lt_lfa1)
+    FROM lfa1
+    FOR ALL ENTRIES IN @gt_all2
+    WHERE lfa1~lifnr = @gt_all2-lifnr.
+
+
+
+  ENDIF.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  LOOP AT gt_all2 INTO DATA(gs_all2).
+    MOVE-CORRESPONDING gs_all2 TO gs_alv.
+    "物料描述（短描述）
+    READ TABLE lt_makt INTO DATA(ls_makt) WITH KEY matnr = gs_all2-matnr.
+    IF sy-subrc = 0.
+      gs_alv-matkx = ls_makt-maktx.
+    ENDIF.
+    "物料类别
+    IF gs_alv-matkl+0(2) = '10' OR gs_alv-matkl+0(4) = '2002' OR gs_alv-matkl+0(4) = '2006'.
+      gs_alv-matkl = 'I类'.
+    ELSEIF gs_alv-matkl+0(4) = '2004' OR gs_alv-matkl = '2008'.
+      gs_alv-matkl = 'III类'.
+    ENDIF.
+    "经销商名称、经销商地址
+    READ TABLE lt_lfa1 INTO DATA(ls_lfa1) WITH KEY lifnr = gs_all2-lifnr.
+    IF sy-subrc = 0.
+      gs_alv-lifnr_name = ls_lfa1-name1 && ls_lfa1-name2 && ls_lfa1-name3 && ls_lfa1-name4.
+      gs_alv-stras = ls_lfa1-stras.
+    ENDIF.
+    "经销商等级
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    APPEND gs_alv TO gt_alv.
+    CLEAR:gs_all2,gs_alv.
+  ENDLOOP.
+
+
 
 ENDFORM.
 
@@ -89,26 +224,40 @@ FORM catalog."表头
     APPEND fieldcat.
   END-OF-DEFINITION.
 
+  fieldcatset   'MATNR'   '物料编码'  sy-tabix.
+  fieldcatset   'WERKS'   '工厂'  sy-tabix.
+  fieldcatset   'MATKX'   '物料描述（短描述）' sy-tabix.
+  fieldcatset   'MATKL'   '物料类别'  sy-tabix.
+  fieldcatset   'LIFNR'   '经销商编号' sy-tabix.
+  fieldcatset   'LIFNR_NAME'   '经销商名称'  sy-tabix.
+  fieldcatset   'STRAS'   '经销商地址' sy-tabix.
+  fieldcatset   'REGIOGROUP'   '经销商等级'  sy-tabix.
+  fieldcatset   'DATE1'   '经销商评估合格日期' sy-tabix.
+  fieldcatset   'DATE2'   '经销商计划评估日期' sy-tabix.
+  fieldcatset   'EMATN'   'MPN料号' sy-tabix.
+  fieldcatset   'MFRNR'   '生产商编号' sy-tabix.
+  fieldcatset   'PRO_NAME'    '生厂商名称' sy-tabix.
+  fieldcatset   'STRAS2'    '生产厂家地址'  sy-tabix.
+  fieldcatset   'PRO_REGIOGROUP'    '生厂商等级' sy-tabix.
+  fieldcatset   'DATE3'   '生厂商评估合格日期' sy-tabix.
+  fieldcatset   'DATE4'   '生产商计划评估日期' sy-tabix.
+  fieldcatset   'ZALLERGEN'   '过敏原' sy-tabix.
+  fieldcatset   'ZTRSGEN'   '转基因' sy-tabix.
+  fieldcatset   'ZEXPMAT'   '贵重物料'  sy-tabix.
+  fieldcatset   'ZWHP'    '危险化学品' sy-tabix.
+  fieldcatset   'ZORIADD'   '原产地' sy-tabix.
+  fieldcatset   'ZQMSAMP'   '开箱量计算标识' sy-tabix.
+  fieldcatset   'CCTJ'  '存储条件'  sy-tabix.
+  fieldcatset   'ZMATDET'   '材质明细'  sy-tabix.
+  fieldcatset   'ZSAMPING'    'QA取样量' sy-tabix.
+  fieldcatset   'TIME'    '最近下单时间'  sy-tabix.
 
-  fieldcatset 'BUKRS' '公司代码' sy-tabix.
-  fieldcatset 'gjahr' '会计年度' sy-tabix.
-  fieldcatset 'BUKRS' '会计期间' sy-tabix.
-  fieldcatset 'BELNR' '凭证编号' sy-tabix.
-  fieldcatset 'BLART' '凭证类型' sy-tabix.
-  fieldcatset 'BLDAT' '凭证日期' sy-tabix.
-  fieldcatset 'BUDAT' '过账日期' sy-tabix.
-  fieldcatset 'XSTOV' '冲销标识' sy-tabix.
-  fieldcatset 'STBLG' '冲销凭证' sy-tabix.
-  fieldcatset 'PPNAM' '制单人' sy-tabix.
-  fieldcatset 'USNAM' '过账人' sy-tabix.
 
   READ TABLE fieldcat INDEX 3."读取报表第三列
-  fieldcat-hotspot = 'X'."鼠标热点事件
   fieldcat-key = 'X'."定义为主键（颜色改变）
   MODIFY fieldcat INDEX 3."修改样式
 
   READ TABLE fieldcat INDEX 4.
-  fieldcat-hotspot = 'X'.
   fieldcat-emphasize = 'C500'.
   MODIFY fieldcat INDEX 4.
 
@@ -135,9 +284,6 @@ FORM catalog."表头
   READ TABLE fieldcat INDEX 8.
   fieldcat-emphasize = 'C200'.
   MODIFY fieldcat INDEX 8.
-  READ TABLE fieldcat INDEX 9.
-  fieldcat-checkbox = 'X'.
-  MODIFY fieldcat INDEX 9.
 
 *layout-colwidth_optimize = 'X'.
   layout-zebra = 'X'."斑马线的样式

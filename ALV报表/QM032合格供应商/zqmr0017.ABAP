@@ -147,6 +147,71 @@ FORM getdata."查询语句
     FOR ALL ENTRIES IN @gt_all2
     WHERE lfa1~lifnr = @gt_all2-lifnr.
 
+    "ADRC表
+    SELECT
+      lifnr,
+      adrc~name1,
+      adrc~name2,
+      adrc~name3,
+      adrc~name4,
+      adrc~regiogroup
+    FROM adrc
+    INNER JOIN lfa1
+    ON lfa1~name1 = adrc~name1
+    AND lfa1~name2 = adrc~name2
+    AND lfa1~name3 = adrc~name3
+    AND lfa1~name4 = adrc~name4
+    FOR ALL ENTRIES IN @gt_all2
+    WHERE lfa1~lifnr = @gt_all2-lifnr
+    INTO TABLE @DATA(lt_adrc).
+
+    "MARA表
+    SELECT
+      a~mfrnr,
+      b~lifnr,
+      b~stras,
+      b~name1,
+      b~name2,
+      b~name3,
+      b~name4,
+      a~matnr
+    FROM mara AS a
+    INNER JOIN lfa1 AS b
+    ON b~lifnr = a~mfrnr
+    FOR ALL ENTRIES IN @gt_all2
+    WHERE a~matnr = @gt_all2-ematn
+    INTO TABLE @DATA(lt_mara).
+
+    "ADRC表2
+    IF lt_mara IS NOT INITIAL.
+      SELECT
+      a~mfrnr,
+      b~lifnr,
+      b~stras,
+      adrc~name1,
+      adrc~name2,
+      adrc~name3,
+      adrc~name4,
+      a~matnr,
+      adrc~regiogroup
+      FROM mara AS a
+      INNER JOIN lfa1 AS b
+      ON b~lifnr = a~mfrnr
+      INNER JOIN adrc
+      ON adrc~name1 = b~name1
+      AND adrc~name2 = b~name2
+      AND adrc~name3 = b~name3
+      AND adrc~name4 = b~name4
+      FOR ALL ENTRIES IN @gt_all2
+      WHERE a~matnr = @gt_all2-ematn
+      INTO TABLE @DATA(lt_adrc2).
+    ENDIF.
+
+
+
+
+
+
 
 
   ENDIF.
@@ -185,6 +250,39 @@ FORM getdata."查询语句
       gs_alv-stras = ls_lfa1-stras.
     ENDIF.
     "经销商等级
+    READ TABLE lt_adrc INTO DATA(ls_adrc) WITH KEY lifnr = gs_all2-lifnr.
+    IF sy-subrc = 0.
+      gs_alv-regiogroup = ls_adrc-regiogroup.
+    ENDIF.
+    "经销商评估合格日期
+    "经销商计划评估日期
+    "MPN料号
+    IF gs_all2-ematn IS INITIAL.
+      gs_alv-ematn = '无'.
+      "不启用MPN的生产商编号及名称、地址、等级、日期和经销商的一致
+      gs_alv-mfrnr = gs_all2-lifnr.
+      gs_alv-pro_name = gs_alv-lifnr_name.
+      gs_alv-stras2 = gs_alv-stras.
+      gs_alv-pro_regiogroup = gs_alv-regiogroup.
+      gs_alv-date3 = gs_alv-date1.
+      gs_alv-date4 = gs_alv-date2.
+    ELSE.
+      READ TABLE lt_mara INTO DATA(ls_mara) WITH KEY matnr = gs_all2-ematn.
+      IF sy-subrc = 0.
+        "生产商编号
+        gs_alv-mfrnr = ls_mara-mfrnr.
+        "生产商名称
+        gs_alv-pro_name = ls_mara-name1 && ls_mara-name2 && ls_mara-name3 && ls_mara-name4.
+        "生产厂家地址
+        gs_alv-stras2 = ls_mara-stras.
+        "生产商等级
+        READ TABLE lt_adrc2 INTO DATA(ls_adrc2) WITH KEY matnr = gs_all2-ematn.
+        IF sy-subrc = 0.
+          gs_alv-pro_regiogroup = ls_adrc2-regiogroup.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+
 
 
 

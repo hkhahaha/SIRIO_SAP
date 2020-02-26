@@ -54,7 +54,7 @@ FORM send.
     i_att_content_hex    = binary_content ).
 *     发件人
 *     前提是这个邮箱地址能发邮件，并且不需要密码
-    lo_sender = cl_sapuser_bcs=>create( 'MAILSERVER' ).
+    lo_sender = cl_sapuser_bcs=>create( 'HUANGKAI' ).
     send_request->set_sender( lo_sender ).
 *     add document object to send request
     send_request->set_document( document ).

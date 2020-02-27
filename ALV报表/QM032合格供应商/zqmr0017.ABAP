@@ -73,6 +73,38 @@ START-OF-SELECTION.
   PERFORM alvshow.
 *定义子程序
 FORM getdata."查询语句
+  DATA:lv_zallergen(10) TYPE c,
+       lv_ztrsgen(10)   TYPE c,
+       lv_zexpmat(10)   TYPE c,
+       lv_zwhp(10)      TYPE c,
+       lv_zoriadd(10)   TYPE c,
+       lv_zqmsamp(10)   TYPE c,
+       lv_zmatdet(10)   TYPE c,
+       lv_zsamping(10)  TYPE c.
+  lv_zallergen = 'ZALLERGEN'.
+  lv_ztrsgen = 'ZTRSGEN'.
+  lv_zexpmat = 'ZEXPMAT'.
+  lv_zwhp = 'ZWHP'.
+  lv_zoriadd = 'ZORIADD'.
+  lv_zqmsamp = 'ZQMSAMP'.
+  lv_zmatdet = 'ZMATDET'.
+  lv_zsamping = 'ZSAMPING'.
+  "使用宏来改变特征名转换前后的值
+  DEFINE changeausp.
+    CALL FUNCTION 'CONVERSION_EXIT_ATINN_INPUT'
+    EXPORTING
+      input  = &1
+    IMPORTING
+      output = &2.
+  END-OF-DEFINITION.
+  changeausp lv_zallergen lv_zallergen.
+  changeausp lv_ztrsgen lv_ztrsgen.
+  changeausp lv_zexpmat lv_zexpmat.
+  changeausp lv_zwhp lv_zwhp.
+  changeausp lv_zoriadd lv_zoriadd.
+  changeausp lv_zqmsamp lv_zqmsamp.
+  changeausp lv_zmatdet lv_zmatdet.
+  changeausp lv_zsamping lv_zsamping.
   "先查询的是经销商的数据
   SELECT
     werks,
@@ -121,6 +153,7 @@ FORM getdata."查询语句
     AND but0id~valid_date_to IN @s_date4
     AND mara~matkl IN @s_matkl
   INTO TABLE @DATA(gt_all2).
+
 
 
   IF gt_all2 IS NOT INITIAL.
@@ -207,6 +240,29 @@ FORM getdata."查询语句
       INTO TABLE @DATA(lt_adrc2).
     ENDIF.
 
+    "ZQMT011表
+    SELECT
+      matnr,
+      raube,
+      sc,
+      cctj
+    FROM zqmt011
+    INNER JOIN mara
+    ON mara~raube = zqmt011~sc
+    FOR ALL ENTRIES IN @gt_all2
+    WHERE zqmt011~sc = mara~raube
+      AND mara~matnr = @gt_all2-matnr
+    INTO TABLE @DATA(lt_zqmt011).
+
+    "AUSP表
+    SELECT
+      objek,
+      atinn,
+      atwrt
+    INTO TABLE @DATA(lt_ausp)
+    FROM ausp
+    WHERE  ausp~atinn IN (@lv_zallergen,@lv_ztrsgen,@lv_zexpmat,
+                        @lv_zwhp,@lv_zoriadd,@lv_zqmsamp,@lv_zmatdet,@lv_zsamping).
 
 
 
@@ -236,6 +292,7 @@ FORM getdata."查询语句
     READ TABLE lt_makt INTO DATA(ls_makt) WITH KEY matnr = gs_all2-matnr.
     IF sy-subrc = 0.
       gs_alv-matkx = ls_makt-maktx.
+      CLEAR ls_makt.
     ENDIF.
     "物料类别
     IF gs_alv-matkl+0(2) = '10' OR gs_alv-matkl+0(4) = '2002' OR gs_alv-matkl+0(4) = '2006'.
@@ -248,12 +305,24 @@ FORM getdata."查询语句
     IF sy-subrc = 0.
       gs_alv-lifnr_name = ls_lfa1-name1 && ls_lfa1-name2 && ls_lfa1-name3 && ls_lfa1-name4.
       gs_alv-stras = ls_lfa1-stras.
+      CLEAR ls_lfa1.
     ENDIF.
     "经销商等级
     READ TABLE lt_adrc INTO DATA(ls_adrc) WITH KEY lifnr = gs_all2-lifnr.
     IF sy-subrc = 0.
       gs_alv-regiogroup = ls_adrc-regiogroup.
+      CLEAR ls_adrc.
     ENDIF.
+    "判断经销商等级是否在选择屏幕的条件范围内
+    DATA ls_group1 LIKE LINE OF s_group1.
+    IF s_group1 IS NOT INITIAL.
+      READ TABLE s_group1 INTO ls_group1 WITH KEY low = gs_alv-regiogroup.
+      IF sy-subrc = 0.
+        CLEAR ls_group1.
+        CONTINUE.
+      ENDIF.
+    ENDIF.
+
     "经销商评估合格日期
     "经销商计划评估日期
     "MPN料号
@@ -279,9 +348,84 @@ FORM getdata."查询语句
         READ TABLE lt_adrc2 INTO DATA(ls_adrc2) WITH KEY matnr = gs_all2-ematn.
         IF sy-subrc = 0.
           gs_alv-pro_regiogroup = ls_adrc2-regiogroup.
+          CLEAR ls_adrc2.
         ENDIF.
       ENDIF.
     ENDIF.
+    "判断生产商是否在选择屏幕条件内
+    DATA ls_group2 LIKE LINE OF s_group2.
+    IF s_group2 IS NOT INITIAL.
+      READ TABLE s_group2 INTO ls_group2 WITH KEY low = gs_alv-pro_regiogroup.
+      IF sy-subrc = 0.
+        CLEAR ls_group2.
+        CONTINUE.
+      ENDIF.
+    ENDIF.
+    "存储条件
+    READ TABLE lt_zqmt011 INTO DATA(ls_zqmt011) WITH KEY matnr = gs_all2-matnr.
+    IF sy-subrc = 0.
+      gs_alv-cctj = ls_zqmt011-cctj.
+      CLEAR ls_zqmt011.
+    ENDIF.
+    "各种特性值相关
+    READ TABLE lt_ausp INTO DATA(ls_ausp) WITH KEY objek = gs_all2-matnr
+                                                   atinn = lv_zallergen.
+    IF sy-subrc = 0.
+      "过敏原
+      gs_alv-zallergen = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all2-matnr
+                                             atinn = lv_ztrsgen.
+    IF sy-subrc = 0.
+      "转基因
+      gs_alv-ztrsgen = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all2-matnr
+                                             atinn = lv_zexpmat.
+    IF sy-subrc = 0.
+      "贵重物料
+      gs_alv-zexpmat = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all2-matnr
+                                             atinn = lv_zwhp.
+    IF sy-subrc = 0.
+      "危险化学品
+      gs_alv-zwhp = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all2-matnr
+                                             atinn = lv_zoriadd.
+    IF sy-subrc = 0.
+      "原产地
+      gs_alv-zoriadd = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all2-matnr
+                                             atinn = lv_zqmsamp.
+    IF sy-subrc = 0.
+      "开箱量计算标识
+      gs_alv-zqmsamp = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all2-matnr
+                                             atinn = lv_zmatdet.
+    IF sy-subrc = 0.
+      "材质明细
+      gs_alv-zmatdet = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all2-matnr
+                                             atinn = lv_zsamping.
+    IF sy-subrc = 0.
+      "QA取样量
+      gs_alv-zsamping = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+
+
 
 
 

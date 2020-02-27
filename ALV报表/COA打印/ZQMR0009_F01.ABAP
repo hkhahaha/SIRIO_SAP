@@ -659,6 +659,13 @@ FORM frm_get_data.
       ENDLOOP.
 ***************************End****************************************
       gs_s_info-prueflos = ls_qals_s-prueflos.
+*****************************HK 添加处理S码检验批相等逻辑
+      IF gs_s_info-prueflos = p_pruef.
+        CLEAR gs_s_info.
+      ENDIF.
+********************end
+
+
 ******************** HK S码检验计划数据***************************
       SELECT SINGLE
         prueflos,
@@ -844,7 +851,7 @@ CHANGING ct_test TYPE STANDARD TABLE
 
   IF lt_qamr IS NOT INITIAL.
     "抓取签名ID
-    SELECT prueflos,vorglfnr,merknr,sign_id,original_input,mittelwert,pruefbemkt,prltextkz
+    SELECT prueflos,vorglfnr,merknr,sign_id,original_input,mittelwert,pruefbemkt,prltextkz,probenr
     INTO TABLE @DATA(lt_qasr)
           FROM qasr
           FOR ALL ENTRIES IN @lt_qamr
@@ -896,7 +903,7 @@ CHANGING ct_test TYPE STANDARD TABLE
             WHERE aufpl EQ @ls_qals-aufpl
             AND plnnr EQ @ls_qals-plnnr
             AND plnty EQ @ls_qals-plnty
-            AND plnkn EQ @lt_qamv-vorglfnr.
+            AND aplzl EQ @lt_qamv-vorglfnr.
 
       IF lt_afvc IS NOT INITIAL.
         "抓取工作中心
@@ -937,10 +944,13 @@ CHANGING ct_test TYPE STANDARD TABLE
           AND sprache IN ( '1','E' ).
   ENDIF.
 
+*  IF ls_qals-prueflos IS NOT INITIAL AND ls_qals-prueflos <> ls_qprn-plos.
   cs_sample-frgdt = ls_qprn-frgdt.
   MOVE-CORRESPONDING ls_qprs TO cs_sample.
   cs_sample-mseht = ls_t006a2-msehl.
   cs_sample-tq42t_kurztext = ls_tq42t-kurztext.
+*  ENDIF.
+
 
   DATA: lt_line  TYPE TABLE OF tline, "长文本表
         lv_fname TYPE thead-tdname. "长文本对象
@@ -1080,6 +1090,7 @@ CHANGING ct_test TYPE STANDARD TABLE
         gs_test-qmtt_kurztext_en  = ls_qmtt_en-kurztext.
       ENDIF.
       APPEND gs_test TO ct_test.
+
     ENDIF.
 
     CLEAR ls_qamv.

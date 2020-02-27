@@ -41,8 +41,8 @@ DATA:ls_zsdt0019  TYPE zsdt0019,
      ls_jcds      TYPE jcds,
      lt_but000    TYPE TABLE OF but000,
      ls_but000    TYPE but000,
-     lt_vbpa      TYPE TABLE OF vbpa,
-     ls_vbpa      TYPE vbpa,
+*     lt_vbpa      TYPE TABLE OF vbpa,
+*     ls_vbpa      TYPE vbpa,
      lt_tvakt     TYPE TABLE OF tvakt,
      ls_tvakt     TYPE tvakt,
      lt_val       TYPE TABLE OF ty_val,
@@ -171,6 +171,7 @@ FORM getdata."查询语句
     vbak~knumv
     werks
     knvp~kunn2
+    vbap~zysjhq
   INTO CORRESPONDING FIELDS OF TABLE lt_alv
   FROM vbap
   INNER JOIN vbak
@@ -184,7 +185,8 @@ FORM getdata."查询语句
     AND vbak~erdat IN s_erdat
     AND vbak~vbeln IN s_vbeln
     AND vbap~posnr IN s_posnr
-    AND knvp~parvw IN ('Z3','').
+    AND knvp~parvw IN ('Z3','')
+    AND knvp~kunn2 IN s_partn.
 
 
   "下面查询的是来自于其他表的数据
@@ -222,6 +224,7 @@ FORM getdata."查询语句
     FROM but000
     FOR ALL ENTRIES IN lt_alv
     WHERE but000~partner = lt_alv-kunnr.
+
     SELECT
     partner
     bu_sort1
@@ -232,16 +235,22 @@ FORM getdata."查询语句
     WHERE but000~partner = lt_alv-kunn2.
     "VBPA表
     SELECT
-      vbeln
-      posnr
-      parvw
-      kunnr
-    INTO CORRESPONDING FIELDS OF TABLE lt_vbpa
+      vbeln,
+      posnr,
+      parvw,
+      kunnr,
+      name_org1,
+      name_org2,
+      name_org3,
+      name_org4
+    INTO TABLE @DATA(lt_vbpa)
     FROM vbpa
-    FOR ALL ENTRIES IN lt_alv
+    INNER JOIN but000
+    ON but000~partner = vbpa~kunnr
+    FOR ALL ENTRIES IN @lt_alv
     WHERE vbpa~parvw = 'Z1'
       AND vbpa~posnr = ''
-      AND vbpa~vbeln = lt_alv-vbeln.
+      AND vbpa~vbeln = @lt_alv-vbeln.
     "TVAKT表
     SELECT
       *
@@ -377,7 +386,8 @@ FORM getdata."查询语句
       matnr,
       werks,
       lgort,
-      kalab
+      kalab,
+      kains
     INTO TABLE @DATA(lt_mska)
     FROM mska
     FOR ALL ENTRIES IN @lt_alv
@@ -392,6 +402,8 @@ FORM getdata."查询语句
       wgbez
     INTO TABLE @DATA(lt_t023t)
     FROM t023t.
+
+
 
 
 
@@ -443,7 +455,7 @@ FORM getdata."查询语句
 *    ENDIF.
     "判断选择屏幕中的二审日期是否为空，如果为空的话，证明是查全部，如果不为空的话，证明只查询二审
     IF s_udate IS NOT INITIAL.
-      READ TABLE s_udate INTO ls_s_udate WITH KEY low = ''.
+      READ TABLE s_udate INTO ls_s_udate WITH KEY low = ls_alv-udate.
       IF sy-subrc <> 0.
         CONTINUE.
       ENDIF.
@@ -456,9 +468,11 @@ FORM getdata."查询语句
     ENDIF.
     "实际客户
     CLEAR ls_but000.
-    READ TABLE lt_vbpa INTO ls_vbpa WITH KEY vbeln = ls_alv-vbeln.
+    READ TABLE lt_vbpa INTO DATA(ls_vbpa) WITH KEY vbeln = ls_alv-vbeln.
     IF sy-subrc = 0.
       ls_alv-kunnr2 = ls_vbpa-kunnr.
+      "实际客户的中文名称
+      ls_alv-kunnr_nam = ls_vbpa-name_org1 && ls_vbpa-name_org2 && ls_vbpa-name_org3 && ls_vbpa-name_org4.
     ENDIF.
     CLEAR ls_vbpa.
     "业务员
@@ -474,6 +488,12 @@ FORM getdata."查询语句
 *      ENDIF.
 *      CLEAR ls_knvp.
 *    ENDIF.
+    "售达方描述
+    READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_alv-kunnr.
+    IF sy-subrc = 0.
+      ls_alv-kunnr_det = ls_but000-name_org1.
+    ENDIF.
+    CLEAR ls_but000.
     "业务员名称
     READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_alv-kunn2.
     IF sy-subrc = 0.
@@ -540,7 +560,7 @@ FORM getdata."查询语句
     IF sy-subrc = 0.
       ls_alv-ettyp = ls_vbep-ettyp.
     ENDIF.
-
+    CLEAR ls_vbep.
     "出库量
     READ TABLE lt_vbfa_r INTO DATA(ls_vbfa_r) WITH KEY vbelv = ls_alv-vbeln
                                                        posnv = ls_alv-posnr
@@ -567,6 +587,8 @@ FORM getdata."查询语句
                                                    werks = ls_alv-werks.
     IF sy-subrc = 0.
       ls_alv-kalab = ls_mska-kalab / ls_vbep-umvkz * ls_vbep-umvkn.
+      ls_alv-kains = ls_mska-kains.
+      CLEAR ls_mska.
     ENDIF.
     IF lv_matkl IS NOT INITIAL.
       READ TABLE lt_t023t INTO DATA(ls_t023t) WITH KEY matkl = lv_matkl.
@@ -666,6 +688,10 @@ FORM catalog."表头
   fieldcatset   'NAME_TEXT'   '制单人'   sy-tabix.
   fieldcatset   'KALAB'   '非限制库存'   sy-tabix.
   fieldcatset   'WGBEZ'   '物料中类名称'   sy-tabix.
+  fieldcatset   'NETWR'   '不含税金额'   sy-tabix.
+  fieldcatset   'ZYSJHQ'   '原始交货日期'   sy-tabix.
+  fieldcatset   'KUNNR_DET'   '售达方描述'   sy-tabix.
+  fieldcatset   'KUNNR_NAM'   '实际客户名称'   sy-tabix.
 
 
 

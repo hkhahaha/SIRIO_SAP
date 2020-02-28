@@ -4,14 +4,17 @@
 *&
 *&---------------------------------------------------------------------*
 REPORT zsdr0022b.
-
+TABLES:vbak,zsdt0019.
 CONSTANTS:
   gc_tab  TYPE c VALUE cl_bcs_convert=>gc_tab,
   gc_crlf TYPE c VALUE cl_bcs_convert=>gc_crlf.
 
-PARAMETERS:
-mailto TYPE ad_smtpadr
-DEFAULT 'kai.huang@sirio.cn'.                               "#EC *
+SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001."定义屏幕
+SELECT-OPTIONS:
+s_erdat FOR vbak-erdat,"创建日期"for前面的是字段显示的名称，可以修改，但是注意不要超过8个字符，否则会报错
+s_udate FOR vbak-erdat,"二审日期
+s_job FOR zsdt0019-job."人员职位
+SELECTION-SCREEN END OF BLOCK blk.
 
 DATA send_request   TYPE REF TO cl_bcs.
 DATA document       TYPE REF TO cl_document_bcs.
@@ -24,18 +27,24 @@ DATA binary_content TYPE solix_tab.
 DATA size           TYPE so_obj_len.
 DATA sent_to_all    TYPE os_boolean.
 DATA lt_zsdt0019 LIKE TABLE OF zsdt0019.
+DATA flag(1).
 
 START-OF-SELECTION.
   PERFORM getmail CHANGING lt_zsdt0019.
   LOOP AT lt_zsdt0019 INTO DATA(ls_zsdt0019).
     "上面的内表中，业务员和区域经理分成2部分，接下来进行拆分
     "首先是只是业务员的部分
+    CLEAR flag.
     IF ls_zsdt0019-job = '01'."业务员
-      PERFORM create_content USING ls_zsdt0019.
-      PERFORM send USING ls_zsdt0019.
+      PERFORM create_content USING ls_zsdt0019 CHANGING flag.
+      IF flag <> 'X'.
+        PERFORM send USING ls_zsdt0019.
+      ENDIF.
     ELSEIF ls_zsdt0019-job = '02' OR ls_zsdt0019-job = '03'."区域经理，需要查出该区域下面全部的业务员
-      PERFORM create_content USING ls_zsdt0019.
-      PERFORM send USING ls_zsdt0019.
+      PERFORM create_content USING ls_zsdt0019 CHANGING flag.
+      IF flag <> 'X'.
+        PERFORM send USING ls_zsdt0019.
+      ENDIF.
     ENDIF.
   ENDLOOP.
 
@@ -48,7 +57,8 @@ FORM getmail CHANGING lt_zsdt0019 TYPE STANDARD TABLE.
     *
   INTO TABLE @DATA(lt_zsdt0019a)
   FROM zsdt0019
-  WHERE active = 'X'.
+  WHERE active = 'X'
+    AND zsdt0019~job IN @s_job.
   "根据职位进行排序，区域经理的职位相关人员的顺序排在后面
   SORT lt_zsdt0019a BY job DESCENDING.
   MOVE lt_zsdt0019a TO lt_zsdt0019.
@@ -138,7 +148,7 @@ ENDFORM.                    "send
 * 1) Write example text into a string
 * 2) convert this string to solix_tab
 *----------------------------------------------------------------------*
-FORM create_content USING ls_zsdt0019 TYPE zsdt0019.
+FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
 
   DATA lv_string TYPE string.
   DATA ls_zsdt0019b TYPE zsdt0019b.
@@ -204,7 +214,20 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019.
 
 * data lines
   IF ls_zsdt0019-job = '01'.
-    SELECT * FROM zsdt0019b INTO ls_zsdt0019b WHERE zsdt0019b~kunn2 = ls_zsdt0019-partner.
+    SELECT
+      zsdt0019b~*
+    INTO @ls_zsdt0019b
+    FROM zsdt0019b
+    INNER JOIN zsdt0019
+    ON zsdt0019b~kunn2 = zsdt0019~partner
+    WHERE zsdt0019b~kunn2 = @ls_zsdt0019-partner
+      AND zsdt0019b~erdat IN @s_erdat
+      AND zsdt0019b~udate IN @s_udate
+      AND zsdt0019~job IN @s_job.
+      IF ls_zsdt0019b IS INITIAL.
+        flag = 'X'.
+        EXIT.
+      ENDIF.
       CLEAR:
       lv_kwmeng,
       lv_kwmeng2,
@@ -268,8 +291,14 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019.
       ON zsdt0019~partner = zsdt0019b~kunn2
       WHERE zsdt0019~zdomain = @ls_zsdt0019-zdomain
       AND zsdt0019~active = 'X'
+      AND zsdt0019b~udate IN @s_udate
+      AND zsdt0019b~erdat IN @s_erdat
+      AND zsdt0019~job IN @s_job
       INTO TABLE @DATA(lt_zsdt0019b).
-
+    IF lt_zsdt0019b IS INITIAL.
+      flag = 'X'.
+      EXIT.
+    ENDIF.
     LOOP AT lt_zsdt0019b INTO ls_zsdt0019b.
 
       CLEAR:
@@ -288,20 +317,20 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019.
       lv_kalab = ls_zsdt0019b-kalab.
 
       CONCATENATE lv_string
-      ls_zsdt0019b-stat gc_tab
+*      ls_zsdt0019b-stat gc_tab
       ls_zsdt0019b-statdetail gc_tab
       ls_zsdt0019b-udate gc_tab
       ls_zsdt0019b-erdat gc_tab
-      ls_zsdt0019b-kunnr gc_tab
-      ls_zsdt0019b-vkorg gc_tab
-      ls_zsdt0019b-vtweg gc_tab
-      ls_zsdt0019b-spart gc_tab
-      ls_zsdt0019b-bu_sort1 gc_tab
-      ls_zsdt0019b-kunnr2 gc_tab
+*      ls_zsdt0019b-kunnr gc_tab
+*      ls_zsdt0019b-vkorg gc_tab
+*      ls_zsdt0019b-vtweg gc_tab
+*      ls_zsdt0019b-spart gc_tab
+*      ls_zsdt0019b-bu_sort1 gc_tab
+*      ls_zsdt0019b-kunnr2 gc_tab
 
-      ls_zsdt0019b-kunn2 gc_tab
+*      ls_zsdt0019b-kunn2 gc_tab
       ls_zsdt0019b-name_org1 gc_tab
-      ls_zsdt0019b-auart gc_tab
+*      ls_zsdt0019b-auart gc_tab
       ls_zsdt0019b-bezei gc_tab
       ls_zsdt0019b-vbeln gc_tab
       ls_zsdt0019b-text1 gc_tab
@@ -334,19 +363,19 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019.
     FROM zsdt0019c
     WHERE zsdt0019c~partner = ls_zsdt0019-partner.
 
-    SELECT
-      *
-    INTO TABLE lt_zsdt0019c
-    FROM zsdt0019c
-    WHERE zsdt0019c~vtweg = ls_zsdt0019c.
 
     SELECT
       *
     INTO TABLE lt_zsdt0019b
     FROM zsdt0019b
-    FOR ALL ENTRIES IN lt_zsdt0019c
-    WHERE zsdt0019b~kunn2 = lt_zsdt0019c-partner.
+    WHERE zsdt0019b~vtweg = ls_zsdt0019c-vtweg
+      AND zsdt0019b~erdat IN s_erdat
+      AND zsdt0019b~udate IN s_udate.
 
+    IF lt_zsdt0019b IS INITIAL.
+      flag = 'X'.
+      EXIT.
+    ENDIF.
     LOOP AT lt_zsdt0019b INTO ls_zsdt0019b.
 
       CLEAR:
@@ -365,20 +394,20 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019.
       lv_kalab = ls_zsdt0019b-kalab.
 
       CONCATENATE lv_string
-      ls_zsdt0019b-stat gc_tab
+*      ls_zsdt0019b-stat gc_tab
       ls_zsdt0019b-statdetail gc_tab
       ls_zsdt0019b-udate gc_tab
       ls_zsdt0019b-erdat gc_tab
-      ls_zsdt0019b-kunnr gc_tab
-      ls_zsdt0019b-vkorg gc_tab
-      ls_zsdt0019b-vtweg gc_tab
-      ls_zsdt0019b-spart gc_tab
-      ls_zsdt0019b-bu_sort1 gc_tab
-      ls_zsdt0019b-kunnr2 gc_tab
+*      ls_zsdt0019b-kunnr gc_tab
+*      ls_zsdt0019b-vkorg gc_tab
+*      ls_zsdt0019b-vtweg gc_tab
+*      ls_zsdt0019b-spart gc_tab
+*      ls_zsdt0019b-bu_sort1 gc_tab
+*      ls_zsdt0019b-kunnr2 gc_tab
 
-      ls_zsdt0019b-kunn2 gc_tab
+*      ls_zsdt0019b-kunn2 gc_tab
       ls_zsdt0019b-name_org1 gc_tab
-      ls_zsdt0019b-auart gc_tab
+*      ls_zsdt0019b-auart gc_tab
       ls_zsdt0019b-bezei gc_tab
       ls_zsdt0019b-vbeln gc_tab
       ls_zsdt0019b-text1 gc_tab

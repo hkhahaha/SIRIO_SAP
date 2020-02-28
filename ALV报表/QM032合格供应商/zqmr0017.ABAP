@@ -264,6 +264,43 @@ FORM getdata."查询语句
     WHERE  ausp~atinn IN (@lv_zallergen,@lv_ztrsgen,@lv_zexpmat,
                         @lv_zwhp,@lv_zoriadd,@lv_zqmsamp,@lv_zmatdet,@lv_zsamping).
 
+    "最近下单时间相关的查询
+    "首先第一个是有MPN物料的
+    SELECT
+      matnr,
+      ematn,
+      ekko~ebeln,
+      lifnr,
+      ekko~aedat
+    FROM ekko
+    INNER JOIN ekpo
+    ON ekpo~ebeln = ekko~ebeln
+    FOR ALL ENTRIES IN @gt_all2
+    WHERE ekpo~ematn = @gt_all2-ematn
+      AND ekpo~matnr = @gt_all2-matnr
+      AND ekko~lifnr = @gt_all2-lifnr
+      AND ekko~aedat <= @sy-datum
+      AND ekko~aedat > @( sy-datum - 731 )
+    INTO TABLE @DATA(lt_time).
+    SORT lt_time BY aedat DESCENDING.
+    "第二个是没有MPN物料的
+    SELECT
+      matnr,
+      ekko~ebeln,
+      lifnr,
+      ekko~aedat
+    FROM ekko
+    INNER JOIN ekpo
+    ON ekpo~ebeln = ekko~ebeln
+    FOR ALL ENTRIES IN @gt_all2
+    WHERE ekpo~matnr = @gt_all2-matnr
+      AND ekko~lifnr = @gt_all2-lifnr
+      AND ekko~aedat <= @sy-datum
+      AND ekko~aedat > @( sy-datum - 731 )
+    INTO TABLE @DATA(lt_time2).
+    SORT lt_time2 BY aedat DESCENDING.
+
+
 
 
 
@@ -335,6 +372,16 @@ FORM getdata."查询语句
       gs_alv-pro_regiogroup = gs_alv-regiogroup.
       gs_alv-date3 = gs_alv-date1.
       gs_alv-date4 = gs_alv-date2.
+
+      "最近下单时间
+      READ TABLE lt_time2 INTO DATA(ls_time2) WITH KEY matnr = gs_all2-matnr
+                                                      lifnr = gs_all2-lifnr.
+      IF sy-subrc = 0.
+        gs_alv-time = ls_time2-aedat.
+      ELSE.
+        gs_alv-time = '超过2年未下单'.
+      ENDIF.
+      CLEAR ls_time2.
     ELSE.
       READ TABLE lt_mara INTO DATA(ls_mara) WITH KEY matnr = gs_all2-ematn.
       IF sy-subrc = 0.
@@ -351,6 +398,16 @@ FORM getdata."查询语句
           CLEAR ls_adrc2.
         ENDIF.
       ENDIF.
+
+      "最近下单时间
+      READ TABLE lt_time INTO DATA(ls_time) WITH KEY matnr = gs_all2-matnr
+                                                     ematn = gs_all2-ematn.
+      IF sy-subrc = 0.
+        gs_alv-time = ls_time-aedat.
+      ELSE.
+        gs_alv-time = '超过2年未下单'.
+      ENDIF.
+      CLEAR ls_time.
     ENDIF.
     "判断生产商是否在选择屏幕条件内
     DATA ls_group2 LIKE LINE OF s_group2.

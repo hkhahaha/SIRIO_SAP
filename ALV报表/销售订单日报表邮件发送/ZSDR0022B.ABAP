@@ -33,7 +33,7 @@ START-OF-SELECTION.
     IF ls_zsdt0019-job = '01'."业务员
       PERFORM create_content USING ls_zsdt0019.
       PERFORM send USING ls_zsdt0019.
-    ELSEIF ls_zsdt0019-job = '02'."区域经理，需要查出该区域下面全部的业务员
+    ELSEIF ls_zsdt0019-job = '02' OR ls_zsdt0019-job = '03'."区域经理，需要查出该区域下面全部的业务员
       PERFORM create_content USING ls_zsdt0019.
       PERFORM send USING ls_zsdt0019.
     ENDIF.
@@ -70,7 +70,7 @@ FORM send USING ls_zsdt0019 TYPE zsdt0019.
       document = cl_document_bcs=>create_document(
       i_type    = 'RAW'
       i_text    = main_text
-      i_subject = 'SALESDAILYREPORT' ).                                  "#EC NOTEXT
+      i_subject = 'SALESDAILYREPORT' ).                     "#EC NOTEXT
 
 *     add the spread sheet as attachment to document object
       document->add_attachment(
@@ -142,6 +142,8 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019.
 
   DATA lv_string TYPE string.
   DATA ls_zsdt0019b TYPE zsdt0019b.
+  DATA:lt_zsdt0019c TYPE TABLE OF zsdt0019c,
+       ls_zsdt0019c TYPE zsdt0019c.
 
 * --------------------------------------------------------------
 * as example content we use some system messages out of t100
@@ -156,20 +158,20 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019.
 
 * header line
   CONCATENATE lv_string
-  '订单状态'    gc_tab
+*  '订单状态'    gc_tab
   '订单状态描述'    gc_tab
   '二审日期'    gc_tab
   '创建日期'    gc_tab
-  '售达方'    gc_tab
-  '销售组织'    gc_tab
-  '分销渠道'    gc_tab
-  '产品组'    gc_tab
-  '检索项'    gc_tab
-  '实际客户'    gc_tab
+*  '售达方'    gc_tab
+*  '销售组织'    gc_tab
+*  '分销渠道'    gc_tab
+*  '产品组'    gc_tab
+*  '检索项'    gc_tab
+*  '实际客户'    gc_tab
 
-  '业务员'    gc_tab
+*  '业务员'    gc_tab
   '业务员名称'    gc_tab
-  '订单类型'    gc_tab
+*  '订单类型'    gc_tab
   '订单类型描述'    gc_tab
   '单据号'    gc_tab
   '付款方式'    gc_tab
@@ -203,6 +205,73 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019.
 * data lines
   IF ls_zsdt0019-job = '01'.
     SELECT * FROM zsdt0019b INTO ls_zsdt0019b WHERE zsdt0019b~kunn2 = ls_zsdt0019-partner.
+      CLEAR:
+      lv_kwmeng,
+      lv_kwmeng2,
+      lv_kbetr,
+      lv_netwr,
+      lv_rfmng,
+      lv_kalab.
+
+      lv_kwmeng = ls_zsdt0019b-kwmeng.
+      lv_kwmeng2 = ls_zsdt0019b-kwmeng2.
+      lv_kbetr = ls_zsdt0019b-kbetr.
+      lv_netwr = ls_zsdt0019b-netwr.
+      lv_rfmng = ls_zsdt0019b-rfmng.
+      lv_kalab = ls_zsdt0019b-kalab.
+
+      CONCATENATE lv_string
+*      ls_zsdt0019b-stat gc_tab
+      ls_zsdt0019b-statdetail gc_tab
+      ls_zsdt0019b-udate gc_tab
+      ls_zsdt0019b-erdat gc_tab
+*      ls_zsdt0019b-kunnr gc_tab
+*      ls_zsdt0019b-vkorg gc_tab
+*      ls_zsdt0019b-vtweg gc_tab
+*      ls_zsdt0019b-spart gc_tab
+*      ls_zsdt0019b-bu_sort1 gc_tab
+*      ls_zsdt0019b-kunnr2 gc_tab
+*
+*      ls_zsdt0019b-kunn2 gc_tab
+      ls_zsdt0019b-name_org1 gc_tab
+*      ls_zsdt0019b-auart gc_tab
+      ls_zsdt0019b-bezei gc_tab
+      ls_zsdt0019b-vbeln gc_tab
+      ls_zsdt0019b-text1 gc_tab
+      ls_zsdt0019b-matwa gc_tab
+      ls_zsdt0019b-posnr gc_tab
+      ls_zsdt0019b-maktx gc_tab
+      ls_zsdt0019b-groes gc_tab
+      ls_zsdt0019b-atwrt gc_tab
+      lv_kwmeng gc_tab
+
+      ls_zsdt0019b-meins gc_tab
+      lv_kwmeng2 gc_tab
+      ls_zsdt0019b-vrkme gc_tab
+      lv_kbetr gc_tab
+      lv_netwr gc_tab
+      ls_zsdt0019b-ettyp gc_tab
+      ls_zsdt0019b-znbjhq gc_tab
+      ls_zsdt0019b-zatpdfrq gc_tab
+      lv_rfmng gc_tab
+      ls_zsdt0019b-name_text gc_tab
+      lv_kalab gc_tab
+      ls_zsdt0019b-wgbez  gc_crlf
+      INTO lv_string.
+
+    ENDSELECT.
+  ELSEIF ls_zsdt0019-job = '02'.
+    SELECT
+       *
+      FROM zsdt0019b
+      INNER JOIN zsdt0019
+      ON zsdt0019~partner = zsdt0019b~kunn2
+      WHERE zsdt0019~zdomain = @ls_zsdt0019-zdomain
+      AND zsdt0019~active = 'X'
+      INTO TABLE @DATA(lt_zsdt0019b).
+
+    LOOP AT lt_zsdt0019b INTO ls_zsdt0019b.
+
       CLEAR:
       lv_kwmeng,
       lv_kwmeng2,
@@ -256,17 +325,27 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019.
       lv_kalab gc_tab
       ls_zsdt0019b-wgbez  gc_crlf
       INTO lv_string.
+      CLEAR ls_zsdt0019b.
+    ENDLOOP.
+  ELSEIF ls_zsdt0019-job = '03'.
+    SELECT SINGLE
+      *
+    INTO ls_zsdt0019c
+    FROM zsdt0019c
+    WHERE zsdt0019c~partner = ls_zsdt0019-partner.
 
-    ENDSELECT.
-  ELSEIF ls_zsdt0019-job = '02'.
     SELECT
-       *
-      FROM zsdt0019b
-      INNER JOIN zsdt0019
-      ON zsdt0019~partner = zsdt0019b~kunn2
-      WHERE zsdt0019~zdomain = @ls_zsdt0019-zdomain
-      AND zsdt0019~active = 'X'
-      INTO TABLE @DATA(lt_zsdt0019b).
+      *
+    INTO TABLE lt_zsdt0019c
+    FROM zsdt0019c
+    WHERE zsdt0019c~vtweg = ls_zsdt0019c.
+
+    SELECT
+      *
+    INTO TABLE lt_zsdt0019b
+    FROM zsdt0019b
+    FOR ALL ENTRIES IN lt_zsdt0019c
+    WHERE zsdt0019b~kunn2 = lt_zsdt0019c-partner.
 
     LOOP AT lt_zsdt0019b INTO ls_zsdt0019b.
 

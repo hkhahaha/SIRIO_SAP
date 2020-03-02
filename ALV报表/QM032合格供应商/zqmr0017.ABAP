@@ -39,7 +39,7 @@ TYPES:BEGIN OF ty_alv,
         cctj            TYPE zqmt011-cctj, "存储条件
         zmatdet(80),"材质明细
         zsamping(80),"QA取样量
-        time            TYPE ekko-aedat, "最近下单时间
+        time(10)        TYPE c, "最近下单时间
       END OF ty_alv.
 TYPES:BEGIN OF ty_all.
         INCLUDE TYPE ty_alv.
@@ -354,7 +354,7 @@ FORM getdata."查询语句
     DATA ls_group1 LIKE LINE OF s_group1.
     IF s_group1 IS NOT INITIAL.
       READ TABLE s_group1 INTO ls_group1 WITH KEY low = gs_alv-regiogroup.
-      IF sy-subrc = 0.
+      IF sy-subrc <> 0.
         CLEAR ls_group1.
         CONTINUE.
       ENDIF.
@@ -377,7 +377,13 @@ FORM getdata."查询语句
       READ TABLE lt_time2 INTO DATA(ls_time2) WITH KEY matnr = gs_all2-matnr
                                                       lifnr = gs_all2-lifnr.
       IF sy-subrc = 0.
-        gs_alv-time = ls_time2-aedat.
+        IF s_time IS NOT INITIAL.
+          READ TABLE s_time INTO DATA(lv_time) WITH KEY low = ls_time2-aedat.
+          IF sy-subrc <> 0.
+            CONTINUE.
+          ENDIF.
+        ENDIF.
+        gs_alv-time = ls_time2-aedat+0(4) && '.' && ls_time2-aedat+4(2) && '.' && ls_time2-aedat+6(2).
       ELSE.
         gs_alv-time = '超过2年未下单'.
       ENDIF.
@@ -403,7 +409,7 @@ FORM getdata."查询语句
       READ TABLE lt_time INTO DATA(ls_time) WITH KEY matnr = gs_all2-matnr
                                                      ematn = gs_all2-ematn.
       IF sy-subrc = 0.
-        gs_alv-time = ls_time-aedat.
+        gs_alv-time = ls_time-aedat+0(4) && '.' && ls_time-aedat+4(2) && '.' && ls_time-aedat+6(2).
       ELSE.
         gs_alv-time = '超过2年未下单'.
       ENDIF.
@@ -413,7 +419,7 @@ FORM getdata."查询语句
     DATA ls_group2 LIKE LINE OF s_group2.
     IF s_group2 IS NOT INITIAL.
       READ TABLE s_group2 INTO ls_group2 WITH KEY low = gs_alv-pro_regiogroup.
-      IF sy-subrc = 0.
+      IF sy-subrc <> 0.
         CLEAR ls_group2.
         CONTINUE.
       ENDIF.
@@ -496,14 +502,20 @@ FORM getdata."查询语句
 
 
 
+    "去掉前导0
+    gs_alv-matnr = zcl_bc_public=>conv_by_ddic( i_input = gs_alv-matnr i_out = 'X' ).
+    gs_alv-lifnr = zcl_bc_public=>conv_by_ddic( i_input = gs_alv-lifnr i_out = 'X' ).
+    gs_alv-ematn = zcl_bc_public=>conv_by_ddic( i_input = gs_alv-ematn i_out = 'X' ).
+    gs_alv-mfrnr = zcl_bc_public=>conv_by_ddic( i_input = gs_alv-mfrnr i_out = 'X' ).
 
-
-
-
+    IF gs_alv-lifnr = '8100' OR gs_alv-lifnr = '8200'.
+      CONTINUE.
+    ENDIF.
 
 
     APPEND gs_alv TO gt_alv.
     CLEAR:gs_all2,gs_alv.
+    DELETE ADJACENT DUPLICATES FROM gt_alv COMPARING ALL FIELDS.
   ENDLOOP.
 
 
@@ -552,37 +564,7 @@ FORM catalog."表头
   fieldcatset   'TIME'    '最近下单时间'  sy-tabix.
 
 
-  READ TABLE fieldcat INDEX 3."读取报表第三列
-  fieldcat-key = 'X'."定义为主键（颜色改变）
-  MODIFY fieldcat INDEX 3."修改样式
 
-  READ TABLE fieldcat INDEX 4.
-  fieldcat-emphasize = 'C500'.
-  MODIFY fieldcat INDEX 4.
-
-  READ TABLE fieldcat INDEX 1.
-  fieldcat-emphasize = 'C600'.
-  MODIFY fieldcat INDEX 1.
-
-  READ TABLE fieldcat INDEX 2.
-  fieldcat-emphasize = 'C300'.
-  MODIFY fieldcat INDEX 2.
-
-  READ TABLE fieldcat INDEX 5.
-  fieldcat-emphasize = 'C600'.
-  MODIFY fieldcat INDEX 5.
-
-  READ TABLE fieldcat INDEX 6.
-  fieldcat-emphasize = 'C600'.
-  MODIFY fieldcat INDEX 6.
-
-  READ TABLE fieldcat INDEX 7.
-  fieldcat-emphasize = 'C100'.
-  MODIFY fieldcat INDEX 7.
-
-  READ TABLE fieldcat INDEX 8.
-  fieldcat-emphasize = 'C200'.
-  MODIFY fieldcat INDEX 8.
 
 *layout-colwidth_optimize = 'X'.
   layout-zebra = 'X'."斑马线的样式
@@ -620,7 +602,7 @@ FORM alvshow.
 *     I_CALLBACK_HTML_END_OF_LIST       = ' '
 *     I_STRUCTURE_NAME         =
 *     I_BACKGROUND_ID          = ' '
-      i_grid_title             = '会计凭证' "标题名
+*     i_grid_title             = ''' "标题名
 *     I_GRID_SETTINGS          =
       is_layout                = layout "程序所定义的layout名称
       it_fieldcat              = fieldcat[] "定义fieldcat数据
@@ -651,7 +633,7 @@ FORM alvshow.
 *     E_EXIT_CAUSED_BY_CALLER  =
 *     ES_EXIT_CAUSED_BY_USER   =
     TABLES
-      t_outtab                 = lbkpf
+      t_outtab                 = gt_alv
     EXCEPTIONS "下面都是默认的
       program_error            = 1
       OTHERS                   = 2.

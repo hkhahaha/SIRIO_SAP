@@ -924,7 +924,7 @@ CHANGING ct_test TYPE STANDARD TABLE
           WHERE sign_id EQ @lt_qasr-sign_id.
 
     "抓取规格标准文本
-    SELECT mkmnr,zaehler,version,sprache,kurztext
+    SELECT mkmnr,zaehler,version,sprache,kurztext,ltextkz
     INTO TABLE @DATA(lt_qpmt)
           FROM qpmt
           FOR ALL ENTRIES IN @lt_qamv
@@ -934,7 +934,7 @@ CHANGING ct_test TYPE STANDARD TABLE
           AND sprache IN ( 'Z','E','(' ).
 
     "抓取检验方法文本
-    SELECT pmtnr,werks,version,sprache,kurztext
+    SELECT pmtnr,werks,version,sprache,kurztext,ltextkz
     INTO TABLE @DATA(lt_qmtt)
           FROM qmtt
           FOR ALL ENTRIES IN @lt_qamv
@@ -987,6 +987,42 @@ CHANGING ct_test TYPE STANDARD TABLE
     ENDIF.
 ****************判断是否有长文本标识，如果有的话取长文本HK
     IF ls_qasr-prltextkz = 'X'.
+      DATA lv_long TYPE thead-tdname.
+      DATA:tline LIKE TABLE OF tline,
+           line  TYPE tdline.
+      CLEAR:line.
+      lv_long = ls_qasr-prueflos && ls_qasr-vorglfnr && ls_qasr-merknr && ls_qasr-probenr.
+      CALL FUNCTION 'READ_TEXT'
+        EXPORTING
+          client                  = sy-mandt
+          id                      = 'QPRP'
+          language                = sy-langu
+          name                    = lv_long
+          object                  = 'QEEPROBE'
+*         ARCHIVE_HANDLE          = 0
+*         LOCAL_CAT               = ' '
+*       IMPORTING
+*         HEADER                  =
+*         OLD_LINE_COUNTER        =
+        TABLES
+          lines                   = tline
+        EXCEPTIONS
+          id                      = 1
+          language                = 2
+          name                    = 3
+          not_found               = 4
+          object                  = 5
+          reference_check         = 6
+          wrong_access_to_archive = 7
+          OTHERS                  = 8.
+      IF sy-subrc <> 0.
+* Implement suitable error handling here
+      ENDIF.
+      CLEAR gs_test-pruefbemkt.
+      LOOP AT tline INTO line.
+        gs_test-pruefbemkt = gs_test-pruefbemkt && line.
+        CLEAR line.
+      ENDLOOP.
 
     ENDIF.
 **********************END******************************
@@ -1027,6 +1063,9 @@ CHANGING ct_test TYPE STANDARD TABLE
       ELSE.
         gs_test-qpmt_kurztext_z1  = ls_qpmt_z1-kurztext.
       ENDIF.
+      IF LS_QPMT_Z1-ltextkz <> 'X'.
+        gs_test-qpmt_kurztext_z1  = ls_qpmt_z1-kurztext.
+      ENDIF.
 
       CONCATENATE sy-mandt ls_qamv-qpmk_werks ls_qamv-verwmerkm ls_qamv-mkversion 'E' INTO lv_fname.
       PERFORM frm_get_longtext USING 'QPMT' 'E' lv_fname 'QPMERKMAL' CHANGING lt_line.
@@ -1038,6 +1077,9 @@ CHANGING ct_test TYPE STANDARD TABLE
       ELSE.
         gs_test-qpmt_kurztext_en = ls_qpmt_en-kurztext.
       ENDIF.
+      IF ls_qpmt_en-ltextkz <> 'X'.
+        gs_test-qpmt_kurztext_en = ls_qpmt_en-kurztext.
+      ENDIF.
 
       CONCATENATE sy-mandt ls_qamv-qpmk_werks ls_qamv-verwmerkm ls_qamv-mkversion '(' INTO lv_fname.
       PERFORM frm_get_longtext USING 'QPMT' '(' lv_fname 'QPMERKMAL' CHANGING lt_line.
@@ -1047,6 +1089,9 @@ CHANGING ct_test TYPE STANDARD TABLE
         ENDLOOP.
         FREE lt_line.
       ELSE.
+        gs_test-dummy40 = ls_qpmt_z2-kurztext.
+      ENDIF.
+      IF ls_qpmt_z2-ltextkz <> 'X'.
         gs_test-dummy40 = ls_qpmt_z2-kurztext.
       ENDIF.
 
@@ -1078,7 +1123,9 @@ CHANGING ct_test TYPE STANDARD TABLE
       ELSE.
         gs_test-qmtt_kurztext_z1  = ls_qmtt_zh-kurztext.
       ENDIF.
-
+      IF ls_qmtt_zh-ltextkz <> 'X'.
+        gs_test-qmtt_kurztext_z1  = ls_qmtt_zh-kurztext.
+      ENDIF.
       CONCATENATE sy-mandt ls_qamv-qpmk_werks ls_qamv-pmethode ls_qamv-pmtversion 'E' INTO lv_fname.
       PERFORM frm_get_longtext USING 'QMTT' 'E' lv_fname 'QPMETHODE' CHANGING lt_line.
       IF lt_line IS NOT INITIAL.
@@ -1087,6 +1134,9 @@ CHANGING ct_test TYPE STANDARD TABLE
         ENDLOOP.
         FREE lt_line.
       ELSE.
+        gs_test-qmtt_kurztext_en  = ls_qmtt_en-kurztext.
+      ENDIF.
+      IF ls_qmtt_en-ltextkz <> 'X'.
         gs_test-qmtt_kurztext_en  = ls_qmtt_en-kurztext.
       ENDIF.
       APPEND gs_test TO ct_test.

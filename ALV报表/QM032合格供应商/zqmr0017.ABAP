@@ -125,10 +125,10 @@ FORM getdata."查询语句
   WHERE eord~matnr IN @s_matnr
     AND eord~werks IN @s_werks
     AND eord~lifnr IN @s_lifnr
+    AND eord~notkz <> 'X'
     AND but0id~type = 'ZQM999'
     AND but0id~valid_date_from IN @s_date1
     AND but0id~valid_date_to IN @s_date2
-    AND mara~mfrnr IN @s_mfrnr
     AND mara~matkl IN @s_matkl.
   "然后查询的是生产商的数据
   SELECT
@@ -152,8 +152,8 @@ FORM getdata."查询语句
     AND but0id~valid_date_from IN @s_date3
     AND but0id~valid_date_to IN @s_date4
     AND mara~matkl IN @s_matkl
+    AND mara~mfrnr IN @s_mfrnr
   INTO TABLE @DATA(gt_all2).
-
 
 
   IF gt_all2 IS NOT INITIAL.
@@ -300,7 +300,20 @@ FORM getdata."查询语句
     INTO TABLE @DATA(lt_time2).
     SORT lt_time2 BY aedat DESCENDING.
 
+    "如果选择屏幕最近下单时间不为空的话，下面对数据进行整理
+    IF s_time IS NOT INITIAL.
+      SELECT
+        *
+      FROM @lt_time AS a
+      WHERE a~aedat IN @s_time
+      INTO TABLE @lt_time.
 
+      SELECT
+      *
+      FROM @lt_time2 AS a
+      WHERE a~aedat IN @s_time
+      INTO TABLE @lt_time2.
+    ENDIF.
 
 
 
@@ -377,14 +390,11 @@ FORM getdata."查询语句
       READ TABLE lt_time2 INTO DATA(ls_time2) WITH KEY matnr = gs_all2-matnr
                                                       lifnr = gs_all2-lifnr.
       IF sy-subrc = 0.
-        IF s_time IS NOT INITIAL.
-          READ TABLE s_time INTO DATA(lv_time) WITH KEY low = ls_time2-aedat.
-          IF sy-subrc <> 0.
-            CONTINUE.
-          ENDIF.
-        ENDIF.
         gs_alv-time = ls_time2-aedat+0(4) && '.' && ls_time2-aedat+4(2) && '.' && ls_time2-aedat+6(2).
       ELSE.
+        IF s_time IS NOT INITIAL.
+          CONTINUE.
+        ENDIF.
         gs_alv-time = '超过2年未下单'.
       ENDIF.
       CLEAR ls_time2.
@@ -407,10 +417,14 @@ FORM getdata."查询语句
 
       "最近下单时间
       READ TABLE lt_time INTO DATA(ls_time) WITH KEY matnr = gs_all2-matnr
-                                                     ematn = gs_all2-ematn.
+                                                     ematn = gs_all2-ematn
+                                                     lifnr = gs_all2-lifnr.
       IF sy-subrc = 0.
         gs_alv-time = ls_time-aedat+0(4) && '.' && ls_time-aedat+4(2) && '.' && ls_time-aedat+6(2).
       ELSE.
+        IF s_time IS NOT INITIAL.
+          CONTINUE.
+        ENDIF.
         gs_alv-time = '超过2年未下单'.
       ENDIF.
       CLEAR ls_time.
@@ -547,10 +561,10 @@ FORM catalog."表头
   fieldcatset   'DATE2'   '经销商计划评估日期' sy-tabix.
   fieldcatset   'EMATN'   'MPN料号' sy-tabix.
   fieldcatset   'MFRNR'   '生产商编号' sy-tabix.
-  fieldcatset   'PRO_NAME'    '生厂商名称' sy-tabix.
+  fieldcatset   'PRO_NAME'    '生产商名称' sy-tabix.
   fieldcatset   'STRAS2'    '生产厂家地址'  sy-tabix.
-  fieldcatset   'PRO_REGIOGROUP'    '生厂商等级' sy-tabix.
-  fieldcatset   'DATE3'   '生厂商评估合格日期' sy-tabix.
+  fieldcatset   'PRO_REGIOGROUP'    '生产商等级' sy-tabix.
+  fieldcatset   'DATE3'   '生产商评估合格日期' sy-tabix.
   fieldcatset   'DATE4'   '生产商计划评估日期' sy-tabix.
   fieldcatset   'ZALLERGEN'   '过敏原' sy-tabix.
   fieldcatset   'ZTRSGEN'   '转基因' sy-tabix.

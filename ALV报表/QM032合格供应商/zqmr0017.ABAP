@@ -156,6 +156,7 @@ FORM getdata."查询语句
   INTO TABLE @DATA(gt_all2).
 
 
+
   IF gt_all2 IS NOT INITIAL.
     "MAKT表
     SELECT
@@ -281,6 +282,7 @@ FORM getdata."查询语句
       AND ekko~lifnr = @gt_all2-lifnr
       AND ekko~aedat <= @sy-datum
       AND ekko~aedat > @( sy-datum - 731 )
+      AND ekpo~loekz <> 'X'
     INTO TABLE @DATA(lt_time).
     SORT lt_time BY aedat DESCENDING.
     "第二个是没有MPN物料的
@@ -297,6 +299,7 @@ FORM getdata."查询语句
       AND ekko~lifnr = @gt_all2-lifnr
       AND ekko~aedat <= @sy-datum
       AND ekko~aedat > @( sy-datum - 731 )
+      AND ekpo~loekz <> 'X'
     INTO TABLE @DATA(lt_time2).
     SORT lt_time2 BY aedat DESCENDING.
 
@@ -334,8 +337,8 @@ FORM getdata."查询语句
 
 
 
-
-
+  SORT gt_all2 BY matnr.
+  DELETE ADJACENT DUPLICATES FROM gt_all2 COMPARING ALL FIELDS.
   LOOP AT gt_all2 INTO DATA(gs_all2).
     MOVE-CORRESPONDING gs_all2 TO gs_alv.
     "物料描述（短描述）
@@ -387,8 +390,20 @@ FORM getdata."查询语句
       gs_alv-date4 = gs_alv-date2.
 
       "最近下单时间
+      SELECT
+        ekpo~ebeln,
+        ekko~aedat
+      INTO TABLE @DATA(lt_ebeln2)
+      FROM ekpo
+      INNER JOIN ekko
+      ON ekpo~ebeln = ekko~ebeln
+      WHERE ekpo~matnr = @gs_all2-matnr
+        AND ekko~lifnr = @gs_all2-lifnr.
+      SORT lt_ebeln2 BY aedat DESCENDING.
+      READ TABLE lt_ebeln2 INTO DATA(lv_ebeln2) INDEX 1.
       READ TABLE lt_time2 INTO DATA(ls_time2) WITH KEY matnr = gs_all2-matnr
-                                                      lifnr = gs_all2-lifnr.
+                                                      lifnr = gs_all2-lifnr
+                                                      ebeln = lv_ebeln2-ebeln.
       IF sy-subrc = 0.
         gs_alv-time = ls_time2-aedat+0(4) && '.' && ls_time2-aedat+4(2) && '.' && ls_time2-aedat+6(2).
       ELSE.
@@ -397,7 +412,8 @@ FORM getdata."查询语句
         ENDIF.
         gs_alv-time = '超过2年未下单'.
       ENDIF.
-      CLEAR ls_time2.
+      CLEAR lv_ebeln2.
+      CLEAR:ls_time2.
     ELSE.
       READ TABLE lt_mara INTO DATA(ls_mara) WITH KEY matnr = gs_all2-ematn.
       IF sy-subrc = 0.
@@ -416,9 +432,21 @@ FORM getdata."查询语句
       ENDIF.
 
       "最近下单时间
+      SELECT
+      ekko~ebeln,
+      ekko~aedat
+      INTO TABLE @DATA(lt_ebeln)
+      FROM ekpo
+      INNER JOIN ekko
+      ON ekko~ebeln = ekpo~ebeln
+      WHERE ekpo~matnr = @gs_all2-matnr
+      AND ekpo~ematn = @gs_all2-ematn.
+      SORT lt_ebeln BY aedat DESCENDING.
+      READ TABLE lt_ebeln INTO DATA(lv_ebeln) INDEX 1.
       READ TABLE lt_time INTO DATA(ls_time) WITH KEY matnr = gs_all2-matnr
                                                      ematn = gs_all2-ematn
-                                                     lifnr = gs_all2-lifnr.
+                                                     lifnr = gs_all2-lifnr
+                                                     ebeln = lv_ebeln-ebeln.
       IF sy-subrc = 0.
         gs_alv-time = ls_time-aedat+0(4) && '.' && ls_time-aedat+4(2) && '.' && ls_time-aedat+6(2).
       ELSE.
@@ -427,6 +455,7 @@ FORM getdata."查询语句
         ENDIF.
         gs_alv-time = '超过2年未下单'.
       ENDIF.
+      CLEAR lv_ebeln.
       CLEAR ls_time.
     ENDIF.
     "判断生产商是否在选择屏幕条件内

@@ -54,7 +54,7 @@ DATA:gt_alv TYPE TABLE OF ty_alv,
 SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001."定义屏幕
 SELECT-OPTIONS:s_werks FOR eord-werks,"条件输入框，一个for对应一个\工厂
                s_matnr FOR eord-matnr,"for前面的是字段显示的名称，可以修改，但是注意不要超过8个字符，否则会报错、物料编码
-               s_lifnr FOR eord-lifnr,"制造商编码
+               s_lifnr FOR eord-lifnr,"经销商编码
                s_mfrnr FOR mara-mfrnr,"制造商编码
                s_group1 FOR adrc-regiogroup,"经销商等级
                s_group2 FOR adrc-regiogroup,"制造商等级
@@ -118,18 +118,19 @@ FORM getdata."查询语句
     valid_date_to AS date2
   INTO TABLE @DATA(gt_all)
   FROM eord
-  INNER JOIN but0id
+  LEFT JOIN but0id
   ON but0id~partner = eord~lifnr
-  INNER JOIN mara
+  LEFT JOIN mara
   ON mara~matnr = eord~matnr
   WHERE eord~matnr IN @s_matnr
     AND eord~werks IN @s_werks
     AND eord~lifnr IN @s_lifnr
     AND eord~notkz <> 'X'
-    AND but0id~type = 'ZQM999'
     AND but0id~valid_date_from IN @s_date1
     AND but0id~valid_date_to IN @s_date2
     AND mara~matkl IN @s_matkl.
+  SORT gt_all BY werks matnr lifnr ematn.
+  DELETE ADJACENT DUPLICATES FROM gt_all COMPARING werks matnr lifnr ematn.
   "然后查询的是生产商的数据
   SELECT
     werks,
@@ -144,12 +145,11 @@ FORM getdata."查询语句
     valid_date_from AS date3,
     valid_date_to AS date4
   FROM @gt_all AS a
-  INNER JOIN mara
+  LEFT JOIN mara
   ON mara~mfrnr = a~partner
-  INNER JOIN but0id
+  LEFT JOIN but0id
   ON mara~mfrnr = but0id~partner
-  WHERE but0id~type = 'ZQM999'
-    AND but0id~valid_date_from IN @s_date3
+  WHERE but0id~valid_date_from IN @s_date3
     AND but0id~valid_date_to IN @s_date4
     AND mara~matkl IN @s_matkl
     AND mara~mfrnr IN @s_mfrnr
@@ -337,8 +337,8 @@ FORM getdata."查询语句
 
 
 
-  SORT gt_all2 BY matnr.
-  DELETE ADJACENT DUPLICATES FROM gt_all2 COMPARING ALL FIELDS.
+  SORT gt_all2 BY werks matnr lifnr ematn.
+  DELETE ADJACENT DUPLICATES FROM gt_all2 COMPARING werks matnr lifnr ematn.
   LOOP AT gt_all2 INTO DATA(gs_all2).
     MOVE-CORRESPONDING gs_all2 TO gs_alv.
     "物料描述（短描述）
@@ -558,9 +558,9 @@ FORM getdata."查询语句
 
     APPEND gs_alv TO gt_alv.
     CLEAR:gs_all2,gs_alv.
-    DELETE ADJACENT DUPLICATES FROM gt_alv COMPARING ALL FIELDS.
   ENDLOOP.
-
+  SORT gt_alv BY matnr werks matkx matkl lifnr.
+  DELETE ADJACENT DUPLICATES FROM gt_alv COMPARING matnr werks matkx matkl lifnr.
 
 
 ENDFORM.

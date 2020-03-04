@@ -80,7 +80,7 @@ FORM send USING ls_zsdt0019 TYPE zsdt0019.
       document = cl_document_bcs=>create_document(
       i_type    = 'RAW'
       i_text    = main_text
-      i_subject = 'SALESDAILYREPORT' ).                     "#EC NOTEXT
+      i_subject = 'SALES DAILY REPORT-'&& sy-datum ).        "#EC NOTEXT
 
 *     add the spread sheet as attachment to document object
       document->add_attachment(
@@ -172,11 +172,10 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
   '订单状态描述'    gc_tab
   '二审日期'    gc_tab
   '创建日期'    gc_tab
-*  '售达方'    gc_tab
-*  '销售组织'    gc_tab
-*  '分销渠道'    gc_tab
-*  '产品组'    gc_tab
-*  '检索项'    gc_tab
+  '售达方'    gc_tab
+  '实际客户'    gc_tab
+  '原始交货期'    gc_tab
+  '质检库存'    gc_tab
 *  '实际客户'    gc_tab
 
 *  '业务员'    gc_tab
@@ -224,6 +223,7 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       AND zsdt0019b~erdat IN @s_erdat
       AND zsdt0019b~udate IN @s_udate
       AND zsdt0019~job IN @s_job.
+
       IF ls_zsdt0019b IS INITIAL.
         flag = 'X'.
         EXIT.
@@ -248,11 +248,10 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       ls_zsdt0019b-statdetail gc_tab
       ls_zsdt0019b-udate gc_tab
       ls_zsdt0019b-erdat gc_tab
-*      ls_zsdt0019b-kunnr gc_tab
-*      ls_zsdt0019b-vkorg gc_tab
-*      ls_zsdt0019b-vtweg gc_tab
-*      ls_zsdt0019b-spart gc_tab
-*      ls_zsdt0019b-bu_sort1 gc_tab
+      ls_zsdt0019b-kunnr_nam gc_tab
+      ls_zsdt0019b-kunnr_det gc_tab
+      ls_zsdt0019b-zysjhq gc_tab
+      ls_zsdt0019b-zzhijiankc gc_tab
 *      ls_zsdt0019b-kunnr2 gc_tab
 *
 *      ls_zsdt0019b-kunn2 gc_tab
@@ -287,14 +286,22 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
     SELECT
        *
       FROM zsdt0019b
-      INNER JOIN zsdt0019
+      LEFT JOIN zsdt0019
       ON zsdt0019~partner = zsdt0019b~kunn2
       WHERE zsdt0019~zdomain = @ls_zsdt0019-zdomain
       AND zsdt0019~active = 'X'
       AND zsdt0019b~udate IN @s_udate
       AND zsdt0019b~erdat IN @s_erdat
-      AND zsdt0019~job IN @s_job
       INTO TABLE @DATA(lt_zsdt0019b).
+
+*    SELECT
+*      *
+*    INTO TABLE @DATA(lt_zsdt0019)
+*    FROM zsdt0019
+*    WHERE zsdt0019~zdomain = @ls_zsdt0019-zdomain
+*      AND zsdt0019~job IN @s_job.
+
+
     IF lt_zsdt0019b IS INITIAL.
       flag = 'X'.
       EXIT.
@@ -321,6 +328,10 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       ls_zsdt0019b-statdetail gc_tab
       ls_zsdt0019b-udate gc_tab
       ls_zsdt0019b-erdat gc_tab
+      ls_zsdt0019b-kunnr_nam gc_tab
+      ls_zsdt0019b-kunnr_det gc_tab
+      ls_zsdt0019b-zysjhq gc_tab
+      ls_zsdt0019b-zzhijiankc gc_tab
 *      ls_zsdt0019b-kunnr gc_tab
 *      ls_zsdt0019b-vkorg gc_tab
 *      ls_zsdt0019b-vtweg gc_tab
@@ -398,6 +409,10 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       ls_zsdt0019b-statdetail gc_tab
       ls_zsdt0019b-udate gc_tab
       ls_zsdt0019b-erdat gc_tab
+      ls_zsdt0019b-kunnr_nam gc_tab
+      ls_zsdt0019b-kunnr_det gc_tab
+      ls_zsdt0019b-zysjhq gc_tab
+      ls_zsdt0019b-zzhijiankc gc_tab
 *      ls_zsdt0019b-kunnr gc_tab
 *      ls_zsdt0019b-vkorg gc_tab
 *      ls_zsdt0019b-vtweg gc_tab

@@ -133,7 +133,7 @@ FORM getdata."查询语句
   AND but0id~valid_date_from IN @s_date1
   AND but0id~valid_date_to IN @s_date2
   AND mara~matkl IN @s_matkl.
-  SORT gt_all BY werks matnr lifnr ematn.
+  SORT gt_all BY werks matnr lifnr ematn ASCENDING flag DESCENDING.
   DELETE ADJACENT DUPLICATES FROM gt_all COMPARING werks matnr lifnr ematn.
   "然后查询的是生产商的数据
 

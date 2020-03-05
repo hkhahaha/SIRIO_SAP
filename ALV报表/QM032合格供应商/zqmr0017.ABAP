@@ -118,7 +118,8 @@ FORM getdata."查询语句
   mfrnr,
   matkl,
   valid_date_from AS date1,
-  valid_date_to AS date2
+  valid_date_to AS date2,
+  but0id~type AS flag
   INTO TABLE @DATA(gt_all)
   FROM eord
   LEFT JOIN but0id
@@ -147,9 +148,10 @@ FORM getdata."查询语句
   INNER JOIN eord
   ON eord~ematn = mara~matnr
   INNER JOIN but0id
-  ON MARA~mfrnr = but0id~partner
+  ON mara~mfrnr = but0id~partner
   FOR ALL ENTRIES IN @gt_all
   WHERE mara~matnr = @gt_all-ematn
+    AND but0id~type = 'ZQM999'
   INTO TABLE @DATA(gt_all2).
 
 
@@ -168,172 +170,385 @@ FORM getdata."查询语句
 
 
 
-    IF gt_all IS NOT INITIAL.
-      "MAKT表
-      SELECT
-      matnr,
-      maktx
-      INTO TABLE @DATA(lt_makt)
-            FROM makt
-            FOR ALL ENTRIES IN @gt_all
-            WHERE makt~spras = '1'
-            AND makt~matnr = @gt_all-matnr.
+  IF gt_all IS NOT INITIAL.
+    "MAKT表
+    SELECT
+    matnr,
+    maktx
+    INTO TABLE @DATA(lt_makt)
+          FROM makt
+          FOR ALL ENTRIES IN @gt_all
+          WHERE makt~spras = '1'
+          AND makt~matnr = @gt_all-matnr.
 
-      "LFA1表
-      SELECT
-      name1,
-      name2,
-      name3,
-      name4,
-      lifnr,
-      stras
-      INTO TABLE @DATA(lt_lfa1)
-            FROM lfa1
-            FOR ALL ENTRIES IN @gt_all
-            WHERE lfa1~lifnr = @gt_all-lifnr.
+    "LFA1表
+    SELECT
+    name1,
+    name2,
+    name3,
+    name4,
+    lifnr,
+    stras
+    INTO TABLE @DATA(lt_lfa1)
+          FROM lfa1
+          FOR ALL ENTRIES IN @gt_all
+          WHERE lfa1~lifnr = @gt_all-lifnr.
 
-      "ADRC表
-      SELECT
-      lifnr,
-      adrc~name1,
-      adrc~name2,
-      adrc~name3,
-      adrc~name4,
-      adrc~regiogroup
-      FROM adrc
-      INNER JOIN lfa1
-      ON lfa1~name1 = adrc~name1
-      AND lfa1~name2 = adrc~name2
-      AND lfa1~name3 = adrc~name3
-      AND lfa1~name4 = adrc~name4
-      FOR ALL ENTRIES IN @gt_all
-      WHERE lfa1~lifnr = @gt_all-lifnr
-      INTO TABLE @DATA(lt_adrc).
+    "ADRC表
+    SELECT
+    lifnr,
+    adrc~name1,
+    adrc~name2,
+    adrc~name3,
+    adrc~name4,
+    adrc~regiogroup
+    FROM adrc
+    INNER JOIN lfa1
+    ON lfa1~name1 = adrc~name1
+    AND lfa1~name2 = adrc~name2
+    AND lfa1~name3 = adrc~name3
+    AND lfa1~name4 = adrc~name4
+    FOR ALL ENTRIES IN @gt_all
+    WHERE lfa1~lifnr = @gt_all-lifnr
+    INTO TABLE @DATA(lt_adrc).
 
-      "MARA表
+    "MARA表
+    SELECT
+    a~mfrnr,
+    b~lifnr,
+    b~stras,
+    b~name1,
+    b~name2,
+    b~name3,
+    b~name4,
+    a~matnr
+    FROM mara AS a
+    INNER JOIN lfa1 AS b
+    ON b~lifnr = a~mfrnr
+    FOR ALL ENTRIES IN @gt_all
+    WHERE a~matnr = @gt_all-ematn
+    INTO TABLE @DATA(lt_mara).
+
+    "ADRC表2
+    IF lt_mara IS NOT INITIAL.
       SELECT
       a~mfrnr,
       b~lifnr,
       b~stras,
-      b~name1,
-      b~name2,
-      b~name3,
-      b~name4,
-      a~matnr
+      adrc~name1,
+      adrc~name2,
+      adrc~name3,
+      adrc~name4,
+      a~matnr,
+      adrc~regiogroup
       FROM mara AS a
       INNER JOIN lfa1 AS b
       ON b~lifnr = a~mfrnr
+      INNER JOIN adrc
+      ON adrc~name1 = b~name1
+      AND adrc~name2 = b~name2
+      AND adrc~name3 = b~name3
+      AND adrc~name4 = b~name4
       FOR ALL ENTRIES IN @gt_all
       WHERE a~matnr = @gt_all-ematn
-      INTO TABLE @DATA(lt_mara).
+      INTO TABLE @DATA(lt_adrc2).
+    ENDIF.
 
-      "ADRC表2
-      IF lt_mara IS NOT INITIAL.
-        SELECT
-        a~mfrnr,
-        b~lifnr,
-        b~stras,
-        adrc~name1,
-        adrc~name2,
-        adrc~name3,
-        adrc~name4,
-        a~matnr,
-        adrc~regiogroup
-        FROM mara AS a
-        INNER JOIN lfa1 AS b
-        ON b~lifnr = a~mfrnr
-        INNER JOIN adrc
-        ON adrc~name1 = b~name1
-        AND adrc~name2 = b~name2
-        AND adrc~name3 = b~name3
-        AND adrc~name4 = b~name4
-        FOR ALL ENTRIES IN @gt_all
-        WHERE a~matnr = @gt_all-ematn
-        INTO TABLE @DATA(lt_adrc2).
+    "ZQMT011表
+    SELECT
+    matnr,
+    raube,
+    sc,
+    cctj
+    FROM zqmt011
+    INNER JOIN mara
+    ON mara~raube = zqmt011~sc
+    FOR ALL ENTRIES IN @gt_all
+    WHERE zqmt011~sc = mara~raube
+    AND mara~matnr = @gt_all-matnr
+    INTO TABLE @DATA(lt_zqmt011).
+
+    "AUSP表
+    SELECT
+    objek,
+    atinn,
+    atwrt
+    INTO TABLE @DATA(lt_ausp)
+          FROM ausp
+          WHERE  ausp~atinn IN (@lv_zallergen,@lv_ztrsgen,@lv_zexpmat,
+          @lv_zwhp,@lv_zoriadd,@lv_zqmsamp,@lv_zmatdet,@lv_zsamping).
+
+    "最近下单时间相关的查询
+    "首先第一个是有MPN物料的
+    SELECT
+    matnr,
+    ematn,
+    ekko~ebeln,
+    lifnr,
+    ekko~aedat
+    FROM ekko
+    INNER JOIN ekpo
+    ON ekpo~ebeln = ekko~ebeln
+    FOR ALL ENTRIES IN @gt_all
+    WHERE ekpo~ematn = @gt_all-ematn
+    AND ekpo~matnr = @gt_all-matnr
+    AND ekko~lifnr = @gt_all-lifnr
+    AND ekko~aedat <= @sy-datum
+    AND ekko~aedat > @( sy-datum - 731 )
+    AND ekpo~loekz <> 'X'
+    INTO TABLE @DATA(lt_time).
+    SORT lt_time BY aedat DESCENDING.
+    "第二个是没有MPN物料的
+    SELECT
+    matnr,
+    ekko~ebeln,
+    lifnr,
+    ekko~aedat
+    FROM ekko
+    INNER JOIN ekpo
+    ON ekpo~ebeln = ekko~ebeln
+    FOR ALL ENTRIES IN @gt_all
+    WHERE ekpo~matnr = @gt_all-matnr
+    AND ekko~lifnr = @gt_all-lifnr
+    AND ekko~aedat <= @sy-datum
+    AND ekko~aedat > @( sy-datum - 731 )
+    AND ekpo~loekz <> 'X'
+    INTO TABLE @DATA(lt_time2).
+    SORT lt_time2 BY aedat DESCENDING.
+
+    "如果选择屏幕最近下单时间不为空的话，下面对数据进行整理
+    IF s_time IS NOT INITIAL.
+      SELECT
+      *
+      FROM @lt_time AS a
+      WHERE a~aedat IN @s_time
+      INTO TABLE @lt_time.
+
+      SELECT
+      *
+      FROM @lt_time2 AS a
+      WHERE a~aedat IN @s_time
+      INTO TABLE @lt_time2.
+    ENDIF.
+
+
+
+
+
+
+  ENDIF.
+
+
+
+
+
+
+
+
+
+
+
+
+
+  LOOP AT gt_all INTO DATA(gs_all).
+    MOVE-CORRESPONDING gs_all TO gs_alv.
+    "物料描述（短描述）
+    READ TABLE lt_makt INTO DATA(ls_makt) WITH KEY matnr = gs_all-matnr.
+    IF sy-subrc = 0.
+      gs_alv-matkx = ls_makt-maktx.
+      CLEAR ls_makt.
+    ENDIF.
+    "物料类别
+    IF gs_alv-matkl+0(2) = '10' OR gs_alv-matkl+0(4) = '2002' OR gs_alv-matkl+0(4) = '2006'.
+      gs_alv-matkl = 'I类'.
+    ELSEIF gs_alv-matkl+0(4) = '2004' OR gs_alv-matkl = '2008'.
+      gs_alv-matkl = 'III类'.
+    ENDIF.
+    "经销商名称、经销商地址
+    READ TABLE lt_lfa1 INTO DATA(ls_lfa1) WITH KEY lifnr = gs_all-lifnr.
+    IF sy-subrc = 0.
+      gs_alv-lifnr_name = ls_lfa1-name1 && ls_lfa1-name2 && ls_lfa1-name3 && ls_lfa1-name4.
+      gs_alv-stras = ls_lfa1-stras.
+      CLEAR ls_lfa1.
+    ENDIF.
+    "经销商等级
+    READ TABLE lt_adrc INTO DATA(ls_adrc) WITH KEY lifnr = gs_all-lifnr.
+    IF sy-subrc = 0.
+      gs_alv-regiogroup = ls_adrc-regiogroup.
+      CLEAR ls_adrc.
+    ENDIF.
+    "判断经销商等级是否在选择屏幕的条件范围内
+    DATA ls_group1 LIKE LINE OF s_group1.
+    IF s_group1 IS NOT INITIAL.
+      READ TABLE s_group1 INTO ls_group1 WITH KEY low = gs_alv-regiogroup.
+      IF sy-subrc <> 0.
+        CLEAR ls_group1.
+        CONTINUE.
+      ENDIF.
+    ENDIF.
+
+    "经销商评估合格日期
+    "经销商计划评估日期
+    "MPN料号
+    IF gs_all-ematn IS INITIAL.
+      gs_alv-ematn = '无'.
+      "不启用MPN的生产商编号及名称、地址、等级、日期和经销商的一致
+      gs_alv-mfrnr = gs_all-lifnr.
+      gs_alv-pro_name = gs_alv-lifnr_name.
+      gs_alv-stras2 = gs_alv-stras.
+      gs_alv-pro_regiogroup = gs_alv-regiogroup.
+      gs_alv-date3 = gs_alv-date1.
+      gs_alv-date4 = gs_alv-date2.
+
+      "最近下单时间
+      SELECT
+      ekpo~ebeln,
+      ekko~aedat
+      INTO TABLE @DATA(lt_ebeln2)
+            FROM ekpo
+            INNER JOIN ekko
+            ON ekpo~ebeln = ekko~ebeln
+            WHERE ekpo~matnr = @gs_all-matnr
+            AND ekko~lifnr = @gs_all-lifnr.
+      SORT lt_ebeln2 BY aedat DESCENDING.
+      READ TABLE lt_ebeln2 INTO DATA(lv_ebeln2) INDEX 1.
+      READ TABLE lt_time2 INTO DATA(ls_time2) WITH KEY matnr = gs_all-matnr
+                                                       lifnr = gs_all-lifnr
+                                                       ebeln = lv_ebeln2-ebeln.
+      IF sy-subrc = 0.
+        gs_alv-time = ls_time2-aedat+0(4) && '.' && ls_time2-aedat+4(2) && '.' && ls_time2-aedat+6(2).
+      ELSE.
+        IF s_time IS NOT INITIAL.
+          CONTINUE.
+        ENDIF.
+        gs_alv-time = '超过2年未下单'.
+      ENDIF.
+      CLEAR lv_ebeln2.
+      CLEAR:ls_time2.
+    ELSE.
+      READ TABLE lt_mara INTO DATA(ls_mara) WITH KEY matnr = gs_all-ematn.
+      IF sy-subrc = 0.
+        "生产商编号
+        gs_alv-mfrnr = ls_mara-mfrnr.
+        "生产商名称
+        gs_alv-pro_name = ls_mara-name1 && ls_mara-name2 && ls_mara-name3 && ls_mara-name4.
+        "生产厂家地址
+        gs_alv-stras2 = ls_mara-stras.
+        "生产商等级
+        READ TABLE lt_adrc2 INTO DATA(ls_adrc2) WITH KEY matnr = gs_all-ematn.
+        IF sy-subrc = 0.
+          gs_alv-pro_regiogroup = ls_adrc2-regiogroup.
+          CLEAR ls_adrc2.
+        ENDIF.
       ENDIF.
 
-      "ZQMT011表
-      SELECT
-      matnr,
-      raube,
-      sc,
-      cctj
-      FROM zqmt011
-      INNER JOIN mara
-      ON mara~raube = zqmt011~sc
-      FOR ALL ENTRIES IN @gt_all
-      WHERE zqmt011~sc = mara~raube
-      AND mara~matnr = @gt_all-matnr
-      INTO TABLE @DATA(lt_zqmt011).
-
-      "AUSP表
-      SELECT
-      objek,
-      atinn,
-      atwrt
-      INTO TABLE @DATA(lt_ausp)
-            FROM ausp
-            WHERE  ausp~atinn IN (@lv_zallergen,@lv_ztrsgen,@lv_zexpmat,
-            @lv_zwhp,@lv_zoriadd,@lv_zqmsamp,@lv_zmatdet,@lv_zsamping).
-
-      "最近下单时间相关的查询
-      "首先第一个是有MPN物料的
-      SELECT
-      matnr,
-      ematn,
-      ekko~ebeln,
-      lifnr,
-      ekko~aedat
-      FROM ekko
-      INNER JOIN ekpo
-      ON ekpo~ebeln = ekko~ebeln
-      FOR ALL ENTRIES IN @gt_all
-      WHERE ekpo~ematn = @gt_all-ematn
-      AND ekpo~matnr = @gt_all-matnr
-      AND ekko~lifnr = @gt_all-lifnr
-      AND ekko~aedat <= @sy-datum
-      AND ekko~aedat > @( sy-datum - 731 )
-      AND ekpo~loekz <> 'X'
-      INTO TABLE @DATA(lt_time).
-      SORT lt_time BY aedat DESCENDING.
-      "第二个是没有MPN物料的
-      SELECT
-      matnr,
-      ekko~ebeln,
-      lifnr,
-      ekko~aedat
-      FROM ekko
-      INNER JOIN ekpo
-      ON ekpo~ebeln = ekko~ebeln
-      FOR ALL ENTRIES IN @gt_all
-      WHERE ekpo~matnr = @gt_all-matnr
-      AND ekko~lifnr = @gt_all-lifnr
-      AND ekko~aedat <= @sy-datum
-      AND ekko~aedat > @( sy-datum - 731 )
-      AND ekpo~loekz <> 'X'
-      INTO TABLE @DATA(lt_time2).
-      SORT lt_time2 BY aedat DESCENDING.
-
-      "如果选择屏幕最近下单时间不为空的话，下面对数据进行整理
-      IF s_time IS NOT INITIAL.
-        SELECT
-        *
-        FROM @lt_time AS a
-        WHERE a~aedat IN @s_time
-        INTO TABLE @lt_time.
-
-        SELECT
-        *
-        FROM @lt_time2 AS a
-        WHERE a~aedat IN @s_time
-        INTO TABLE @lt_time2.
+      "生产商评估合格日期、生产商计划评估日期
+      READ TABLE gt_all2 INTO DATA(gs_all2) WITH KEY ematn = gs_all-ematn
+                                                     mfrnr = gs_all-mfrnr.
+      IF sy-subrc = 0.
+        gs_alv-date3 = gs_all2-date3.
+        gs_alv-date4 = gs_all2-date4.
       ENDIF.
+      CLEAR gs_all2.
 
-
-
-
-
-
+      "最近下单时间
+      SELECT
+      ekko~ebeln,
+      ekko~aedat
+      INTO TABLE @DATA(lt_ebeln)
+            FROM ekpo
+            INNER JOIN ekko
+            ON ekko~ebeln = ekpo~ebeln
+            WHERE ekpo~matnr = @gs_all-matnr
+            AND ekpo~ematn = @gs_all-ematn.
+      SORT lt_ebeln BY aedat DESCENDING.
+      READ TABLE lt_ebeln INTO DATA(lv_ebeln) INDEX 1.
+      READ TABLE lt_time INTO DATA(ls_time) WITH KEY matnr = gs_all-matnr
+                                                     ematn = gs_all-ematn
+                                                     lifnr = gs_all-lifnr
+                                                     ebeln = lv_ebeln-ebeln.
+      IF sy-subrc = 0.
+        gs_alv-time = ls_time-aedat+0(4) && '.' && ls_time-aedat+4(2) && '.' && ls_time-aedat+6(2).
+      ELSE.
+        IF s_time IS NOT INITIAL.
+          CONTINUE.
+        ENDIF.
+        gs_alv-time = '超过2年未下单'.
+      ENDIF.
+      CLEAR lv_ebeln.
+      CLEAR ls_time.
+    ENDIF.
+    "判断生产商是否在选择屏幕条件内
+    DATA ls_group2 LIKE LINE OF s_group2.
+    IF s_group2 IS NOT INITIAL.
+      READ TABLE s_group2 INTO ls_group2 WITH KEY low = gs_alv-pro_regiogroup.
+      IF sy-subrc <> 0.
+        CLEAR ls_group2.
+        CONTINUE.
+      ENDIF.
+    ENDIF.
+    "存储条件
+    READ TABLE lt_zqmt011 INTO DATA(ls_zqmt011) WITH KEY matnr = gs_all-matnr.
+    IF sy-subrc = 0.
+      gs_alv-cctj = ls_zqmt011-cctj.
+      CLEAR ls_zqmt011.
+    ENDIF.
+    "各种特性值相关
+    READ TABLE lt_ausp INTO DATA(ls_ausp) WITH KEY objek = gs_all-matnr
+          atinn = lv_zallergen.
+    IF sy-subrc = 0.
+      "过敏原
+      gs_alv-zallergen = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
+    atinn = lv_ztrsgen.
+    IF sy-subrc = 0.
+      "转基因
+      gs_alv-ztrsgen = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
+    atinn = lv_zexpmat.
+    IF sy-subrc = 0.
+      "贵重物料
+      gs_alv-zexpmat = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
+    atinn = lv_zwhp.
+    IF sy-subrc = 0.
+      "危险化学品
+      gs_alv-zwhp = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
+    atinn = lv_zoriadd.
+    IF sy-subrc = 0.
+      "原产地
+      gs_alv-zoriadd = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
+    atinn = lv_zqmsamp.
+    IF sy-subrc = 0.
+      "开箱量计算标识
+      gs_alv-zqmsamp = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
+    atinn = lv_zmatdet.
+    IF sy-subrc = 0.
+      "材质明细
+      gs_alv-zmatdet = ls_ausp-atwrt.
+      CLEAR ls_ausp.
+    ENDIF.
+    READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
+    atinn = lv_zsamping.
+    IF sy-subrc = 0.
+      "QA取样量
+      gs_alv-zsamping = ls_ausp-atwrt.
+      CLEAR ls_ausp.
     ENDIF.
 
 
@@ -348,247 +563,40 @@ FORM getdata."查询语句
 
 
 
-    LOOP AT gt_all INTO DATA(gs_all).
-      MOVE-CORRESPONDING gs_all TO gs_alv.
-      "物料描述（短描述）
-      READ TABLE lt_makt INTO DATA(ls_makt) WITH KEY matnr = gs_all-matnr.
-      IF sy-subrc = 0.
-        gs_alv-matkx = ls_makt-maktx.
-        CLEAR ls_makt.
-      ENDIF.
-      "物料类别
-      IF gs_alv-matkl+0(2) = '10' OR gs_alv-matkl+0(4) = '2002' OR gs_alv-matkl+0(4) = '2006'.
-        gs_alv-matkl = 'I类'.
-      ELSEIF gs_alv-matkl+0(4) = '2004' OR gs_alv-matkl = '2008'.
-        gs_alv-matkl = 'III类'.
-      ENDIF.
-      "经销商名称、经销商地址
-      READ TABLE lt_lfa1 INTO DATA(ls_lfa1) WITH KEY lifnr = gs_all-lifnr.
-      IF sy-subrc = 0.
-        gs_alv-lifnr_name = ls_lfa1-name1 && ls_lfa1-name2 && ls_lfa1-name3 && ls_lfa1-name4.
-        gs_alv-stras = ls_lfa1-stras.
-        CLEAR ls_lfa1.
-      ENDIF.
-      "经销商等级
-      READ TABLE lt_adrc INTO DATA(ls_adrc) WITH KEY lifnr = gs_all-lifnr.
-      IF sy-subrc = 0.
-        gs_alv-regiogroup = ls_adrc-regiogroup.
-        CLEAR ls_adrc.
-      ENDIF.
-      "判断经销商等级是否在选择屏幕的条件范围内
-      DATA ls_group1 LIKE LINE OF s_group1.
-      IF s_group1 IS NOT INITIAL.
-        READ TABLE s_group1 INTO ls_group1 WITH KEY low = gs_alv-regiogroup.
-        IF sy-subrc <> 0.
-          CLEAR ls_group1.
-          CONTINUE.
-        ENDIF.
-      ENDIF.
-
-      "经销商评估合格日期
-      "经销商计划评估日期
-      "MPN料号
-      IF gs_all-ematn IS INITIAL.
-        gs_alv-ematn = '无'.
-        "不启用MPN的生产商编号及名称、地址、等级、日期和经销商的一致
-        gs_alv-mfrnr = gs_all-lifnr.
-        gs_alv-pro_name = gs_alv-lifnr_name.
-        gs_alv-stras2 = gs_alv-stras.
-        gs_alv-pro_regiogroup = gs_alv-regiogroup.
-        gs_alv-date3 = gs_alv-date1.
-        gs_alv-date4 = gs_alv-date2.
-
-        "最近下单时间
-        SELECT
-        ekpo~ebeln,
-        ekko~aedat
-        INTO TABLE @DATA(lt_ebeln2)
-              FROM ekpo
-              INNER JOIN ekko
-              ON ekpo~ebeln = ekko~ebeln
-              WHERE ekpo~matnr = @gs_all-matnr
-              AND ekko~lifnr = @gs_all-lifnr.
-        SORT lt_ebeln2 BY aedat DESCENDING.
-        READ TABLE lt_ebeln2 INTO DATA(lv_ebeln2) INDEX 1.
-        READ TABLE lt_time2 INTO DATA(ls_time2) WITH KEY matnr = gs_all-matnr
-                                                         lifnr = gs_all-lifnr
-                                                         ebeln = lv_ebeln2-ebeln.
-        IF sy-subrc = 0.
-          gs_alv-time = ls_time2-aedat+0(4) && '.' && ls_time2-aedat+4(2) && '.' && ls_time2-aedat+6(2).
-        ELSE.
-          IF s_time IS NOT INITIAL.
-            CONTINUE.
-          ENDIF.
-          gs_alv-time = '超过2年未下单'.
-        ENDIF.
-        CLEAR lv_ebeln2.
-        CLEAR:ls_time2.
-      ELSE.
-        READ TABLE lt_mara INTO DATA(ls_mara) WITH KEY matnr = gs_all-ematn.
-        IF sy-subrc = 0.
-          "生产商编号
-          gs_alv-mfrnr = ls_mara-mfrnr.
-          "生产商名称
-          gs_alv-pro_name = ls_mara-name1 && ls_mara-name2 && ls_mara-name3 && ls_mara-name4.
-          "生产厂家地址
-          gs_alv-stras2 = ls_mara-stras.
-          "生产商等级
-          READ TABLE lt_adrc2 INTO DATA(ls_adrc2) WITH KEY matnr = gs_all-ematn.
-          IF sy-subrc = 0.
-            gs_alv-pro_regiogroup = ls_adrc2-regiogroup.
-            CLEAR ls_adrc2.
-          ENDIF.
-        ENDIF.
-
-        "生产商评估合格日期、生产商计划评估日期
-        READ TABLE gt_all2 INTO DATA(gs_all2) WITH KEY ematn = gs_all-ematn.
-        IF sy-subrc = 0.
-          gs_alv-date3 = gs_all2-date3.
-          gs_alv-date4 = gs_all2-date4.
-        ENDIF.
-
-
-        "最近下单时间
-        SELECT
-        ekko~ebeln,
-        ekko~aedat
-        INTO TABLE @DATA(lt_ebeln)
-              FROM ekpo
-              INNER JOIN ekko
-              ON ekko~ebeln = ekpo~ebeln
-              WHERE ekpo~matnr = @gs_all-matnr
-              AND ekpo~ematn = @gs_all-ematn.
-        SORT lt_ebeln BY aedat DESCENDING.
-        READ TABLE lt_ebeln INTO DATA(lv_ebeln) INDEX 1.
-        READ TABLE lt_time INTO DATA(ls_time) WITH KEY matnr = gs_all-matnr
-                                                       ematn = gs_all-ematn
-                                                       lifnr = gs_all-lifnr
-                                                       ebeln = lv_ebeln-ebeln.
-        IF sy-subrc = 0.
-          gs_alv-time = ls_time-aedat+0(4) && '.' && ls_time-aedat+4(2) && '.' && ls_time-aedat+6(2).
-        ELSE.
-          IF s_time IS NOT INITIAL.
-            CONTINUE.
-          ENDIF.
-          gs_alv-time = '超过2年未下单'.
-        ENDIF.
-        CLEAR lv_ebeln.
-        CLEAR ls_time.
-      ENDIF.
-      "判断生产商是否在选择屏幕条件内
-      DATA ls_group2 LIKE LINE OF s_group2.
-      IF s_group2 IS NOT INITIAL.
-        READ TABLE s_group2 INTO ls_group2 WITH KEY low = gs_alv-pro_regiogroup.
-        IF sy-subrc <> 0.
-          CLEAR ls_group2.
-          CONTINUE.
-        ENDIF.
-      ENDIF.
-      "存储条件
-      READ TABLE lt_zqmt011 INTO DATA(ls_zqmt011) WITH KEY matnr = gs_all-matnr.
-      IF sy-subrc = 0.
-        gs_alv-cctj = ls_zqmt011-cctj.
-        CLEAR ls_zqmt011.
-      ENDIF.
-      "各种特性值相关
-      READ TABLE lt_ausp INTO DATA(ls_ausp) WITH KEY objek = gs_all-matnr
-            atinn = lv_zallergen.
-      IF sy-subrc = 0.
-        "过敏原
-        gs_alv-zallergen = ls_ausp-atwrt.
-        CLEAR ls_ausp.
-      ENDIF.
-      READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
-      atinn = lv_ztrsgen.
-      IF sy-subrc = 0.
-        "转基因
-        gs_alv-ztrsgen = ls_ausp-atwrt.
-        CLEAR ls_ausp.
-      ENDIF.
-      READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
-      atinn = lv_zexpmat.
-      IF sy-subrc = 0.
-        "贵重物料
-        gs_alv-zexpmat = ls_ausp-atwrt.
-        CLEAR ls_ausp.
-      ENDIF.
-      READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
-      atinn = lv_zwhp.
-      IF sy-subrc = 0.
-        "危险化学品
-        gs_alv-zwhp = ls_ausp-atwrt.
-        CLEAR ls_ausp.
-      ENDIF.
-      READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
-      atinn = lv_zoriadd.
-      IF sy-subrc = 0.
-        "原产地
-        gs_alv-zoriadd = ls_ausp-atwrt.
-        CLEAR ls_ausp.
-      ENDIF.
-      READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
-      atinn = lv_zqmsamp.
-      IF sy-subrc = 0.
-        "开箱量计算标识
-        gs_alv-zqmsamp = ls_ausp-atwrt.
-        CLEAR ls_ausp.
-      ENDIF.
-      READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
-      atinn = lv_zmatdet.
-      IF sy-subrc = 0.
-        "材质明细
-        gs_alv-zmatdet = ls_ausp-atwrt.
-        CLEAR ls_ausp.
-      ENDIF.
-      READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = gs_all-matnr
-      atinn = lv_zsamping.
-      IF sy-subrc = 0.
-        "QA取样量
-        gs_alv-zsamping = ls_ausp-atwrt.
-        CLEAR ls_ausp.
-      ENDIF.
 
 
 
 
+    IF gs_alv-lifnr = '8100' OR gs_alv-lifnr = '8200'
+    OR gs_alv-lifnr = '0000008100' OR gs_alv-lifnr = '0000008200'.
+      CONTINUE.
+    ENDIF.
+    IF gs_all-flag <> 'ZQM999'.
+      gs_alv-date1 = ''.
+      gs_alv-date2 = ''.
+      gs_alv-date3 = ''.
+      gs_alv-date4 = ''.
+    ENDIF.
 
-
-
-
-
-
-
-
-
-
-
-
-
-      IF gs_alv-lifnr = '8100' OR gs_alv-lifnr = '8200'
-      OR gs_alv-lifnr = '0000008100' OR gs_alv-lifnr = '0000008200'.
-        CONTINUE.
-      ENDIF.
-
-
-      APPEND gs_alv TO gt_alv.
-      CLEAR:gs_all,gs_alv.
-    ENDLOOP.
-    SELECT
-      *
-    FROM @gt_alv AS a
-    WHERE a~date3 IN @s_date3
-      AND a~date4 IN @s_date4
-      AND a~mfrnr IN @s_mfrnr
-    INTO TABLE @gt_alv.
-    LOOP AT gt_alv INTO gs_alv.
-      "去掉前导0
-      gs_alv-matnr = zcl_bc_public=>conv_by_ddic( i_input = gs_alv-matnr i_out = 'X' ).
-      gs_alv-lifnr = zcl_bc_public=>conv_by_ddic( i_input = gs_alv-lifnr i_out = 'X' ).
-      gs_alv-ematn = zcl_bc_public=>conv_by_ddic( i_input = gs_alv-ematn i_out = 'X' ).
-      gs_alv-mfrnr = zcl_bc_public=>conv_by_ddic( i_input = gs_alv-mfrnr i_out = 'X' ).
-      MODIFY gt_alv FROM gs_alv.
-      CLEAR gs_alv.
-    ENDLOOP.
+    APPEND gs_alv TO gt_alv.
+    CLEAR:gs_all,gs_alv.
+  ENDLOOP.
+  SELECT
+    *
+  FROM @gt_alv AS a
+  WHERE a~date3 IN @s_date3
+    AND a~date4 IN @s_date4
+    AND a~mfrnr IN @s_mfrnr
+  INTO TABLE @gt_alv.
+  LOOP AT gt_alv INTO gs_alv.
+    "去掉前导0
+    gs_alv-matnr = zcl_bc_public=>conv_by_ddic( i_input = gs_alv-matnr i_out = 'X' ).
+    gs_alv-lifnr = zcl_bc_public=>conv_by_ddic( i_input = gs_alv-lifnr i_out = 'X' ).
+    gs_alv-ematn = zcl_bc_public=>conv_by_ddic( i_input = gs_alv-ematn i_out = 'X' ).
+    gs_alv-mfrnr = zcl_bc_public=>conv_by_ddic( i_input = gs_alv-mfrnr i_out = 'X' ).
+    MODIFY gt_alv FROM gs_alv.
+    CLEAR gs_alv.
+  ENDLOOP.
 *  SORT gt_alv BY matnr werks matkx matkl lifnr.
 *  DELETE ADJACENT DUPLICATES FROM gt_alv COMPARING matnr werks matkx matkl lifnr.
 

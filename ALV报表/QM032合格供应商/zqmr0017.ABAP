@@ -53,7 +53,7 @@ DATA gv_sel_error TYPE flag.
 
 SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001."定义屏幕
 PARAMETERS p_werks TYPE vbap-werks OBLIGATORY.
-SELECT-OPTIONS:s_werks FOR eord-werks,"条件输入框，一个for对应一个\工厂
+SELECT-OPTIONS:"s_werks FOR eord-werks,"条件输入框，一个for对应一个\工厂
 s_matnr FOR eord-matnr,"for前面的是字段显示的名称，可以修改，但是注意不要超过8个字符，否则会报错、物料编码
 s_lifnr FOR eord-lifnr,"经销商编码
 s_mfrnr FOR mara-mfrnr,"制造商编码
@@ -434,9 +434,10 @@ FORM getdata."查询语句
 
       "生产商评估合格日期、生产商计划评估日期
       READ TABLE gt_all2 INTO DATA(gs_all2) WITH KEY werks = gs_all-werks
-                                               matnr = gs_all-matnr
-                                               ematn = gs_all-ematn
-                                               lifnr = gs_all-lifnr.
+                                                     matnr = gs_all-matnr
+                                                     ematn = gs_all-ematn
+                                                     lifnr = gs_all-lifnr
+                                                     mfrnr = GS_ALL-mfrnr.
       IF sy-subrc = 0.
         gs_alv-date3 = gs_all2-date3.
         gs_alv-date4 = gs_all2-date4.

@@ -125,14 +125,15 @@ FORM getdata."查询语句
   LEFT JOIN but0id
   ON but0id~partner = eord~lifnr
   LEFT JOIN mara
-  ON mara~matnr = eord~matnr
+  ON mara~matnr = eord~ematn
   WHERE eord~matnr IN @s_matnr
   AND eord~werks = @p_werks
   AND eord~lifnr IN @s_lifnr
   AND eord~notkz <> 'X'
   AND but0id~valid_date_from IN @s_date1
   AND but0id~valid_date_to IN @s_date2
-  AND mara~matkl IN @s_matkl.
+  AND mara~matkl IN @s_matkl
+  AND eord~lifnr NOT IN ('8100','8200','0000008100','0000008200').
   SORT gt_all BY werks matnr lifnr ematn ASCENDING flag DESCENDING.
   DELETE ADJACENT DUPLICATES FROM gt_all COMPARING werks matnr lifnr ematn.
   "然后查询的是生产商的数据

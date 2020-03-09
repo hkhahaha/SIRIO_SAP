@@ -6,9 +6,12 @@
 REPORT zsdr0022b.
 TABLES:vbak,zsdt0019.
 CONSTANTS:
-  gc_tab  TYPE c VALUE cl_bcs_convert=>gc_tab,
-  gc_crlf TYPE c VALUE cl_bcs_convert=>gc_crlf.
-
+  gc_tab        TYPE c VALUE cl_bcs_convert=>gc_tab,
+  gc_crlf       TYPE c VALUE cl_bcs_convert=>gc_crlf,
+  content1(255) VALUE '您每天早上收到的是前一天下达的订单信息，每周五下午收到报表的是本周下达订单和执行中订单的汇总，订单范围涵盖：按单订单、中试订单、返工订单、公司间订单；',
+  content2(255) VALUE '特别提醒：入库日期为为内部时间仅供业务员参考，对外发货日期将由客服根据客户和物流情况后对外答复客户。',
+  content3(255) VALUE '如您订单信息有疑惑的，还请跟客服同事了解详情。',
+  content4(255) VALUE '谢谢支持。'.
 SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001."定义屏幕
 SELECT-OPTIONS:
 s_erdat FOR vbak-erdat,"创建日期"for前面的是字段显示的名称，可以修改，但是注意不要超过8个字符，否则会报错
@@ -70,22 +73,30 @@ ENDFORM.
 FORM send USING ls_zsdt0019 TYPE zsdt0019.
 
   TRY.
-
+      CLEAR main_text.
 *     -------- create persistent send request ------------------------
       send_request = cl_bcs=>create_persistent( ).
 
 *     -------- create and set document with attachment ---------------
 *     create document object from internal table with text
-*      APPEND '你好' TO main_text.                             "#EC NOTEXT
+      APPEND '您好,' TO main_text.                            "#EC NOTEXT
+      APPEND '请查收销售报表。' TO main_text.
+      APPEND content1 TO main_text.
+      APPEND content2 TO main_text.
+      APPEND content3 TO main_text.
+      APPEND content4 TO main_text.
+
+
+
       document = cl_document_bcs=>create_document(
       i_type    = 'RAW'
       i_text    = main_text
-      i_subject = 'SALES DAILY REPORT-'&& sy-datum ).       "#EC NOTEXT
+      i_subject = 'Sales Daily Report 销售日报' && sy-datum ).  "#EC NOTEXT
 
 *     add the spread sheet as attachment to document object
       document->add_attachment(
       i_attachment_type    = 'xls'                          "#EC NOTEXT
-      i_attachment_subject = 'SALESDAILYREPORT'             "#EC NOTEXT
+      i_attachment_subject = 'Sales Daily Report 销售日报' && sy-datum "#EC NOTEXT
       i_attachment_size    = size
       i_att_content_hex    = binary_content ).
 *     发件人
@@ -368,9 +379,9 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       CLEAR ls_zsdt0019b.
     ENDLOOP.
   ELSEIF ls_zsdt0019-job = '03'.
-    SELECT SINGLE
+    SELECT
       *
-    INTO ls_zsdt0019c
+    INTO TABLE lt_zsdt0019c
     FROM zsdt0019c
     WHERE zsdt0019c~partner = ls_zsdt0019-partner.
 
@@ -379,7 +390,8 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       *
     INTO TABLE lt_zsdt0019b
     FROM zsdt0019b
-    WHERE zsdt0019b~vtweg = ls_zsdt0019c-vtweg
+    FOR ALL ENTRIES IN lt_zsdt0019c
+    WHERE zsdt0019b~vtweg = lt_zsdt0019c-vtweg
       AND zsdt0019b~erdat IN s_erdat
       AND zsdt0019b~udate IN s_udate.
 

@@ -125,7 +125,7 @@ FORM getdata."查询语句
   LEFT JOIN but0id
   ON but0id~partner = eord~lifnr
   LEFT JOIN mara
-  ON mara~matnr = eord~ematn
+  ON mara~matnr = eord~matnr
   WHERE eord~matnr IN @s_matnr
   AND eord~werks = @p_werks
   AND eord~lifnr IN @s_lifnr
@@ -332,8 +332,13 @@ FORM getdata."查询语句
       INTO TABLE @lt_time2.
     ENDIF.
 
-
-
+    SELECT
+      matnr,
+      matkl
+    INTO TABLE @DATA(lt_matkl)
+    FROM mara
+    FOR ALL ENTRIES IN @gt_all
+    WHERE mara~matnr = @gt_all-matnr.
 
 
 
@@ -359,10 +364,14 @@ FORM getdata."查询语句
       gs_alv-matkx = ls_makt-maktx.
       CLEAR ls_makt.
     ENDIF.
+*    READ TABLE lt_matkl INTO DATA(ls_matkl) WITH KEY matnr = gs_all-matnr.
+*    IF sy-subrc = 0.
+*      gs_alv-matkl = ls_matkl-matkl.
+*    ENDIF.
     "物料类别
     IF gs_alv-matkl+0(2) = '10' OR gs_alv-matkl+0(4) = '2002' OR gs_alv-matkl+0(4) = '2006'.
       gs_alv-matkl = 'I类'.
-    ELSEIF gs_alv-matkl+0(4) = '2004' OR gs_alv-matkl = '2008'.
+    ELSEIF gs_alv-matkl+0(4) = '2004' OR gs_alv-matkl+0(4) = '2008'.
       gs_alv-matkl = 'III类'.
     ENDIF.
     "经销商名称、经销商地址
@@ -444,8 +453,8 @@ FORM getdata."查询语句
       ENDIF.
 
       "生产商评估合格日期、生产商计划评估日期
-      READ TABLE gt_all2 INTO DATA(gs_all2) WITH KEY ematn = gs_all-ematn
-                                                     mfrnr = gs_all-mfrnr.
+      READ TABLE gt_all2 INTO DATA(gs_all2) WITH KEY "ematn = gs_all-ematn
+                                                     mfrnr = gs_alv-mfrnr.
       IF sy-subrc = 0.
         gs_alv-date3 = gs_all2-date3.
         gs_alv-date4 = gs_all2-date4.
@@ -575,8 +584,8 @@ FORM getdata."查询语句
     IF gs_all-flag <> 'ZQM999'.
       gs_alv-date1 = ''.
       gs_alv-date2 = ''.
-      gs_alv-date3 = ''.
-      gs_alv-date4 = ''.
+*      gs_alv-date3 = ''.
+*      gs_alv-date4 = ''.
     ENDIF.
 
     APPEND gs_alv TO gt_alv.

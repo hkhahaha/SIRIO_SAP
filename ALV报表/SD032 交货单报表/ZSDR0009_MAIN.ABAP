@@ -262,23 +262,21 @@ FORM getdata.
 
     "添加实际业务员字段
     "首先先取到实际客户
-    IF lt_main IS NOT INITIAL.
-      SELECT
-      partner
-      INTO TABLE @DATA(lt_but000)
-      FROM but000
-      INNER JOIN vbpa
-      ON but000~partner = vbpa~kunnr
-      FOR ALL ENTRIES IN @lt_main
-      WHERE vbpa~parvw = 'Z1'
-        AND vbpa~vbeln = @lt_main-vbeln_vbak
-        AND vbpa~posnr = ''.
-      IF lt_but000 IS NOT INITIAL.
-
-      ENDIF.
-    ENDIF.
-
-
+*   IF lt_main IS NOT INITIAL.
+*     SELECT
+*     partner
+*     INTO TABLE @DATA(lt_but000)
+*     FROM but000
+*     INNER JOIN vbpa
+*     ON but000~partner = vbpa~kunnr
+*     FOR ALL ENTRIES IN @lt_main
+*     WHERE vbpa~parvw = 'Z1'
+*       AND vbpa~vbeln = @lt_main-vbeln_vbak
+*       AND vbpa~posnr = ''.
+*     IF lt_but000 IS NOT INITIAL.
+*
+*     ENDIF.
+*   ENDIF.
 
 
 
@@ -290,22 +288,26 @@ FORM getdata.
     LOOP AT lt_main INTO ls_main.
       " ZUSER 业务员
       SELECT SINGLE
-      name_org1,
-      but000~partner
+        name_org1,
+        partner
       FROM but000
-      INNER JOIN vbpa
-      ON but000~partner = vbpa~kunnr
-      WHERE vbpa~vbeln = @ls_main-vbeln_likp
-      AND vbpa~posnr = ''
-      AND vbpa~parvw = 'Z3'
+      INNER JOIN knvp
+      ON knvp~kunn2 = but000~partner
+      WHERE knvp~parvw = 'Z1'
+        AND knvp~vkorg = @ls_main-vkorg
+        AND knvp~spart = @ls_main-spart
+        AND knvp~vtweg = @ls_main-vtweg
+        AND knvp~kunnr = @ls_main-kunnr
       INTO (@ls_out-zuser,@DATA(lv_partner)).
+
       IF pkunnr IS NOT INITIAL.
         READ TABLE pkunnr INTO ls_pkunnr WITH KEY low = lv_partner.
         IF sy-subrc <> 0.
           CONTINUE.
         ENDIF.
       ENDIF.
-      CLEAR lv_partner.
+
+      "      CLEAR lv_partner.
       "客户
 *      SELECT SINGLE
 *      name_org1
@@ -477,6 +479,7 @@ FORM getdata.
       FROM mara
       WHERE mara~matnr = ls_main-matnr.
       MOVE-CORRESPONDING ls_mara TO ls_out.
+      ls_out-kunnr = lv_partner.
       ls_out-matkl = ls_out-matkl+0(4)."物料小类编码取前4位
       IF ls_mara IS NOT INITIAL.
         SELECT SINGLE
@@ -1204,6 +1207,7 @@ FORM catalog USING flag_b.
   fieldcatset   'ZCUSTOMERTEXT'     '客户描述Customer'    sy-tabix.
   fieldcatset   'SORTL'     '检索项'   sy-tabix.
   fieldcatset   'ZUSER'     '业务员Sales'   sy-tabix.
+  fieldcatset   'KUNN2'     '业务员编号'   sy-tabix.
   fieldcatset   'ZRUSERNO'      '实际客户编号'    sy-tabix.
   fieldcatset   'NAME_ORG1'      '实际客户的业务员'    sy-tabix.
   fieldcatset   'ZRUSER'      '实际客户Actual Customer'    sy-tabix.

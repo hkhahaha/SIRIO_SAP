@@ -157,8 +157,8 @@ FORM getdata.
   AND likp~vbeln IN pvbeln
   AND vbap~vbeln IN pvbeln2
   AND likp~ernam IN puser
-  AND likp~kunag IN pcustom
-  AND likp~kunnr IN pkunnr.
+  AND likp~kunag IN pcustom.
+*  AND likp~kunnr IN pkunnr.
 
   "客户
   SELECT
@@ -192,6 +192,7 @@ FORM getdata.
     SELECT
     vbak~vbeln AS vbeln_vbak,
     vbak~kunnr,
+    vbak~spart,
     vbak~waerk,
     kna1~sortl,
     kna1~kukla,
@@ -240,6 +241,7 @@ FORM getdata.
         ls_main-sortl = ls_main2-sortl.
         ls_main-kukla = ls_main2-kukla.
         ls_main-vtweg = ls_main2-vtweg.
+        ls_main-spart = ls_main2-spart.
         ls_main-zckgj = ls_main2-zckgj.
         ls_main-vtweg = ls_main2-vtweg.
         "出口构架取描述
@@ -258,25 +260,52 @@ FORM getdata.
       ENDIF.
     ENDLOOP.
 
+    "添加实际业务员字段
+    "首先先取到实际客户
+    IF lt_main IS NOT INITIAL.
+      SELECT
+      partner
+      INTO TABLE @DATA(lt_but000)
+      FROM but000
+      INNER JOIN vbpa
+      ON but000~partner = vbpa~kunnr
+      FOR ALL ENTRIES IN @lt_main
+      WHERE vbpa~parvw = 'Z1'
+        AND vbpa~vbeln = @lt_main-vbeln_vbak
+        AND vbpa~posnr = ''.
+      IF lt_but000 IS NOT INITIAL.
+
+      ENDIF.
+    ENDIF.
 
 
 
 
 
 
+
+    DATA ls_pkunnr LIKE LINE OF pkunnr.
     "上面对内表中的数据进行筛选
     "往自定义的内表中插入数据，将来做数据导出
     LOOP AT lt_main INTO ls_main.
       " ZUSER 业务员
       SELECT SINGLE
-      name_org1
-      INTO ls_out-zuser
+      name_org1,
+      but000~partner
       FROM but000
       INNER JOIN vbpa
       ON but000~partner = vbpa~kunnr
-      WHERE vbpa~vbeln = ls_main-vbeln_likp
+      WHERE vbpa~vbeln = @ls_main-vbeln_likp
       AND vbpa~posnr = ''
-      AND vbpa~parvw = 'Z3'.
+      AND vbpa~parvw = 'Z3'
+      INTO (@ls_out-zuser,@DATA(lv_partner)).
+      IF pkunnr IS NOT INITIAL.
+        READ TABLE pkunnr INTO ls_pkunnr WITH KEY low = lv_partner.
+        IF sy-subrc <> 0.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+      CLEAR lv_partner.
       "客户
 *      SELECT SINGLE
 *      name_org1
@@ -318,6 +347,19 @@ FORM getdata.
       WHERE vbpa~vbeln = ls_main-vbeln_likp
       AND vbpa~posnr = ''
       AND vbpa~parvw = 'Z1'.
+      "实际客户的业务员
+      SELECT SINGLE
+        kunn2
+        name_org1
+      INTO (ls_out-kunn2,ls_out-name_org1)
+      FROM but000
+      INNER JOIN knvp
+      ON but000~partner = knvp~kunn2
+      WHERE knvp~kunnr = ls_out-zruserno
+        AND knvp~vkorg = ls_main-vkorg
+        AND knvp~vtweg = ls_main-vtweg
+        AND knvp~spart = ls_main-spart
+        AND knvp~parvw = 'Z3'.
 *      "制单人
 *      SELECT SINGLE
 *        name_text
@@ -462,19 +504,9 @@ FORM getdata.
           IMPORTING
             output = lv_date.
         IF lv_date IS NOT INITIAL.
-          lv_date = lv_date+0(6).
-          lv_date2 = '%' && lv_date && '%'.
-          SELECT SINGLE
-          ukurs
-          INTO ls_out-kursk
-          FROM tcurr
-          WHERE tcurr~kurst = 'M'
-          AND tcurr~tcurr = 'CNY'
-          AND tcurr~fcurr = ls_main-waerk
-          AND tcurr~gdatu LIKE lv_date2.
-        ENDIF.
-        IF ls_out-kursk IS INITIAL.
-          lv_date = lv_date && '98'.
+*          lv_date = lv_date+0(6).
+*          lv_date2 = '%' && lv_date && '%'.
+*          lv_date2 = lv_date.
           SELECT
           ukurs
           INTO TABLE @DATA(lv_kursk)
@@ -482,11 +514,24 @@ FORM getdata.
           WHERE tcurr~kurst = 'M'
           AND tcurr~tcurr = 'CNY'
           AND tcurr~fcurr = @ls_main-waerk
-          AND tcurr~gdatu < @lv_date
-          ORDER BY gdatu DESCENDING.
+          AND tcurr~gdatu >= @lv_date.
           READ TABLE lv_kursk INTO DATA(ls_kursk) INDEX 1.
           ls_out-kursk = ls_kursk-ukurs.
         ENDIF.
+*        IF ls_out-kursk IS INITIAL.
+*          lv_date = lv_date && '98'.
+*          SELECT
+*          ukurs
+*          INTO TABLE @DATA(lv_kursk)
+*          FROM tcurr
+*          WHERE tcurr~kurst = 'M'
+*          AND tcurr~tcurr = 'CNY'
+*          AND tcurr~fcurr = @ls_main-waerk
+*          AND tcurr~gdatu < @lv_date
+*          ORDER BY gdatu DESCENDING.
+*          READ TABLE lv_kursk INTO DATA(ls_kursk) INDEX 1.
+*          ls_out-kursk = ls_kursk-ukurs.
+*        ENDIF.
       ENDIF.
       IF ls_main-waerk = 'CNY'.
         ls_out-kursk = '1.0000'.
@@ -1160,6 +1205,7 @@ FORM catalog USING flag_b.
   fieldcatset   'SORTL'     '检索项'   sy-tabix.
   fieldcatset   'ZUSER'     '业务员Sales'   sy-tabix.
   fieldcatset   'ZRUSERNO'      '实际客户编号'    sy-tabix.
+  fieldcatset   'NAME_ORG1'      '实际客户的业务员'    sy-tabix.
   fieldcatset   'ZRUSER'      '实际客户Actual Customer'    sy-tabix.
   fieldcatset   'BU_SORT1'      '实际客户的检索项'    sy-tabix.
   fieldcatset   'KUKLA'     '实际客户等级Classification'    sy-tabix.

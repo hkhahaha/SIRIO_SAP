@@ -80,7 +80,7 @@ FORM send USING ls_zsdt0019 TYPE zsdt0019.
       document = cl_document_bcs=>create_document(
       i_type    = 'RAW'
       i_text    = main_text
-      i_subject = 'SALES DAILY REPORT-'&& sy-datum ).        "#EC NOTEXT
+      i_subject = 'SALES DAILY REPORT-'&& sy-datum ).       "#EC NOTEXT
 
 *     add the spread sheet as attachment to document object
       document->add_attachment(
@@ -176,7 +176,7 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
   '实际客户'    gc_tab
   '原始交货期'    gc_tab
   '质检库存'    gc_tab
-*  '实际客户'    gc_tab
+  '分销渠道'    gc_tab
 
 *  '业务员'    gc_tab
   '业务员名称'    gc_tab
@@ -252,7 +252,7 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       ls_zsdt0019b-kunnr_det gc_tab
       ls_zsdt0019b-zysjhq gc_tab
       ls_zsdt0019b-zzhijiankc gc_tab
-*      ls_zsdt0019b-kunnr2 gc_tab
+      ls_zsdt0019b-vtweg gc_tab
 *
 *      ls_zsdt0019b-kunn2 gc_tab
       ls_zsdt0019b-name_org1 gc_tab
@@ -334,7 +334,7 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       ls_zsdt0019b-zzhijiankc gc_tab
 *      ls_zsdt0019b-kunnr gc_tab
 *      ls_zsdt0019b-vkorg gc_tab
-*      ls_zsdt0019b-vtweg gc_tab
+      ls_zsdt0019b-vtweg gc_tab
 *      ls_zsdt0019b-spart gc_tab
 *      ls_zsdt0019b-bu_sort1 gc_tab
 *      ls_zsdt0019b-kunnr2 gc_tab
@@ -415,7 +415,7 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       ls_zsdt0019b-zzhijiankc gc_tab
 *      ls_zsdt0019b-kunnr gc_tab
 *      ls_zsdt0019b-vkorg gc_tab
-*      ls_zsdt0019b-vtweg gc_tab
+      ls_zsdt0019b-vtweg gc_tab
 *      ls_zsdt0019b-spart gc_tab
 *      ls_zsdt0019b-bu_sort1 gc_tab
 *      ls_zsdt0019b-kunnr2 gc_tab

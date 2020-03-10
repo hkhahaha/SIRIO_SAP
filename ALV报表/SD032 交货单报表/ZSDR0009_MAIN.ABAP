@@ -293,7 +293,7 @@ FORM getdata.
       FROM but000
       INNER JOIN knvp
       ON knvp~kunn2 = but000~partner
-      WHERE knvp~parvw = 'Z1'
+      WHERE knvp~parvw = 'Z3'
         AND knvp~vkorg = @ls_main-vkorg
         AND knvp~spart = @ls_main-spart
         AND knvp~vtweg = @ls_main-vtweg

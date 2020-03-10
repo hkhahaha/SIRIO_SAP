@@ -179,41 +179,42 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
 
 * header line
   CONCATENATE lv_string
-  '订单状态'    gc_tab
-  '二审日期'    gc_tab
-  '创建日期'    gc_tab
-  '售达方'    gc_tab
-  '实际客户'    gc_tab
-  '原始交货期'    gc_tab
-  '其他库存（检测中未放行）'    gc_tab
-  '分销渠道'    gc_tab
-  '实际客户检索项' gc_tab
-  '订单类型描述'    gc_tab
-  '单据号'    gc_tab
-  '付款方式'    gc_tab
-  '产品编号'    gc_tab
-  '行号'    gc_tab
-  '产品名称'    gc_tab
-  '规格型号'    gc_tab
-  '包装规格Packing Specification'    gc_tab
-  '基本计量数量 QTY'    gc_tab
-  '基本计量单位'    gc_tab
-  '销售数量'    gc_tab
-  '销售单位'    gc_tab
-  '折前单价'    gc_tab
-  '价税合计'    gc_tab
-  '计划行类型'    gc_tab
-  '内部交货日期'    gc_tab
-  'ATP答复日期'    gc_tab
-  '出库量'    gc_tab
-  '制单人'    gc_tab
-  '非限制库存（已检测放行）'    gc_tab
-  '不含税金额CNY'    gc_tab
-  '工厂'    gc_tab
-  '开票量' gc_tab
-  '实际业务员' gc_tab
-  '最晚入库日期' gc_tab
-  '物料中类名称'    gc_crlf "#EC NOTEXT                                        "#EC NOTEXT
+'订单状态'  gc_tab
+'实际客户检索项'	gc_tab
+'实际业务员'	gc_tab
+'制单人'   gc_tab
+'订单类型描述' 	gc_tab
+'单据号'	gc_tab
+'行号'  gc_tab
+'产品编号'  gc_tab
+'产品名称'  gc_tab
+'二审日期（订单下达计划）'  gc_tab
+'原始交货期（客户要求货期)'	gc_tab
+'内部交货日期	'gc_tab
+'ATP答复日期（计划答复入库日期）'	gc_tab
+'规格型号'  gc_tab
+'包装规格Packing Specification'	gc_tab
+'基本计量数量 QTY'  gc_tab
+'基本计量单位'  gc_tab
+'销售数量'  gc_tab
+'销售单位'  gc_tab
+'折前单价'  gc_tab
+'价税合计'  gc_tab
+'不含税金额CNY'  gc_tab
+'计划行类型'	gc_tab
+'工厂'  gc_tab
+'最晚入库日期'  gc_tab
+'非限制库存（已检测放行）'  gc_tab
+'其他库存（检测中未放行）'  gc_tab
+'出库量（已发货数量，销售单位）'	gc_tab
+'开票量（已开票数量，销售单位）'	gc_tab
+'付款方式'  gc_tab
+'物料中类名称'  gc_tab
+'售达方'	gc_tab
+'实际客户'  gc_tab
+'分销渠道'  gc_tab
+'创建日期'  gc_crlf
+
   INTO lv_string.
   DATA:lv_kwmeng(30),
        lv_kwmeng2(30),
@@ -264,41 +265,41 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       lv_invoice = ls_zsdt0019b-invoice.
 
       CONCATENATE lv_string
-      ls_zsdt0019b-statdetail gc_tab
-      ls_zsdt0019b-udate gc_tab
-      ls_zsdt0019b-erdat gc_tab
-      ls_zsdt0019b-kunnr_nam gc_tab
-      ls_zsdt0019b-kunnr_det gc_tab
-      ls_zsdt0019b-zysjhq gc_tab
-      ls_zsdt0019b-zzhijiankc gc_tab
-      ls_zsdt0019b-vtweg gc_tab
-      ls_zsdt0019b-bu_sort1 gc_tab
-      ls_zsdt0019b-bezei gc_tab
-      ls_zsdt0019b-vbeln gc_tab
-      ls_zsdt0019b-text1 gc_tab
-      ls_zsdt0019b-matwa gc_tab
-      ls_zsdt0019b-posnr gc_tab
-      ls_zsdt0019b-maktx gc_tab
-      ls_zsdt0019b-groes gc_tab
-      ls_zsdt0019b-atwrt gc_tab
-      lv_kwmeng gc_tab
-      ls_zsdt0019b-meins gc_tab
-      lv_kwmeng2 gc_tab
-      ls_zsdt0019b-vrkme gc_tab
-      lv_kbetr gc_tab
-      lv_netwr gc_tab
-      ls_zsdt0019b-ettyp gc_tab
-      ls_zsdt0019b-znbjhq gc_tab
-      ls_zsdt0019b-zatpdfrq gc_tab
-      lv_rfmng gc_tab
-      ls_zsdt0019b-name_text gc_tab
-      lv_kalab gc_tab
-      lv_netwr2 gc_tab
-      ls_zsdt0019b-werks gc_tab
-      lv_invoice gc_tab
-      ls_zsdt0019b-saleman gc_tab
-      ls_zsdt0019b-budat gc_tab
-      ls_zsdt0019b-wgbez  gc_crlf
+      ls_zsdt0019b-statdetail	gc_tab
+      ls_zsdt0019b-bu_sort1	gc_tab
+      ls_zsdt0019b-saleman  gc_tab
+      ls_zsdt0019b-name_text  gc_tab
+      ls_zsdt0019b-bezei  gc_tab
+      ls_zsdt0019b-vbeln  gc_tab
+      ls_zsdt0019b-posnr  gc_tab
+      ls_zsdt0019b-matwa  gc_tab
+      ls_zsdt0019b-maktx  gc_tab
+      ls_zsdt0019b-udate  gc_tab
+      ls_zsdt0019b-zysjhq	gc_tab
+      ls_zsdt0019b-znbjhq	gc_tab
+      ls_zsdt0019b-zatpdfrq	gc_tab
+      ls_zsdt0019b-groes  gc_tab
+      ls_zsdt0019b-atwrt  gc_tab
+      lv_kwmeng	gc_tab
+      ls_zsdt0019b-meins  gc_tab
+      lv_kwmeng2  gc_tab
+      ls_zsdt0019b-vrkme  gc_tab
+      lv_kbetr  gc_tab
+      lv_netwr  gc_tab
+      lv_netwr2	gc_tab
+      ls_zsdt0019b-ettyp  gc_tab
+      ls_zsdt0019b-werks  gc_tab
+      ls_zsdt0019b-budat  gc_tab
+      lv_kalab  gc_tab
+      ls_zsdt0019b-zzhijiankc	gc_tab
+      lv_rfmng  gc_tab
+      lv_invoice  gc_tab
+      ls_zsdt0019b-text1  gc_tab
+      ls_zsdt0019b-wgbez  gc_tab
+      ls_zsdt0019b-kunnr_nam  gc_tab
+      ls_zsdt0019b-kunnr_det  gc_tab
+      ls_zsdt0019b-vtweg  gc_tab
+      ls_zsdt0019b-erdat  gc_crlf
       INTO lv_string.
 
     ENDSELECT.
@@ -342,53 +343,45 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       lv_netwr = ls_zsdt0019b-netwr.
       lv_rfmng = ls_zsdt0019b-rfmng.
       lv_kalab = ls_zsdt0019b-kalab.
+      lv_netwr2 = ls_zsdt0019b-netwr2.
+      lv_invoice = ls_zsdt0019b-invoice.
 
       CONCATENATE lv_string
-*      ls_zsdt0019b-stat gc_tab
-      ls_zsdt0019b-statdetail gc_tab
-      ls_zsdt0019b-udate gc_tab
-      ls_zsdt0019b-erdat gc_tab
-      ls_zsdt0019b-kunnr_nam gc_tab
-      ls_zsdt0019b-kunnr_det gc_tab
-      ls_zsdt0019b-zysjhq gc_tab
-      ls_zsdt0019b-zzhijiankc gc_tab
-*      ls_zsdt0019b-kunnr gc_tab
-*      ls_zsdt0019b-vkorg gc_tab
-      ls_zsdt0019b-vtweg gc_tab
-*      ls_zsdt0019b-spart gc_tab
-      ls_zsdt0019b-bu_sort1 gc_tab
-*      ls_zsdt0019b-kunnr2 gc_tab
-
-*      ls_zsdt0019b-kunn2 gc_tab
-      ls_zsdt0019b-name_org1 gc_tab
-*      ls_zsdt0019b-auart gc_tab
-      ls_zsdt0019b-bezei gc_tab
-      ls_zsdt0019b-vbeln gc_tab
-      ls_zsdt0019b-text1 gc_tab
-      ls_zsdt0019b-matwa gc_tab
-      ls_zsdt0019b-posnr gc_tab
-      ls_zsdt0019b-maktx gc_tab
-      ls_zsdt0019b-groes gc_tab
-      ls_zsdt0019b-atwrt gc_tab
-      lv_kwmeng gc_tab
-
-      ls_zsdt0019b-meins gc_tab
-      lv_kwmeng2 gc_tab
-      ls_zsdt0019b-vrkme gc_tab
-      lv_kbetr gc_tab
-      lv_netwr gc_tab
-      ls_zsdt0019b-ettyp gc_tab
-      ls_zsdt0019b-znbjhq gc_tab
-      ls_zsdt0019b-zatpdfrq gc_tab
-      lv_rfmng gc_tab
-      ls_zsdt0019b-name_text gc_tab
-      lv-kains gc_tab
-      lv_kalab gc_tab
-      lv_netwr2 gc_tab
-      ls_zsdt0019b-werks gc_tab
-      lv_invoice gc_tab
-      ls_zsdt0019b-saleman gc_tab
-      ls_zsdt0019b-wgbez  gc_crlf
+      ls_zsdt0019b-statdetail	gc_tab
+      ls_zsdt0019b-bu_sort1	gc_tab
+      ls_zsdt0019b-saleman  gc_tab
+      ls_zsdt0019b-name_text  gc_tab
+      ls_zsdt0019b-bezei  gc_tab
+      ls_zsdt0019b-vbeln  gc_tab
+      ls_zsdt0019b-posnr  gc_tab
+      ls_zsdt0019b-matwa  gc_tab
+      ls_zsdt0019b-maktx  gc_tab
+      ls_zsdt0019b-udate  gc_tab
+      ls_zsdt0019b-zysjhq	gc_tab
+      ls_zsdt0019b-znbjhq	gc_tab
+      ls_zsdt0019b-zatpdfrq	gc_tab
+      ls_zsdt0019b-groes  gc_tab
+      ls_zsdt0019b-atwrt  gc_tab
+      lv_kwmeng	gc_tab
+      ls_zsdt0019b-meins  gc_tab
+      lv_kwmeng2  gc_tab
+      ls_zsdt0019b-vrkme  gc_tab
+      lv_kbetr  gc_tab
+      lv_netwr  gc_tab
+      lv_netwr2	gc_tab
+      ls_zsdt0019b-ettyp  gc_tab
+      ls_zsdt0019b-werks  gc_tab
+      ls_zsdt0019b-budat  gc_tab
+      lv_kalab  gc_tab
+      ls_zsdt0019b-zzhijiankc	gc_tab
+      lv_rfmng  gc_tab
+      lv_invoice  gc_tab
+      ls_zsdt0019b-text1  gc_tab
+      ls_zsdt0019b-wgbez  gc_tab
+      ls_zsdt0019b-kunnr_nam  gc_tab
+      ls_zsdt0019b-kunnr_det  gc_tab
+      ls_zsdt0019b-vtweg  gc_tab
+      ls_zsdt0019b-erdat  gc_crlf
       INTO lv_string.
       CLEAR ls_zsdt0019b.
     ENDLOOP.
@@ -429,53 +422,45 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       lv_netwr = ls_zsdt0019b-netwr.
       lv_rfmng = ls_zsdt0019b-rfmng.
       lv_kalab = ls_zsdt0019b-kalab.
+      lv_netwr2 = ls_zsdt0019b-netwr2.
+      lv_invoice = ls_zsdt0019b-invoice.
 
       CONCATENATE lv_string
-*      ls_zsdt0019b-stat gc_tab
-      ls_zsdt0019b-statdetail gc_tab
-      ls_zsdt0019b-udate gc_tab
-      ls_zsdt0019b-erdat gc_tab
-      ls_zsdt0019b-kunnr_nam gc_tab
-      ls_zsdt0019b-kunnr_det gc_tab
-      ls_zsdt0019b-zysjhq gc_tab
-      ls_zsdt0019b-zzhijiankc gc_tab
-*      ls_zsdt0019b-kunnr gc_tab
-*      ls_zsdt0019b-vkorg gc_tab
-      ls_zsdt0019b-vtweg gc_tab
-*      ls_zsdt0019b-spart gc_tab
-      ls_zsdt0019b-bu_sort1 gc_tab
-*      ls_zsdt0019b-kunnr2 gc_tab
-
-*      ls_zsdt0019b-kunn2 gc_tab
-      ls_zsdt0019b-name_org1 gc_tab
-*      ls_zsdt0019b-auart gc_tab
-      ls_zsdt0019b-bezei gc_tab
-      ls_zsdt0019b-vbeln gc_tab
-      ls_zsdt0019b-text1 gc_tab
-      ls_zsdt0019b-matwa gc_tab
-      ls_zsdt0019b-posnr gc_tab
-      ls_zsdt0019b-maktx gc_tab
-      ls_zsdt0019b-groes gc_tab
-      ls_zsdt0019b-atwrt gc_tab
-      lv_kwmeng gc_tab
-
-      ls_zsdt0019b-meins gc_tab
-      lv_kwmeng2 gc_tab
-      ls_zsdt0019b-vrkme gc_tab
-      lv_kbetr gc_tab
-      lv_netwr gc_tab
-      ls_zsdt0019b-ettyp gc_tab
-      ls_zsdt0019b-znbjhq gc_tab
-      ls_zsdt0019b-zatpdfrq gc_tab
-      lv_rfmng gc_tab
-      ls_zsdt0019b-name_text gc_tab
-      lv-kains gc_tab
-      lv_kalab gc_tab
-      lv_netwr2 gc_tab
-      ls_zsdt0019b-werks gc_tab
-      lv_invoice gc_tab
-      ls_zsdt0019b-saleman gc_tab
-      ls_zsdt0019b-wgbez  gc_crlf
+      ls_zsdt0019b-statdetail	gc_tab
+      ls_zsdt0019b-bu_sort1	gc_tab
+      ls_zsdt0019b-saleman  gc_tab
+      ls_zsdt0019b-name_text  gc_tab
+      ls_zsdt0019b-bezei  gc_tab
+      ls_zsdt0019b-vbeln  gc_tab
+      ls_zsdt0019b-posnr  gc_tab
+      ls_zsdt0019b-matwa  gc_tab
+      ls_zsdt0019b-maktx  gc_tab
+      ls_zsdt0019b-udate  gc_tab
+      ls_zsdt0019b-zysjhq	gc_tab
+      ls_zsdt0019b-znbjhq	gc_tab
+      ls_zsdt0019b-zatpdfrq	gc_tab
+      ls_zsdt0019b-groes  gc_tab
+      ls_zsdt0019b-atwrt  gc_tab
+      lv_kwmeng	gc_tab
+      ls_zsdt0019b-meins  gc_tab
+      lv_kwmeng2  gc_tab
+      ls_zsdt0019b-vrkme  gc_tab
+      lv_kbetr  gc_tab
+      lv_netwr  gc_tab
+      lv_netwr2	gc_tab
+      ls_zsdt0019b-ettyp  gc_tab
+      ls_zsdt0019b-werks  gc_tab
+      ls_zsdt0019b-budat  gc_tab
+      lv_kalab  gc_tab
+      ls_zsdt0019b-zzhijiankc	gc_tab
+      lv_rfmng  gc_tab
+      lv_invoice  gc_tab
+      ls_zsdt0019b-text1  gc_tab
+      ls_zsdt0019b-wgbez  gc_tab
+      ls_zsdt0019b-kunnr_nam  gc_tab
+      ls_zsdt0019b-kunnr_det  gc_tab
+      ls_zsdt0019b-vtweg  gc_tab
+      ls_zsdt0019b-erdat  gc_crlf
       INTO lv_string.
       CLEAR ls_zsdt0019b.
     ENDLOOP.

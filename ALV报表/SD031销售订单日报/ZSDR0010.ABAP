@@ -114,6 +114,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         lgort            TYPE    lips-lgort  , "  库存地点
         vkbur(15), "  二级部门
         saleman(20), "  业务员
+        salemanno(20),"业务员编号
         mc_name1         TYPE    but000-mc_name1, "检索项
         mandt            TYPE    vbak-mandt  , "  集团名称
         kunnr(60), "  售达方(客户名称)
@@ -703,20 +704,35 @@ FORM getdata.
 *    ls_out-lgort = ls_lips-lgort.
 *    CLEAR ls_lips.
     "业务员
+*    SELECT SINGLE
+*      name_org1
+*      name_org2
+*      name_org3
+*      name_org4
+*    INTO CORRESPONDING FIELDS OF ls_but000
+*    FROM but000
+*    INNER JOIN vbpa
+*    ON but000~partner = vbpa~kunnr
+*    WHERE vbpa~parvw = 'Z3'
+*      AND vbpa~vbeln = ls_all-vbeln
+*      AND vbpa~posnr = ''.
+*    ls_out-saleman = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
+*    CLEAR ls_but000.
+
     SELECT SINGLE
-      name_org1
-      name_org2
-      name_org3
-      name_org4
-    INTO CORRESPONDING FIELDS OF ls_but000
-    FROM but000
-    INNER JOIN vbpa
-    ON but000~partner = vbpa~kunnr
-    WHERE vbpa~parvw = 'Z3'
-      AND vbpa~vbeln = ls_all-vbeln
-      AND vbpa~posnr = ''.
-    ls_out-saleman = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
-    CLEAR ls_but000.
+      name_org1,
+      partner
+    FROM  but000
+    INNER JOIN knvp
+    ON knvp~kunn2 = but000~partner
+    WHERE knvp~parvw = 'Z3'
+      AND knvp~vkorg = @ls_all-vkorg
+      AND knvp~spart = @ls_all-spart
+      AND knvp~vtweg = @ls_all-vtweg
+      AND knvp~kunnr = @ls_all-kunnr
+    INTO (@ls_out-saleman,@ls_out-salemanno).
+
+
     "检索项
     SELECT SINGLE
       mc_name1
@@ -1617,7 +1633,7 @@ FORM getdata.
   FROM @lt_out AS a
   WHERE a~udate IN @s_udate
     AND a~udate1 IN @s_udate1
-    AND a~kunn2 IN @s_kunn2
+    AND a~partner IN @s_kunn2
   INTO TABLE @lt_out.
   SORT lt_out BY vbeln posnr.
 ENDFORM.
@@ -1654,6 +1670,7 @@ FORM catalog.
   fieldcatset 'KUNNR'   '售达方(客户名称)Customer' sy-tabix.
   fieldcatset 'KUNNR2'   '售达方(编号)' sy-tabix.
   fieldcatset 'SALEMAN'   '业务员Sales' sy-tabix.
+  fieldcatset 'SALEMANNO'   '业务员编号' sy-tabix.
   fieldcatset 'POSNR'   '行号' sy-tabix.
   fieldcatset 'MATNR'   '产品编码Product ID' sy-tabix.
   fieldcatset 'ARKTX'   '产品名称Product Name' sy-tabix.
@@ -1712,7 +1729,8 @@ FORM catalog.
   fieldcatset 'CUSTNAME'   '实际客户名称Actual Customer' sy-tabix.
   fieldcatset 'CUSTNAME2'   '实际客户编号' sy-tabix.
   fieldcatset 'KUKLA'   '实际客户等级Classification' sy-tabix.
-  fieldcatset 'PARTNER'      '实际客户的业务员'    sy-tabix.
+  fieldcatset 'PARTNER'      '实际客户的业务员编号'    sy-tabix.
+  fieldcatset 'KUNN2'      '实际客户的业务员'    sy-tabix.
   fieldcatset 'BSTKD_E'   '客户PO PO' sy-tabix.
   fieldcatset 'POSEX_E'   '客户合同分录' sy-tabix.
   fieldcatset 'ZKHWL'   '客户产品编码Customer Product Code' sy-tabix.

@@ -92,11 +92,13 @@ FORM send USING ls_zsdt0019 TYPE zsdt0019.
       i_type    = 'RAW'
       i_text    = main_text
       i_subject = 'Sales Daily Report 销售日报' && sy-datum ).  "#EC NOTEXT
+*      i_subject = '销售日报').  "#EC NOTEXT
 
 *     add the spread sheet as attachment to document object
       document->add_attachment(
       i_attachment_type    = 'xls'                          "#EC NOTEXT
       i_attachment_subject = 'Sales Daily Report 销售日报' && sy-datum "#EC NOTEXT
+*      i_attachment_subject = 'Sales Daily.XLS' "#EC NOTEXT
       i_attachment_size    = size
       i_att_content_hex    = binary_content ).
 *     发件人
@@ -233,8 +235,8 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
     INTO @ls_zsdt0019b
     FROM zsdt0019b
     INNER JOIN zsdt0019
-    ON zsdt0019b~kunn2 = zsdt0019~partner
-    WHERE zsdt0019b~kunn2 = @ls_zsdt0019-partner
+    ON zsdt0019b~salemanno = zsdt0019~partner
+    WHERE zsdt0019b~salemanno = @ls_zsdt0019-partner
       AND zsdt0019b~erdat IN @s_erdat
       AND zsdt0019b~udate IN @s_udate
       AND zsdt0019~job IN @s_job.
@@ -308,7 +310,7 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
        *
       FROM zsdt0019b
       LEFT JOIN zsdt0019
-      ON zsdt0019~partner = zsdt0019b~kunn2
+      ON zsdt0019~partner = zsdt0019b~salemanno
       WHERE zsdt0019~zdomain = @ls_zsdt0019-zdomain
       AND zsdt0019~active = 'X'
       AND zsdt0019b~udate IN @s_udate

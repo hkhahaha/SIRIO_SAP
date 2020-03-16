@@ -18,7 +18,6 @@ TYPES:BEGIN OF ty_alv,
         knumv TYPE vbak-knumv,
         mwsbp TYPE vbap-mwsbp,
         ernam TYPE vbak-ernam,
-        werks TYPE vbap-werks,
         objek TYPE ausp-objek.
         INCLUDE TYPE zsdt0019b.
       TYPES:END OF ty_alv.
@@ -58,7 +57,7 @@ SELECT-OPTIONS:s_auart FOR vbak-auart,"订单类型
 
 SELECTION-SCREEN BEGIN OF LINE.
 SELECTION-SCREEN COMMENT 1(12) TEXT-002.
-PARAMETERS: p_flag AS CHECKBOX DEFAULT 'X'."是否写入后台表
+PARAMETERS: p_flag AS CHECKBOX."是否写入后台表
 SELECTION-SCREEN END OF LINE.
 SELECTION-SCREEN END OF BLOCK blk.
 
@@ -159,6 +158,7 @@ FORM getdata."查询语句
     vbap~posnr
     vbap~matnr
     vbap~kwmeng AS kwmeng2
+    vbap~werks
     vbap~umvkz
     vbap~umvkn
     vbap~meins
@@ -186,11 +186,59 @@ FORM getdata."查询语句
     AND vbak~vbeln IN s_vbeln
     AND vbap~posnr IN s_posnr
     AND knvp~parvw IN ('Z3','')
-    AND knvp~kunn2 IN s_partn.
+    AND knvp~kunn2 IN s_partn
+    AND vbap~kwmeng <> '0.01'.
 
 
   "下面查询的是来自于其他表的数据
   IF lt_alv IS NOT INITIAL.
+    "最晚入库日期相关的字段
+    SELECT
+    mblnr,
+    zeile,
+    mjahr,
+    kdauf,
+    kdpos,
+    matnr,
+    bwart,
+    budat,
+    lgort
+    INTO TABLE @DATA(lt_aufma)
+    FROM aufm
+    FOR ALL ENTRIES IN @lt_alv
+    WHERE aufm~kdauf = @lt_alv-vbeln
+    AND aufm~kdpos = @lt_alv-posnr
+    AND aufm~matnr = @lt_alv-matnr
+    AND aufm~bwart = '101'
+    AND aufm~lgort IN ('1040','2040','3040','1060','2060','3060','1070','2070','3070','1080','2080','3080' ).
+*SORT itab BY col1 ASCENDING col2 DESCENDING.
+    SORT lt_aufma BY budat DESCENDING kdauf kdpos ASCENDING .
+
+
+    "VBFA表，用于计算开票量
+    SELECT
+    vbelv AS vbeln,
+    posnv AS posnr,
+    rfmng,
+    vbtyp_n,
+    erdat
+    INTO TABLE @DATA(lt_vbfa)
+    FROM vbfa
+    FOR ALL ENTRIES IN @lt_alv
+    WHERE vbfa~vbelv = @lt_alv-vbeln
+    AND vbfa~posnv = @lt_alv-posnr
+    AND vbfa~vbtyp_n IN ( 'M','N','O','S' ).
+    SORT lt_vbfa BY vbeln posnr ASCENDING erdat DESCENDING.
+    "VBKD表
+    SELECT
+      vbeln,
+      posnr,
+      kursk
+    FROM vbkd
+    FOR ALL ENTRIES IN @lt_alv
+    WHERE vbkd~vbeln = @lt_alv-vbeln
+      AND vbkd~posnr = ''
+    INTO TABLE @DATA(lt_vbkd).
     "Jest表
     SELECT
       objnr
@@ -239,6 +287,7 @@ FORM getdata."查询语句
       posnr,
       parvw,
       kunnr,
+      partner,
       name_org1,
       name_org2,
       name_org3,
@@ -251,6 +300,10 @@ FORM getdata."查询语句
     WHERE vbpa~parvw = 'Z1'
       AND vbpa~posnr = ''
       AND vbpa~vbeln = @lt_alv-vbeln.
+
+
+
+
     "TVAKT表
     SELECT
       *
@@ -302,11 +355,13 @@ FORM getdata."查询语句
     "上面处理物料号之后，查询对应的全部AUSP的数据
     SELECT
       objek,
-      atwrt
+      atwrt,
+      atinn
     INTO TABLE @DATA(lt_ausp)
     FROM ausp
     FOR ALL ENTRIES IN @lt_alv
-    WHERE ausp~objek = @lt_alv-objek.
+    WHERE ausp~objek = @lt_alv-objek
+      AND ausp~atinn = @lv_zpspe.
     "获取文本表的数据
     SELECT
       *
@@ -429,6 +484,25 @@ FORM getdata."查询语句
   "下面开始循环读取数据
   LOOP AT lt_alv INTO ls_alv.
     MOVE-CORRESPONDING ls_alv TO ls_zsdt0019b.
+    "开票量
+    LOOP AT lt_vbfa INTO DATA(ls_vbfa) WHERE vbeln = ls_alv-vbeln AND posnr = ls_alv-posnr.
+      ls_alv-invoice = ls_alv-invoice + ls_vbfa-rfmng.
+      IF ls_vbfa-vbtyp_n = 'M' OR ls_vbfa-vbtyp_n = 'O'.
+        ls_alv-invoice = ls_alv-invoice + ls_vbfa-rfmng.
+      ELSEIF ls_vbfa-vbtyp_n = 'N' OR ls_vbfa-vbtyp_n = 'S'.
+        ls_alv-invoice = ls_alv-invoice - ls_vbfa-rfmng.
+      ENDIF.
+      CLEAR ls_vbfa.
+    ENDLOOP.
+
+    "最晚过账日期
+    READ TABLE lt_aufma INTO DATA(ls_aufma) WITH KEY kdauf = ls_alv-vbeln
+                                                     kdpos = ls_alv-posnr
+                                                     matnr = ls_alv-matnr.
+    IF sy-subrc = 0.
+      ls_alv-budat = ls_aufma-budat.
+    ENDIF.
+    CLEAR ls_aufma.
     "订单状态
     READ TABLE lt_jest INTO ls_jest WITH KEY objnr = ls_alv-objnr.
     IF sy-subrc = 0.
@@ -454,13 +528,13 @@ FORM getdata."查询语句
 *      CONTINUE.
 *    ENDIF.
     "判断选择屏幕中的二审日期是否为空，如果为空的话，证明是查全部，如果不为空的话，证明只查询二审
-    IF s_udate IS NOT INITIAL.
-      READ TABLE s_udate INTO ls_s_udate WITH KEY low = ls_alv-udate.
-      IF sy-subrc <> 0.
-        CONTINUE.
-      ENDIF.
-    ENDIF.
-    CLEAR ls_s_udate.
+*    IF s_udate IS NOT INITIAL.
+*      READ TABLE s_udate INTO ls_s_udate WITH KEY low = ls_alv-udate.
+*      IF sy-subrc <> 0.
+*        CONTINUE.
+*      ENDIF.
+*    ENDIF.
+*    CLEAR ls_s_udate.
     "检索项
     READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_alv-kunnr.
     IF sy-subrc = 0.
@@ -475,6 +549,19 @@ FORM getdata."查询语句
       ls_alv-kunnr_nam = ls_vbpa-name_org1 && ls_vbpa-name_org2 && ls_vbpa-name_org3 && ls_vbpa-name_org4.
     ENDIF.
     CLEAR ls_vbpa.
+    "实际业务员
+    SELECT SINGLE
+      kunn2
+      name_org1
+    INTO (ls_alv-salemanno,ls_alv-saleman)
+    FROM but000
+    INNER JOIN knvp
+    ON but000~partner = knvp~kunn2
+    WHERE knvp~kunnr = ls_alv-kunnr2
+      AND knvp~vkorg = ls_alv-vkorg
+      AND knvp~vtweg = ls_alv-vtweg
+      AND knvp~spart = ls_alv-spart
+      AND knvp~parvw = 'Z3'.
     "业务员
 *    IF s_job IS NOT INITIAL.
 *      READ TABLE lt_knvp INTO ls_knvp WITH KEY kunnr = ls_alv-kunnr
@@ -535,6 +622,11 @@ FORM getdata."查询语句
     IF ls_alv-umvkn IS NOT INITIAL.
       ls_alv-kwmeng = ls_alv-kwmeng2 * ls_alv-umvkz / ls_alv-umvkn.
     ENDIF.
+
+    "开票量重新计算
+    IF ls_alv-kwmeng IS NOT INITIAL AND ls_alv-kwmeng2 IS NOT INITIAL AND ( ls_alv-kwmeng / ls_alv-kwmeng2  ) <> 0.
+      ls_alv-invoice = ls_alv-invoice /  ( ls_alv-kwmeng / ls_alv-kwmeng2  ).
+    ENDIF.
     "基本计量单位、销售单位
     READ TABLE lt_t006a INTO DATA(ls_t006a) WITH KEY msehi = ls_alv-meins.
     IF sy-subrc = 0.
@@ -546,6 +638,12 @@ FORM getdata."查询语句
       ls_alv-vrkme = ls_t006a-msehl.
     ENDIF.
     CLEAR ls_t006a.
+    "不含税金额
+    READ TABLE lt_vbkd INTO DATA(ls_vbkd) WITH KEY vbeln = ls_alv-vbeln
+                                                   posnr = ''.
+    IF sy-subrc = 0.
+      ls_alv-netwr2 = ls_alv-netwr * ls_vbkd-kursk.
+    ENDIF.
     "价税合计
     ls_alv-netwr = ls_alv-netwr + ls_alv-mwsbp.
     "折前单价
@@ -569,9 +667,7 @@ FORM getdata."查询语句
       READ TABLE lt_vbfa_h INTO DATA(ls_vbfa_h) WITH KEY vbelv = ls_alv-vbeln
                                                          posnv = ls_alv-posnr
                                                          vbtyp_n = 'h'.
-      IF sy-subrc = 0.
-        ls_alv-rfmng = ls_vbfa_r-rfmeng - ls_vbfa_h-rfmeng.
-      ENDIF.
+      ls_alv-rfmng = ls_vbfa_r-rfmeng - ls_vbfa_h-rfmeng.
     ENDIF.
     CLEAR:ls_vbfa_r,ls_vbfa_h.
     "制单人
@@ -586,8 +682,13 @@ FORM getdata."查询语句
                                                    vbeln = ls_alv-vbeln
                                                    werks = ls_alv-werks.
     IF sy-subrc = 0.
-      ls_alv-kalab = ls_mska-kalab / ls_vbep-umvkz * ls_vbep-umvkn.
-      ls_alv-kains = ls_mska-kains.
+      IF ls_alv-umvkz <> 0.
+        ls_alv-kalab = ls_mska-kalab / ls_alv-umvkz * ls_alv-umvkn.
+        ls_alv-kains = ls_mska-kains / ls_alv-umvkz * ls_alv-umvkn.
+      ELSE.
+        ls_alv-kalab = ls_mska-kalab.
+        ls_alv-kains = ls_mska-kains.
+      ENDIF.
       CLEAR ls_mska.
     ENDIF.
     IF lv_matkl IS NOT INITIAL.
@@ -618,8 +719,21 @@ FORM getdata."查询语句
       CLEAR ls_alv.
     ENDLOOP.
   ENDIF.
+  SELECT
+    *
+  FROM @lt_alv AS a
+  WHERE a~udate IN @s_udate
+  INTO TABLE @lt_alv.
 
   SORT lt_alv BY vbeln posnr.
+
+  SELECT
+    *
+  FROM @lt_zsdt0019b AS a
+  WHERE a~udate IN @s_udate
+  INTO TABLE @lt_zsdt0019b.
+
+  SORT lt_zsdt0019b BY udate.
 
 
 
@@ -666,6 +780,9 @@ FORM catalog."表头
   fieldcatset   'KUNNR2'   '实际客户'   sy-tabix.
   fieldcatset   'KUNN2'   '业务员'   sy-tabix.
   fieldcatset   'NAME_ORG1'   '业务员名称'   sy-tabix.
+  fieldcatset   'SALEMANNO'   '实际业务员编号'   sy-tabix.
+  fieldcatset   'SALEMAN'   '实际业务员'   sy-tabix.
+
   fieldcatset   'AUART'   '订单类型'   sy-tabix.
   fieldcatset   'BEZEI'   '订单类型描述'   sy-tabix.
   fieldcatset   'VBELN'   '单据号'   sy-tabix.
@@ -688,10 +805,14 @@ FORM catalog."表头
   fieldcatset   'NAME_TEXT'   '制单人'   sy-tabix.
   fieldcatset   'KALAB'   '非限制库存'   sy-tabix.
   fieldcatset   'WGBEZ'   '物料中类名称'   sy-tabix.
-  fieldcatset   'NETWR'   '不含税金额'   sy-tabix.
+  fieldcatset   'NETWR2'   '不含税金额'   sy-tabix.
   fieldcatset   'ZYSJHQ'   '原始交货日期'   sy-tabix.
   fieldcatset   'KUNNR_DET'   '售达方描述'   sy-tabix.
   fieldcatset   'KUNNR_NAM'   '实际客户名称'   sy-tabix.
+  fieldcatset   'KAINS'   '质检库存'   sy-tabix.
+  fieldcatset   'WERKS'   '工厂'   sy-tabix.
+  fieldcatset   'INVOICE'   '开票量'   sy-tabix.
+  fieldcatset   'BUDAT'   '最晚入库日期'   sy-tabix.
 
 
 
@@ -765,7 +886,7 @@ FORM alvshow.
 *     I_CALLBACK_HTML_END_OF_LIST       = ' '
 *     I_STRUCTURE_NAME         =
 *     I_BACKGROUND_ID          = ' '
-      i_grid_title             = '会计凭证' "标题名
+*     i_grid_title             = '会计凭证' "标题名
 *     I_GRID_SETTINGS          =
       is_layout                = layout "程序所定义的layout名称
       it_fieldcat              = fieldcat[] "定义fieldcat数据

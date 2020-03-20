@@ -373,8 +373,8 @@ ENDFORM.                                          "fcode_tc_mark_lines
 *&
 *&---------------------------------------------------------------------*
 MODULE status_0100 OUTPUT.
-  SET PF-STATUS 'ZGUI1'.
-  SET TITLEBAR 'ZTITLE1'.
+  SET PF-STATUS 'ZCREATE'.
+*  SET TITLEBAR 'ZTITLE1'.
 ENDMODULE.
 *&---------------------------------------------------------------------*
 *&      Module  MOD_GET_DW  INPUT
@@ -407,7 +407,7 @@ ENDMODULE.
 *----------------------------------------------------------------------*
 MODULE mod_exit INPUT.
   SET SCREEN 0.
-  LEAVE SCREEN.
+*  LEAVE SCREEN.
 ENDMODULE.
 *&---------------------------------------------------------------------*
 *&      Module  USER_COMMAND_0100  INPUT
@@ -433,6 +433,7 @@ MODULE ahead OUTPUT.
 * SET TITLEBAR 'xxx'.
   gs_head-bwart = p_bwart.
   t001w-werks = p_werks.
+
 ENDMODULE.
 *&---------------------------------------------------------------------*
 *&      Module  AHEAD_CHECK  INPUT

@@ -20,7 +20,7 @@ START-OF-SELECTION.
   PERFORM frm_get_ext_st.
   CASE 'X'.
     WHEN r_01.
-*  PERFORM frm_authority_check_01.
+      PERFORM frm_authority_check_01.
       CALL SCREEN 100.
     WHEN r_02.
       PERFORM frm_screen_check.    "屏幕检查

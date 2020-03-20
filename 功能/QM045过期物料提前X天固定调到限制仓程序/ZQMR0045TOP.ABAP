@@ -8,13 +8,18 @@ DATA:fieldcat TYPE slis_t_fieldcat_alv WITH HEADER LINE,
      layout   TYPE slis_layout_alv,
      w_repid  TYPE sy-repid. "记录系统当前的程序名
 DATA:lt_alv TYPE TABLE OF zmm_changeno.
+DATA wms_custid TYPE char10.
+TABLES:bkpf.
+DATA:lbkpf LIKE STANDARD TABLE OF bkpf WITH HEADER LINE."标准表格式的内表lbkpf
+DATA: gt_wms_custid_help TYPE TABLE OF zmmwms_sys.
+DATA t_link LIKE TABLE OF tline WITH HEADER LINE .
 "进行类型定义
 "创建通知单抬头字段
 TYPES:BEGIN OF ty_head,
         zsapnote_no TYPE zmm_changeno-zsapnote_no,
         wms_custid  TYPE zmm_changeno-wms_custid,
-        werks       TYPE zmm_changeno-werks,
-        bwart       TYPE zmm_changeno-bwart,
+        werks       TYPE mard-werks,
+        bwart       TYPE mseg-bwart,
         note        TYPE zmm_changeno-note,
       END OF ty_head.
 "创建通知单行项目信息

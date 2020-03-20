@@ -10,68 +10,68 @@
 *& <--  p2        text
 *&---------------------------------------------------------------------*
 FORM frm_change_screen .
-    LOOP AT SCREEN .
-      CASE screen-group1.
-        WHEN 'M1'.
-          IF r_01 = 'X'.
-            screen-active = '1'.
-          ELSE.
-            screen-active = '0'.
-          ENDIF.
-        WHEN 'M2'.
-          IF r_02 = 'X'.
-            screen-active = '1'.
-          ELSE.
-            screen-active = '0'.
-          ENDIF.
-      ENDCASE.
-  
-      MODIFY SCREEN.
-    ENDLOOP.
-  
-    DATA: lv_name TYPE vrm_id.
-    lv_name = 'p_bwart'.
-    CALL FUNCTION 'VRM_SET_VALUES'
-      EXPORTING
-        id     = lv_name
-        values = gt_list.
-  ENDFORM.
-  *&---------------------------------------------------------------------*
-  *& Form FRM_INIT
-  *&---------------------------------------------------------------------*
-  *& text
-  *&---------------------------------------------------------------------*
-  *& -->  p1        text
-  *& <--  p2        text
-  *&---------------------------------------------------------------------*
-  FORM frm_init .
-    PERFORM frm_set_list_value.
-  ENDFORM.
-  *&---------------------------------------------------------------------*
-  *& Form FRM_SET_LIST_VALUE
-  *&---------------------------------------------------------------------*
-  *& text
-  *&---------------------------------------------------------------------*
-  *& -->  p1        text
-  *& <--  p2        text
-  *&---------------------------------------------------------------------*
-  FORM frm_set_list_value .
-    SELECT bwart AS key
-    btext AS text
-    INTO CORRESPONDING FIELDS OF TABLE gt_list
-    FROM t156t
-    WHERE spras = sy-langu
-    AND sobkz = ''
-    AND bwart IN ('325','344').
-  ENDFORM.
-  *&---------------------------------------------------------------------*
-  *& Form CHECK_VALUE
-  *&---------------------------------------------------------------------*
-  *& text
-  *&---------------------------------------------------------------------*
-  *& -->  p1        text
-  *& <--  p2        text
-  *&---------------------------------------------------------------------*
-  FORM check_value .
-  
-  ENDFORM.
+  LOOP AT SCREEN .
+    CASE screen-group1.
+      WHEN 'M1'.
+        IF r_01 = 'X'.
+          screen-active = '1'.
+        ELSE.
+          screen-active = '0'.
+        ENDIF.
+      WHEN 'M2'.
+        IF r_02 = 'X'.
+          screen-active = '1'.
+        ELSE.
+          screen-active = '0'.
+        ENDIF.
+    ENDCASE.
+
+    MODIFY SCREEN.
+  ENDLOOP.
+
+  DATA: lv_name TYPE vrm_id.
+  lv_name = 'p_bwart'.
+  CALL FUNCTION 'VRM_SET_VALUES'
+    EXPORTING
+      id     = lv_name
+      values = gt_list.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_INIT
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM frm_init .
+  PERFORM frm_set_list_value.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_SET_LIST_VALUE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM frm_set_list_value .
+  SELECT bwart AS key
+  btext AS text
+  INTO CORRESPONDING FIELDS OF TABLE gt_list
+  FROM t156t
+  WHERE spras = sy-langu
+  AND sobkz = ''
+  AND bwart IN ('325','344').
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form CHECK_VALUE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM check_value .
+
+ENDFORM.

@@ -273,6 +273,7 @@ FORM frm_fill_excel.
 ***********************END**************************
   "输出样本信息
   PERFORM frm_range_dim USING 18 2 5 1 'RANGE_SAMPLE'.
+
   DO 5 TIMES.
     ASSIGN COMPONENT sy-index OF STRUCTURE gs_sample TO FIELD-SYMBOL(<fs_sample>).
     IF <fs_sample> IS NOT INITIAL.
@@ -287,21 +288,25 @@ FORM frm_fill_excel.
       contents = gt_excel_input
       no_flush = 'X'.
 
+
   "输出S码样本信息
   PERFORM frm_range_dim USING 18 7 5 1 'RANGE_S_SAMPLE'.
-  DO 5 TIMES.
-    ASSIGN COMPONENT sy-index OF STRUCTURE gs_s_sample TO FIELD-SYMBOL(<fs_s_sample>).
-    IF <fs_s_sample> IS NOT INITIAL.
-      def_set_range_input sy-index 1 <fs_s_sample>.
-    ELSE.
-      def_set_range_input sy-index 1 space.
-    ENDIF.
-  ENDDO.
-  CALL METHOD grf_spreadsheet->set_ranges_data
-    EXPORTING
-      ranges   = gt_range
-      contents = gt_excel_input
-      no_flush = 'X'.
+**********************HK添加S码检验批的判断，如果为空的话样本信息这块也为空
+  IF gs_s_info-prueflos IS NOT INITIAL.
+    DO 5 TIMES.
+      ASSIGN COMPONENT sy-index OF STRUCTURE gs_s_sample TO FIELD-SYMBOL(<fs_s_sample>).
+      IF <fs_s_sample> IS NOT INITIAL.
+        def_set_range_input sy-index 1 <fs_s_sample>.
+      ELSE.
+        def_set_range_input sy-index 1 space.
+      ENDIF.
+    ENDDO.
+    CALL METHOD grf_spreadsheet->set_ranges_data
+      EXPORTING
+        ranges   = gt_range
+        contents = gt_excel_input
+        no_flush = 'X'.
+  ENDIF.
 
   "输出批次信息
   PERFORM frm_range_dim USING 2 15 3 1 'RANGE_CHARG'.
@@ -1019,8 +1024,9 @@ CHANGING ct_test TYPE STANDARD TABLE
 * Implement suitable error handling here
       ENDIF.
       CLEAR gs_test-pruefbemkt.
-      LOOP AT tline INTO line.
-        gs_test-pruefbemkt = gs_test-pruefbemkt && line.
+      CLEAR ls_line.
+      LOOP AT tline INTO ls_line.
+        gs_test-pruefbemkt = gs_test-pruefbemkt && ls_line-tdline.
         CLEAR line.
       ENDLOOP.
 
@@ -1063,7 +1069,7 @@ CHANGING ct_test TYPE STANDARD TABLE
       ELSE.
         gs_test-qpmt_kurztext_z1  = ls_qpmt_z1-kurztext.
       ENDIF.
-      IF LS_QPMT_Z1-ltextkz <> 'X'.
+      IF ls_qpmt_z1-ltextkz <> 'X'.
         gs_test-qpmt_kurztext_z1  = ls_qpmt_z1-kurztext.
       ENDIF.
 

@@ -216,5 +216,8 @@ CONSTANTS: cns_zstdname       TYPE atnam            VALUE 'ZSTDNAME', "标准名
            cns_sheetname2(50) TYPE c                VALUE '数据修正'. "填充数据的第二页页名
 
 SELECTION-SCREEN:BEGIN OF BLOCK blk1.
-PARAMETERS p_pruef LIKE qals-prueflos. "检验批号
+PARAMETERS:p_pruef LIKE qals-prueflos,
+           p_werks LIKE vbap-werks,
+           p_pruef2 LIKE qals-prueflos. "检验批号
+
 SELECTION-SCREEN:END OF BLOCK blk1.

@@ -139,6 +139,7 @@ TYPES: BEGIN OF typ_plos, "检验批_检验计划数据
          hsdat        LIKE mcha-hsdat,
          z_batch_dypc LIKE ausp-atwrt, "成品打印批号（批次特性）
          zchargl      LIKE ausp-atwrt, "原辅包长批号（批次特性）
+         vfdat        LIKE mcha-vfdat, "货架寿命到期日
        END OF typ_charg,
 
        BEGIN OF range_item,
@@ -147,14 +148,25 @@ TYPES: BEGIN OF typ_plos, "检验批_检验计划数据
          columns(4) TYPE c,
          code(1)    TYPE c,
        END OF range_item,
-*********************HK 添加销售订单信息、S码检验计划数据***************
+*********************HK 添加销售订单信息、S码检验计划数据、组合装***************
        BEGIN OF range_sales,
          kunnr    LIKE vbak-kunnr, "售达方
          bu_sort1 LIKE but000-bu_sort1, "客户检索项
        END OF range_sales,
        BEGIN OF range_plandata_s,
          detail(300) TYPE c,
-       END OF range_plandata_s.
+       END OF range_plandata_s,
+       BEGIN OF range_combin,
+         prueflos     LIKE qals-prueflos, "检验批号
+         charg        LIKE qals-charg, "批次号
+         matnr        LIKE qals-matnr,   "物料编码
+         kdauf        LIKE qals-kdauf, "销售订单
+         zpspe        LIKE ausp-atwrt, "包装规格
+         rbtxt        LIKE t142t-rbtxt, "存储条件-文本
+         zcumcode     LIKE ausp-atwrt, "客户物料代码
+         z_batch_dypc LIKE ausp-atwrt, "成品打印批号（批次特性）
+         bu_sort1     LIKE but000-bu_sort1, "售达方检索项，
+       END OF range_combin.
 ************************END**************************
 
 DATA: gt_plos             TYPE TABLE OF typ_plos, "检验批数据
@@ -178,7 +190,8 @@ DATA: gt_plos             TYPE TABLE OF typ_plos, "检验批数据
       gr_matnr_mj         TYPE RANGE OF matnr, "明胶物料代码
       gs_matnr_mj         LIKE LINE OF gr_matnr_mj,
       gs_range_sales      TYPE range_sales, "销售订单信息
-      gs_range_plandata_s TYPE range_plandata_s. "S码检验计划数据
+      gs_range_plandata_s TYPE range_plandata_s, "S码检验计划数据
+      gs_range_combin     TYPE range_combin. "组合装报告书
 
 "DOI 标准变量
 DATA:grf_container     TYPE REF TO cl_gui_container,
@@ -215,9 +228,10 @@ CONSTANTS: cns_zstdname       TYPE atnam            VALUE 'ZSTDNAME', "标准名
            cns_sheetname(50)  TYPE c                VALUE '数据源',   "填充数据的excel-sheet页名
            cns_sheetname2(50) TYPE c                VALUE '数据修正'. "填充数据的第二页页名
 
+DATA p_flag(1).
 SELECTION-SCREEN:BEGIN OF BLOCK blk1.
-PARAMETERS:p_pruef LIKE qals-prueflos,
-           p_werks LIKE vbap-werks,
+PARAMETERS:p_pruef  LIKE qals-prueflos,
+           p_num(4) ,
            p_pruef2 LIKE qals-prueflos. "检验批号
 
 SELECTION-SCREEN:END OF BLOCK blk1.

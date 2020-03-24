@@ -240,7 +240,20 @@ FORM frm_fill_excel.
       ranges   = gt_range
       contents = gt_excel_input
       no_flush = 'X'.
-**************HK 添加销售订单信息区域、S码检验计划数据**************
+**************HK 添加销售订单信息区域、S码检验计划数据等**************
+  "输出基本信息，带出工厂
+  PERFORM frm_range_dim USING 2 29 1 1 'RANGE_BASIS_WERKS'.
+  IF gs_plos-werks IS NOT INITIAL.
+    def_set_range_input 1 1 gs_plos-werks.
+  ELSE.
+    def_set_range_input 1 1 space.
+  ENDIF.
+  CALL METHOD grf_spreadsheet->set_ranges_data
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
+
   "输出检验计划文本
   PERFORM frm_range_dim USING 2 23 2 1 'RANGE_SALES'.
   DO 2 TIMES.
@@ -263,6 +276,21 @@ FORM frm_fill_excel.
   ELSE.
     def_set_range_input 1 1 space.
   ENDIF.
+  CALL METHOD grf_spreadsheet->set_ranges_data
+    EXPORTING
+      ranges   = gt_range
+      contents = gt_excel_input
+      no_flush = 'X'.
+  "组合装信息
+  PERFORM frm_range_dim USING 2 35 9 1 'RANGE_COMBIN'.
+  DO 9 TIMES.
+    ASSIGN COMPONENT sy-index OF STRUCTURE gs_range_combin TO FIELD-SYMBOL(<fs_combin>).
+    IF <fs_combin> IS NOT INITIAL.
+      def_set_range_input sy-index 1 <fs_combin>.
+    ELSE.
+      def_set_range_input sy-index 1 space.
+    ENDIF.
+  ENDDO.
   CALL METHOD grf_spreadsheet->set_ranges_data
     EXPORTING
       ranges   = gt_range
@@ -309,8 +337,8 @@ FORM frm_fill_excel.
   ENDIF.
 
   "输出批次信息
-  PERFORM frm_range_dim USING 2 15 3 1 'RANGE_CHARG'.
-  DO 3 TIMES.
+  PERFORM frm_range_dim USING 2 15 4 1 'RANGE_CHARG'.
+  DO 4 TIMES.
     ASSIGN COMPONENT sy-index OF STRUCTURE gs_charg TO FIELD-SYMBOL(<fs_charg>).
     IF <fs_charg> IS NOT INITIAL.
       def_set_range_input sy-index 1 <fs_charg>.
@@ -439,11 +467,12 @@ ENDFORM.
 *       TEXT: 获取数据
 *----------------------------------------------------------------------*
 FORM frm_get_data.
+
   DATA lt_material_value TYPE TABLE OF zmaterial_tx_value.
 
   "抓取检验批次计划
   SELECT SINGLE prueflos,charg,offennlzmk,lmengeist,mengeneinh,matnr,sellifnr,
-  plnnr,plnal,aufnr,werk,kdauf,plnty,zaehl
+  plnnr,plnal,aufnr,werk,kdauf,plnty,zaehl,stat14
   INTO @DATA(ls_qals)
         FROM qals
         WHERE prueflos EQ @p_pruef.
@@ -454,10 +483,56 @@ FORM frm_get_data.
         FROM qave
         WHERE prueflos EQ @p_pruef.
 
-  IF ls_qals-offennlzmk NE 0.
-    MESSAGE '该检验批尚未完成检验'  TYPE 'S' DISPLAY LIKE 'E'.
+*  IF ls_qals-offennlzmk NE 0.
+*    MESSAGE '该检验批尚未完成检验'  TYPE 'S' DISPLAY LIKE 'E'.
+*    LEAVE LIST-PROCESSING.
+*  ENDIF.
+
+
+**************2020.03.23.HK修复**********************
+  IF p_pruef IS INITIAL AND p_pruef2 IS NOT INITIAL.
+    MESSAGE '信息不完整' TYPE 'S' DISPLAY LIKE 'E'.
     LEAVE LIST-PROCESSING.
   ENDIF.
+  IF p_pruef IS NOT INITIAL AND ls_qals-stat14 IS INITIAL.
+    CLEAR p_flag.
+    CALL FUNCTION 'POPUP_TO_CONFIRM'
+      EXPORTING
+*       TITLEBAR       = ' '
+*       DIAGNOSE_OBJECT             = ' '
+        text_question  = '该检验批尚未完成检验。是否选择继续加载？'
+        text_button_1  = '是'(001)
+*       ICON_BUTTON_1  = ' '
+        text_button_2  = '否'(002)
+*       ICON_BUTTON_2  = ' '
+*       DEFAULT_BUTTON = '1'
+*       DISPLAY_CANCEL_BUTTON       = 'X'
+*       USERDEFINED_F1_HELP         = ' '
+*       START_COLUMN   = 25
+*       START_ROW      = 6
+*       POPUP_TYPE     =
+*       IV_QUICKINFO_BUTTON_1       = ' '
+*       IV_QUICKINFO_BUTTON_2       = ' '
+      IMPORTING
+        answer         = p_flag
+*     TABLES
+*       PARAMETER      =
+      EXCEPTIONS
+        text_not_found = 1
+        OTHERS         = 2.
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+    ENDIF.
+    IF p_flag EQ 2.
+      LEAVE LIST-PROCESSING.
+    ENDIF.
+
+  ENDIF.
+
+*****************END**********************
+
+
+
   IF ls_qals IS NOT INITIAL.
     SELECT SINGLE msehi,msehl
     INTO @DATA(ls_t006a1)
@@ -466,7 +541,7 @@ FORM frm_get_data.
           AND spras = '1'.
 
     "抓取批次信息
-    SELECT SINGLE charg,hsdat
+    SELECT SINGLE charg,hsdat,vfdat
     INTO @DATA(ls_mcha)
           FROM mcha
           WHERE charg EQ @ls_qals-charg.
@@ -518,6 +593,7 @@ FORM frm_get_data.
           AND spras EQ @sy-langu.
 
     MOVE-CORRESPONDING ls_qals TO gs_plos.
+    MOVE ls_qals-werk TO gs_plos-werks.
 ************HK M码检验计划描述******************
     CLEAR gs_plos-ktext.
     "取长文本描述
@@ -572,6 +648,7 @@ FORM frm_get_data.
         output = lt_material_value[].
 
     gs_charg-hsdat = ls_mcha-hsdat.
+    gs_charg-vfdat = ls_mcha-vfdat.
     PERFORM frm_get_charg_speciailty USING ls_qals-matnr ls_qals-werk ls_qals-charg CHANGING gs_charg gs_material-zpack_sta.
 
     "读取客户检索项
@@ -727,6 +804,10 @@ FORM frm_get_data.
     ENDIF.
     PERFORM frm_get_test_speciality USING p_pruef CHANGING gt_test gs_sample.
   ENDIF.
+
+*************2020.03.24添加组合装信息的获取*************
+  PERFORM frm_get_combin USING p_pruef.
+*******************END*******************************
 ENDFORM.
 
 *FORM frm_check_message .
@@ -1192,7 +1273,8 @@ FORM frm_get_untest_speciality USING uv_pruef LIKE p_pruef.
   zaehl
   INTO TABLE @DATA(lt_qamv)
         FROM qamv
-        WHERE prueflos EQ @uv_pruef.
+        WHERE prueflos EQ @uv_pruef
+          AND satzstatus = 4.
   SORT lt_qamv BY vorglfnr ASCENDING merknr ASCENDING.
 
   "去除QAMV中有并且QAMR中也有的特性,
@@ -1625,4 +1707,54 @@ CHANGING ct_line TYPE STANDARD TABLE.
       reference_check         = 6
       wrong_access_to_archive = 7
       OTHERS                  = 8.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_GET_COMBIN
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> 获取组合装区域的信息
+*&---------------------------------------------------------------------*
+FORM frm_get_combin  USING  u_pruef LIKE p_pruef.
+  IF u_pruef IS NOT INITIAL AND p_pruef2 IS NOT INITIAL AND p_num IS NOT INITIAL.
+    SELECT SINGLE
+    prueflos
+    charg
+    matnr
+    kdauf
+    INTO (gs_range_combin-prueflos,gs_range_combin-charg,
+    gs_range_combin-matnr,gs_range_combin-kdauf)
+    FROM qals
+    WHERE prueflos = u_pruef.
+  ENDIF.
+  IF gs_range_combin-matnr IS NOT INITIAL.
+    SELECT SINGLE
+      rbtxt
+    INTO (gs_range_combin-rbtxt)
+    FROM mara
+    INNER JOIN t142t
+    ON t142t~raube = mara-raube
+    WHERE mara~matnr = gs_range_combin-matnr
+      AND t142t~spras = '1'.
+    DATA objek TYPE ausp-objek.
+    objek = gs_range_combin-matnr.
+    SELECT
+      objek,
+      atinn,
+      atwrt
+    INTO TABLE @DATA(lt_ausp_vice)
+    FROM ausp
+    WHERE objek = @objek.
+    READ TABLE lt_ausp_vice INTO DATA(ls_ausp_vice) WITH KEY atinn = 'ZPSPE'.
+    IF sy-subrc = 0.
+      gs_range_combin-zpspe = ls_ausp_vice-atwrt.
+    ENDIF.
+    CLEAR ls_ausp_vice.
+    READ TABLE lt_ausp_vice INTO ls_ausp_vice WITH KEY atinn = 'ZCUMCODE'.
+    IF sy-subrc = 0.
+      gs_range_combin-zcumcode = ls_ausp_vice-atwrt.
+      CLEAR ls_ausp_vice.
+    ENDIF.
+  ENDIF.
+
 ENDFORM.

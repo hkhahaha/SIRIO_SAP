@@ -5,6 +5,16 @@
 *&---------------------------------------------------------------------*
 REPORT zsdr0022b.
 TABLES:vbak,zsdt0019.
+
+TYPES:BEGIN OF ty_zsdt0019,
+        partner   TYPE zsdt0019-partner,
+        name_org1 TYPE zsdt0019-name_org1,
+        job       TYPE zsdt0019-job,
+        zdomain   TYPE zsdt0019-zdomain,
+        mail      TYPE zsdt0019-mail,
+        vtweg     TYPE zsdt0019c-vtweg,
+      END OF ty_zsdt0019.
+
 CONSTANTS:
   gc_tab        TYPE c VALUE cl_bcs_convert=>gc_tab,
   gc_crlf       TYPE c VALUE cl_bcs_convert=>gc_crlf,
@@ -29,7 +39,7 @@ DATA main_text      TYPE bcsy_text.
 DATA binary_content TYPE solix_tab.
 DATA size           TYPE so_obj_len.
 DATA sent_to_all    TYPE os_boolean.
-DATA lt_zsdt0019 LIKE TABLE OF zsdt0019.
+DATA lt_zsdt0019 TYPE TABLE OF ty_zsdt0019.
 DATA flag(1).
 
 START-OF-SELECTION.
@@ -57,20 +67,27 @@ START-OF-SELECTION.
 FORM getmail CHANGING lt_zsdt0019 TYPE STANDARD TABLE.
   "首先先查出全部的数据
   SELECT
-    *
-  INTO TABLE @DATA(lt_zsdt0019a)
+   zsdt0019~partner,
+   zsdt0019~name_org1,
+   zsdt0019~job,
+   zsdt0019~zdomain,
+   zsdt0019~mail,
+   zsdt0019c~vtweg
   FROM zsdt0019
+  LEFT JOIN zsdt0019c
+  ON zsdt0019~partner = zsdt0019c~partner
   WHERE active = 'X'
-    AND zsdt0019~job IN @s_job.
+    AND zsdt0019~job IN @s_job
+  INTO TABLE @DATA(lt_zsdt0019a).
   "根据职位进行排序，区域经理的职位相关人员的顺序排在后面
   SORT lt_zsdt0019a BY job DESCENDING.
-  MOVE lt_zsdt0019a TO lt_zsdt0019.
+  MOVE-CORRESPONDING lt_zsdt0019a TO lt_zsdt0019.
 ENDFORM.
 
 *&---------------------------------------------------------------------*
 *&      Form  send
 *&---------------------------------------------------------------------*
-FORM send USING ls_zsdt0019 TYPE zsdt0019.
+FORM send USING ls_zsdt0019 TYPE ty_zsdt0019.
 
   TRY.
       CLEAR main_text.
@@ -87,11 +104,29 @@ FORM send USING ls_zsdt0019 TYPE zsdt0019.
       APPEND content4 TO main_text.
 
 
+      IF ls_zsdt0019-job <> '03'.
+        document = cl_document_bcs=>create_document(
+        i_type    = 'RAW'
+        i_text    = main_text
+        i_subject = 'Sales Daily Report 销售日报' && sy-datum ). "#EC NOTEXT
+      ELSEIF ls_zsdt0019-job = '03'.
+        SELECT SINGLE
+           vtext
+        INTO @DATA(lv_vtweg)
+        FROM tvtwt
+        WHERE tvtwt~spras = '1'
+          AND tvtwt~vtweg = @ls_zsdt0019-vtweg.
+        document = cl_document_bcs=>create_document(
+        i_type    = 'RAW'
+        i_text    = main_text
+        i_subject = 'Sales Daily Report 销售日报' && sy-datum && '||分销渠道：' && lv_vtweg ). "#EC NOTEXT
+      ENDIF.
 
-      document = cl_document_bcs=>create_document(
-      i_type    = 'RAW'
-      i_text    = main_text
-      i_subject = 'Sales Daily Report 销售日报' && sy-datum ).  "#EC NOTEXT
+
+
+
+
+
 *      i_subject = '销售日报').  "#EC NOTEXT
 
 *     add the spread sheet as attachment to document object
@@ -161,7 +196,7 @@ ENDFORM.                    "send
 * 1) Write example text into a string
 * 2) convert this string to solix_tab
 *----------------------------------------------------------------------*
-FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
+FORM create_content USING ls_zsdt0019 TYPE ty_zsdt0019 CHANGING flag.
 
   DATA lv_string TYPE string.
   DATA ls_zsdt0019b TYPE zsdt0019b.
@@ -226,7 +261,7 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
        lv_kalab(30),
        lv_netwr2(30),
        lv_invoice(30),
-       lv-kains(30).
+       lv_kains(30).
 
 * data lines
   IF ls_zsdt0019-job = '01'.
@@ -234,12 +269,13 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       zsdt0019b~*
     INTO @ls_zsdt0019b
     FROM zsdt0019b
-    INNER JOIN zsdt0019
-    ON zsdt0019b~salemanno = zsdt0019~partner
+*    LEFT JOIN zsdt0019
+*    ON zsdt0019b~salemanno = zsdt0019~partner
+    FOR ALL ENTRIES IN @lt_zsdt0019
     WHERE zsdt0019b~salemanno = @ls_zsdt0019-partner
       AND zsdt0019b~erdat IN @s_erdat
       AND zsdt0019b~udate IN @s_udate
-      AND zsdt0019~job IN @s_job.
+    AND zsdt0019b~salemanno = @lt_zsdt0019-partner.
 
       IF ls_zsdt0019b IS INITIAL.
         flag = 'X'.
@@ -254,7 +290,7 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       lv_kalab,
       lv_netwr2,
       lv_invoice,
-      lv-kains.
+      lv_kains.
 
 
       lv_kwmeng = ls_zsdt0019b-kwmeng.
@@ -265,43 +301,44 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       lv_kalab = ls_zsdt0019b-kalab.
       lv_netwr2 = ls_zsdt0019b-netwr2.
       lv_invoice = ls_zsdt0019b-invoice.
+      lv_kains = ls_zsdt0019b-kains.
 
       CONCATENATE lv_string
-      ls_zsdt0019b-statdetail	gc_tab
-      ls_zsdt0019b-bu_sort1	gc_tab
-      ls_zsdt0019b-saleman  gc_tab
-      ls_zsdt0019b-name_text  gc_tab
-      ls_zsdt0019b-bezei  gc_tab
-      ls_zsdt0019b-vbeln  gc_tab
-      ls_zsdt0019b-posnr  gc_tab
-      ls_zsdt0019b-matwa  gc_tab
-      ls_zsdt0019b-maktx  gc_tab
-      ls_zsdt0019b-udate  gc_tab
-      ls_zsdt0019b-zysjhq	gc_tab
-      ls_zsdt0019b-znbjhq	gc_tab
-      ls_zsdt0019b-zatpdfrq	gc_tab
-      ls_zsdt0019b-groes  gc_tab
-      ls_zsdt0019b-atwrt  gc_tab
-      lv_kwmeng	gc_tab
-      ls_zsdt0019b-meins  gc_tab
-      lv_kwmeng2  gc_tab
-      ls_zsdt0019b-vrkme  gc_tab
-      lv_kbetr  gc_tab
-      lv_netwr  gc_tab
-      lv_netwr2	gc_tab
-      ls_zsdt0019b-ettyp  gc_tab
-      ls_zsdt0019b-werks  gc_tab
-      ls_zsdt0019b-budat  gc_tab
-      lv_kalab  gc_tab
-      ls_zsdt0019b-zzhijiankc	gc_tab
-      lv_rfmng  gc_tab
-      lv_invoice  gc_tab
-      ls_zsdt0019b-text1  gc_tab
-      ls_zsdt0019b-wgbez  gc_tab
-      ls_zsdt0019b-kunnr_nam  gc_tab
-      ls_zsdt0019b-kunnr_det  gc_tab
-      ls_zsdt0019b-vtweg  gc_tab
-      ls_zsdt0019b-erdat  gc_crlf
+      ls_zsdt0019b-statdetail	gc_tab"订单状态
+      ls_zsdt0019b-bu_sort1	gc_tab"实际客户检索项
+      ls_zsdt0019b-saleman  gc_tab"实际业务员
+      ls_zsdt0019b-name_text  gc_tab"制单人
+      ls_zsdt0019b-bezei  gc_tab"订单类型描述
+      ls_zsdt0019b-vbeln  gc_tab"单据号
+      ls_zsdt0019b-posnr  gc_tab"行号
+      ls_zsdt0019b-matwa  gc_tab"产品编号
+      ls_zsdt0019b-maktx  gc_tab"产品名称
+      ls_zsdt0019b-udate  gc_tab"二审日期
+      ls_zsdt0019b-zysjhq	gc_tab"原始交货期
+      ls_zsdt0019b-znbjhq	gc_tab"内部交货期
+      ls_zsdt0019b-zatpdfrq	gc_tab"ATP答复日期
+      ls_zsdt0019b-groes  gc_tab"规格型号
+      ls_zsdt0019b-atwrt  gc_tab"包装规格
+      lv_kwmeng	gc_tab"基本计量数量
+      ls_zsdt0019b-meins  gc_tab"基本计量单位
+      lv_kwmeng2  gc_tab"销售数量
+      ls_zsdt0019b-vrkme  gc_tab"销售单位
+      lv_kbetr  gc_tab"折前单价
+      lv_netwr  gc_tab"价税合计
+      lv_netwr2	gc_tab"不含税金额
+      ls_zsdt0019b-ettyp  gc_tab"计划行类型
+      ls_zsdt0019b-werks  gc_tab"工厂
+      ls_zsdt0019b-budat  gc_tab"最晚入库日期
+      lv_kalab  gc_tab"非限制库存
+      lv_kains  gc_tab"其他库存
+      lv_rfmng  gc_tab"出库量
+      lv_invoice  gc_tab"开票量
+      ls_zsdt0019b-text1  gc_tab"付款方式
+      ls_zsdt0019b-wgbez  gc_tab"物料中类名称
+      ls_zsdt0019b-kunnr_nam  gc_tab"售达方
+      ls_zsdt0019b-kunnr_det  gc_tab"实际客户
+      ls_zsdt0019b-vtweg  gc_tab"分销渠道
+      ls_zsdt0019b-erdat  gc_crlf"创建日期
       INTO lv_string.
 
     ENDSELECT.
@@ -337,8 +374,20 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       lv_kbetr,
       lv_netwr,
       lv_rfmng,
-      lv_kalab.
+      lv_kalab,
+      lv_netwr2,
+      lv_invoice,
+      lv_kains.
 
+*      lv_kwmeng = ls_zsdt0019b-kwmeng.
+*      lv_kwmeng2 = ls_zsdt0019b-kwmeng2.
+*      lv_kbetr = ls_zsdt0019b-kbetr.
+*      lv_netwr = ls_zsdt0019b-netwr.
+*      lv_rfmng = ls_zsdt0019b-rfmng.
+*      lv_kalab = ls_zsdt0019b-kalab.
+*      lv_netwr2 = ls_zsdt0019b-netwr2.
+*      lv_invoice = ls_zsdt0019b-invoice.
+*      lv_kains = ls_zsdt0019b-kains.
       lv_kwmeng = ls_zsdt0019b-kwmeng.
       lv_kwmeng2 = ls_zsdt0019b-kwmeng2.
       lv_kbetr = ls_zsdt0019b-kbetr.
@@ -347,43 +396,44 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       lv_kalab = ls_zsdt0019b-kalab.
       lv_netwr2 = ls_zsdt0019b-netwr2.
       lv_invoice = ls_zsdt0019b-invoice.
+      lv_kains = ls_zsdt0019b-kains.
 
       CONCATENATE lv_string
-      ls_zsdt0019b-statdetail	gc_tab
-      ls_zsdt0019b-bu_sort1	gc_tab
-      ls_zsdt0019b-saleman  gc_tab
-      ls_zsdt0019b-name_text  gc_tab
-      ls_zsdt0019b-bezei  gc_tab
-      ls_zsdt0019b-vbeln  gc_tab
-      ls_zsdt0019b-posnr  gc_tab
-      ls_zsdt0019b-matwa  gc_tab
-      ls_zsdt0019b-maktx  gc_tab
-      ls_zsdt0019b-udate  gc_tab
-      ls_zsdt0019b-zysjhq	gc_tab
-      ls_zsdt0019b-znbjhq	gc_tab
-      ls_zsdt0019b-zatpdfrq	gc_tab
-      ls_zsdt0019b-groes  gc_tab
-      ls_zsdt0019b-atwrt  gc_tab
-      lv_kwmeng	gc_tab
-      ls_zsdt0019b-meins  gc_tab
-      lv_kwmeng2  gc_tab
-      ls_zsdt0019b-vrkme  gc_tab
-      lv_kbetr  gc_tab
-      lv_netwr  gc_tab
-      lv_netwr2	gc_tab
-      ls_zsdt0019b-ettyp  gc_tab
-      ls_zsdt0019b-werks  gc_tab
-      ls_zsdt0019b-budat  gc_tab
-      lv_kalab  gc_tab
-      ls_zsdt0019b-zzhijiankc	gc_tab
-      lv_rfmng  gc_tab
-      lv_invoice  gc_tab
-      ls_zsdt0019b-text1  gc_tab
-      ls_zsdt0019b-wgbez  gc_tab
-      ls_zsdt0019b-kunnr_nam  gc_tab
-      ls_zsdt0019b-kunnr_det  gc_tab
-      ls_zsdt0019b-vtweg  gc_tab
-      ls_zsdt0019b-erdat  gc_crlf
+      ls_zsdt0019b-statdetail	gc_tab"订单状态
+      ls_zsdt0019b-bu_sort1	gc_tab"实际客户检索项
+      ls_zsdt0019b-saleman  gc_tab"实际业务员
+      ls_zsdt0019b-name_text  gc_tab"制单人
+      ls_zsdt0019b-bezei  gc_tab"订单类型描述
+      ls_zsdt0019b-vbeln  gc_tab"单据号
+      ls_zsdt0019b-posnr  gc_tab"行号
+      ls_zsdt0019b-matwa  gc_tab"产品编号
+      ls_zsdt0019b-maktx  gc_tab"产品名称
+      ls_zsdt0019b-udate  gc_tab"二审日期
+      ls_zsdt0019b-zysjhq	gc_tab"原始交货期
+      ls_zsdt0019b-znbjhq	gc_tab"内部交货期
+      ls_zsdt0019b-zatpdfrq	gc_tab"ATP答复日期
+      ls_zsdt0019b-groes  gc_tab"规格型号
+      ls_zsdt0019b-atwrt  gc_tab"包装规格
+      lv_kwmeng	gc_tab"基本计量数量
+      ls_zsdt0019b-meins  gc_tab"基本计量单位
+      lv_kwmeng2  gc_tab"销售数量
+      ls_zsdt0019b-vrkme  gc_tab"销售单位
+      lv_kbetr  gc_tab"折前单价
+      lv_netwr  gc_tab"价税合计
+      lv_netwr2	gc_tab"不含税金额
+      ls_zsdt0019b-ettyp  gc_tab"计划行类型
+      ls_zsdt0019b-werks  gc_tab"工厂
+      ls_zsdt0019b-budat  gc_tab"最晚入库日期
+      lv_kalab  gc_tab"非限制库存
+      lv_kains  gc_tab"其他库存
+      lv_rfmng  gc_tab"出库量
+      lv_invoice  gc_tab"开票量
+      ls_zsdt0019b-text1  gc_tab"付款方式
+      ls_zsdt0019b-wgbez  gc_tab"物料中类名称
+      ls_zsdt0019b-kunnr_nam  gc_tab"售达方
+      ls_zsdt0019b-kunnr_det  gc_tab"实际客户
+      ls_zsdt0019b-vtweg  gc_tab"分销渠道
+      ls_zsdt0019b-erdat  gc_crlf"创建日期
       INTO lv_string.
       CLEAR ls_zsdt0019b.
     ENDLOOP.
@@ -399,8 +449,7 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       *
     INTO TABLE lt_zsdt0019b
     FROM zsdt0019b
-    FOR ALL ENTRIES IN lt_zsdt0019c
-    WHERE zsdt0019b~vtweg = lt_zsdt0019c-vtweg
+    WHERE zsdt0019b~vtweg = ls_zsdt0019-vtweg
       AND zsdt0019b~erdat IN s_erdat
       AND zsdt0019b~udate IN s_udate.
 
@@ -416,7 +465,10 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       lv_kbetr,
       lv_netwr,
       lv_rfmng,
-      lv_kalab.
+      lv_kalab,
+      lv_netwr2,
+      lv_invoice,
+      lv_kains.
 
       lv_kwmeng = ls_zsdt0019b-kwmeng.
       lv_kwmeng2 = ls_zsdt0019b-kwmeng2.
@@ -426,43 +478,44 @@ FORM create_content USING ls_zsdt0019 TYPE zsdt0019 CHANGING flag.
       lv_kalab = ls_zsdt0019b-kalab.
       lv_netwr2 = ls_zsdt0019b-netwr2.
       lv_invoice = ls_zsdt0019b-invoice.
+      lv_kains = ls_zsdt0019b-kains.
 
       CONCATENATE lv_string
-      ls_zsdt0019b-statdetail	gc_tab
-      ls_zsdt0019b-bu_sort1	gc_tab
-      ls_zsdt0019b-saleman  gc_tab
-      ls_zsdt0019b-name_text  gc_tab
-      ls_zsdt0019b-bezei  gc_tab
-      ls_zsdt0019b-vbeln  gc_tab
-      ls_zsdt0019b-posnr  gc_tab
-      ls_zsdt0019b-matwa  gc_tab
-      ls_zsdt0019b-maktx  gc_tab
-      ls_zsdt0019b-udate  gc_tab
-      ls_zsdt0019b-zysjhq	gc_tab
-      ls_zsdt0019b-znbjhq	gc_tab
-      ls_zsdt0019b-zatpdfrq	gc_tab
-      ls_zsdt0019b-groes  gc_tab
-      ls_zsdt0019b-atwrt  gc_tab
-      lv_kwmeng	gc_tab
-      ls_zsdt0019b-meins  gc_tab
-      lv_kwmeng2  gc_tab
-      ls_zsdt0019b-vrkme  gc_tab
-      lv_kbetr  gc_tab
-      lv_netwr  gc_tab
-      lv_netwr2	gc_tab
-      ls_zsdt0019b-ettyp  gc_tab
-      ls_zsdt0019b-werks  gc_tab
-      ls_zsdt0019b-budat  gc_tab
-      lv_kalab  gc_tab
-      ls_zsdt0019b-zzhijiankc	gc_tab
-      lv_rfmng  gc_tab
-      lv_invoice  gc_tab
-      ls_zsdt0019b-text1  gc_tab
-      ls_zsdt0019b-wgbez  gc_tab
-      ls_zsdt0019b-kunnr_nam  gc_tab
-      ls_zsdt0019b-kunnr_det  gc_tab
-      ls_zsdt0019b-vtweg  gc_tab
-      ls_zsdt0019b-erdat  gc_crlf
+      ls_zsdt0019b-statdetail	gc_tab"订单状态
+      ls_zsdt0019b-bu_sort1	gc_tab"实际客户检索项
+      ls_zsdt0019b-saleman  gc_tab"实际业务员
+      ls_zsdt0019b-name_text  gc_tab"制单人
+      ls_zsdt0019b-bezei  gc_tab"订单类型描述
+      ls_zsdt0019b-vbeln  gc_tab"单据号
+      ls_zsdt0019b-posnr  gc_tab"行号
+      ls_zsdt0019b-matwa  gc_tab"产品编号
+      ls_zsdt0019b-maktx  gc_tab"产品名称
+      ls_zsdt0019b-udate  gc_tab"二审日期
+      ls_zsdt0019b-zysjhq	gc_tab"原始交货期
+      ls_zsdt0019b-znbjhq	gc_tab"内部交货期
+      ls_zsdt0019b-zatpdfrq	gc_tab"ATP答复日期
+      ls_zsdt0019b-groes  gc_tab"规格型号
+      ls_zsdt0019b-atwrt  gc_tab"包装规格
+      lv_kwmeng	gc_tab"基本计量数量
+      ls_zsdt0019b-meins  gc_tab"基本计量单位
+      lv_kwmeng2  gc_tab"销售数量
+      ls_zsdt0019b-vrkme  gc_tab"销售单位
+      lv_kbetr  gc_tab"折前单价
+      lv_netwr  gc_tab"价税合计
+      lv_netwr2	gc_tab"不含税金额
+      ls_zsdt0019b-ettyp  gc_tab"计划行类型
+      ls_zsdt0019b-werks  gc_tab"工厂
+      ls_zsdt0019b-budat  gc_tab"最晚入库日期
+      lv_kalab  gc_tab"非限制库存
+      lv_kains  gc_tab"其他库存
+      lv_rfmng  gc_tab"出库量
+      lv_invoice  gc_tab"开票量
+      ls_zsdt0019b-text1  gc_tab"付款方式
+      ls_zsdt0019b-wgbez  gc_tab"物料中类名称
+      ls_zsdt0019b-kunnr_nam  gc_tab"售达方
+      ls_zsdt0019b-kunnr_det  gc_tab"实际客户
+      ls_zsdt0019b-vtweg  gc_tab"分销渠道
+      ls_zsdt0019b-erdat  gc_crlf"创建日期
       INTO lv_string.
       CLEAR ls_zsdt0019b.
     ENDLOOP.

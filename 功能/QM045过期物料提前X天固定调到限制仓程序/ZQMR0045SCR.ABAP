@@ -25,7 +25,7 @@ s_lgort2 FOR mard-lgort MODIF ID m2,"库存地点
 s_userna FOR sy-uname MODIF ID m2,"用户名
 s_date FOR sy-datum MODIF ID m2,"日期
 s_time FOR sy-uzeit MODIF ID m2."时间
-PARAMETERS: p_no AS CHECKBOX DEFAULT 'X' MODIF ID m2.
+PARAMETERS: p_no      AS CHECKBOX DEFAULT 'X' MODIF ID m2.
 
 SELECTION-SCREEN END OF BLOCK blk1.
 

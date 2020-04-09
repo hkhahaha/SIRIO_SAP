@@ -67,7 +67,7 @@ FORM frm_auth_check .
   ENDLOOP.
 
   IF s_lfart[] IS INITIAL.
-    SELECT lfart INTO TABLE @DATA(lt_lfart) FROM tvlk WHERE lfart LIKE 'Z%'.
+    SELECT lfart INTO TABLE @DATA(lt_lfart) FROM tvlk WHERE lfart LIKE 'Z%' OR lfart = 'NLCC'.
     s_lfart[] = VALUE #( FOR <fs> IN lt_lfart ( sign = 'I' option = 'EQ' low = <fs> ) ).
   ENDIF.
 
@@ -90,8 +90,15 @@ ENDFORM.
 *& <--  p2        text
 *&---------------------------------------------------------------------*
 FORM frm_get_data .
-  DATA: lt_head  TYPE TABLE OF ty_alv_hd,
-        r_zwmszt TYPE RANGE OF likp-zwmszt.
+  DATA: lt_head      TYPE TABLE OF ty_alv_hd,
+        r_zwmszt     TYPE RANGE OF likp-zwmszt,
+        lv_chang(15).
+  CALL FUNCTION 'CONVERSION_EXIT_ATINN_INPUT'
+    EXPORTING
+      input  = 'ZCUMCODE'
+    IMPORTING
+      output = lv_chang.
+
 
   CLEAR: lt_head[], gt_alv_hd[], gt_item[].
   IF p_ref EQ 'X'.
@@ -176,6 +183,39 @@ FORM frm_get_data .
       IF sy-subrc EQ 0.
         <fs_item>-zbzmc = ls_makt-maktx.
       ENDIF.
+************************hk添加客户物料编码、单位转描述***************
+      IF <fs_item>-matnr IS NOT INITIAL.
+        DATA objek TYPE ausp-objek.
+        CLEAR objek.
+        objek = <fs_item>-matnr.
+        SELECT SINGLE
+        atwrt
+        FROM ausp
+        INTO <fs_item>-zcumcode
+        WHERE ausp~objek = objek
+          AND ausp~atinn = lv_chang.
+        IF <fs_item>-zcumcode IS INITIAL.
+          <fs_item>-zcumcode = ''.
+        ENDIF.
+      ENDIF.
+      IF <fs_item>-vrkme IS NOT INITIAL.
+        CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+          EXPORTING
+            input          = <fs_item>-vrkme
+            language       = '1'
+          IMPORTING
+            long_text      = <fs_item>-vrkme
+*           OUTPUT         =
+*           SHORT_TEXT     =
+          EXCEPTIONS
+            unit_not_found = 1
+            OTHERS         = 2.
+        IF sy-subrc <> 0.
+* Implement suitable error handling here
+        ENDIF.
+
+      ENDIF.
+*******************************END*****************
     ENDLOOP.
     CHECK sy-subrc EQ 0.
 
@@ -301,6 +341,10 @@ FORM frm_show_data USING p_name.
       setfieldcat 'CHARG' '批次' '' ''.
       setfieldcat 'ZJIANS' '件数' '' ''.
       setfieldcat 'ZLXSL' '零箱数量（销售单位）' '' ''.
+      setfieldcat 'LFIMG' '发货数量' '' ''.
+      setfieldcat 'ZCUMCODE' '客户物料编码' '' ''.
+      setfieldcat 'BWART' '移动类型' '' ''.
+      setfieldcat 'VRKME' '销售单位描述' '' ''.
       setfieldcat 'ADDITIONAL1' '备用字段1' '' ''.
       setfieldcat 'ADDITIONAL2' '备用字段2' '' ''.
       setfieldcat 'ADDITIONAL3' '备用字段3' '' ''.
@@ -389,7 +433,8 @@ FORM frm_send_data .
         ls_output TYPE zsds0001_out,
         lt_zero   TYPE TABLE OF ty_alv_it,
         l_key(90).
-
+  DATA:lt_lips TYPE TABLE OF lips,
+       ls_lips TYPE lips.
   LOOP AT gt_alv_hd ASSIGNING FIELD-SYMBOL(<fs_head>) WHERE sel EQ 'X'.
     CLEAR ls_input.
     MOVE-CORRESPONDING <fs_head> TO ls_input-header.
@@ -398,7 +443,50 @@ FORM frm_send_data .
         APPEND ls_item TO lt_zero.
         CONTINUE.
       ENDIF.
+***************Seashell Huang 20200115 判断是否有批次，如果存在批次为空的情况，整单报错并且不下传WMS。
+*      CLEAR lt_lips.
+*      SELECT
+*        *
+*      INTO CORRESPONDING FIELDS OF TABLE lt_lips
+*      FROM lips
+*      WHERE lips~xchpf = 'X'
+*        AND lips~vbeln = <fs_head>-vbeln
+*        AND lips~posnr = ls_item-posnr
+*        AND lips~charg = ''.
+*      IF lt_lips IS NOT INITIAL.
+*        CLEAR ls_input.
+*        EXIT.
+*      ELSE.
 
+      CLEAR lt_lips.
+      SELECT
+      *
+     INTO CORRESPONDING FIELDS OF TABLE lt_lips
+      FROM lips
+      WHERE lips~xchpf = 'X'
+        AND lips~vbeln = <fs_head>-vbeln
+        AND lips~posnr = ls_item-posnr.
+      LOOP AT lt_lips INTO ls_lips.
+        IF ls_lips-lfimg > 0.
+          IF ls_lips-charg = '' OR ls_lips-charg IS INITIAL.
+            MESSAGE '批次为空，不允许下传,行号：' && ls_item-posnr TYPE 'E' DISPLAY LIKE 'S'.
+            EXIT.
+          ENDIF.
+        ENDIF.
+
+        IF ls_lips-charg IS NOT INITIAL .
+          IF ls_lips-lfimg IS INITIAL OR ls_lips-lfimg = 0.
+            MESSAGE '批次不为空数量大于0时，不允许下传，行号' && ls_item-posnr TYPE 'E' DISPLAY LIKE 'S'.
+            EXIT.
+          ENDIF.
+        ENDIF.
+
+
+
+      ENDLOOP.
+
+
+*********************END*********************************
       APPEND INITIAL LINE TO ls_input-items ASSIGNING FIELD-SYMBOL(<fs_item>).
       MOVE-CORRESPONDING ls_item TO <fs_item>.
       ls_input-header-wms_custid = <fs_item>-werks."分发wms系统标识
@@ -427,6 +515,7 @@ FORM frm_send_data .
           ENDCASE.
         ENDLOOP.
       ENDIF.
+
     ENDLOOP.
 
     CALL FUNCTION 'Z_SD_WMS_RFC_001'
@@ -545,7 +634,7 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 FORM frm_send_cancel .
   DATA: l_answer(1).
-  
+
   CALL FUNCTION 'POPUP_TO_CONFIRM'
     EXPORTING
       text_question         = '确定取消下发WMS吗？'

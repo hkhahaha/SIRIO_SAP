@@ -116,6 +116,12 @@ FORM get_item.
           kalab      TYPE mska-kalab,
           sspem      TYPE mkol-sspem,
           slabs      TYPE mkol-slabs,
+          lifnr      TYPE mkol-lifnr,
+          vbeln      TYPE mska-vbeln,
+          posnr      TYPE mska-posnr,
+          mseh3      TYPE t006a-mseh3,
+          mseh6      TYPE t006a-mseh6,
+          mseht      TYPE t006a-mseht,
           sobkz(1),
         END OF ty_all.
   DATA:lt_all TYPE TABLE OF ty_all,
@@ -151,7 +157,9 @@ FORM get_item.
     meins,
     kaspe,
     kalab,
-    sobkz
+    sobkz,
+    vbeln,
+    posnr
   APPENDING CORRESPONDING FIELDS OF TABLE @lt_all
   FROM mska
   INNER JOIN mara
@@ -173,7 +181,8 @@ FORM get_item.
     meins,
     sspem,
     slabs,
-    sobkz
+    sobkz,
+    lifnr
   APPENDING CORRESPONDING FIELDS OF TABLE @lt_all
   FROM mkol
   INNER JOIN mara
@@ -185,6 +194,146 @@ FORM get_item.
     AND mkol~lgort IN @s_lgort
     AND mkol~lgort IN ( SELECT lgort FROM zmm_lgort WHERE wms_sys <> '' )
     AND mara~mtart IN ('Z010','Z020','Z050').
+
+  IF lt_all IS NOT INITIAL.
+    "MAKT表获取物料描述
+    SELECT
+      matnr,
+      maktx
+    INTO TABLE @DATA(lt_makt)
+    FROM makt
+    FOR ALL ENTRIES IN @lt_all
+    WHERE makt~matnr = @lt_all-matnr
+      AND makt~spras = '1'.
+    "T006A基本计量单位表
+    SELECT
+      mseht,
+      msehi,
+      mseh3,
+      mseh6
+    INTO TABLE @DATA(lt_t006a)
+    FROM t006a
+    FOR ALL ENTRIES IN @lt_all
+    WHERE t006a~spras = '1'
+      AND t006a~msehi = @lt_all-meins.
+    "MCHA表获取货架寿命到期日
+    SELECT
+      matnr,
+      werks,
+      charg,
+      vfdat
+    INTO TABLE @DATA(lt_mcha)
+    FROM mcha
+    FOR ALL ENTRIES IN @lt_all
+    WHERE mcha~matnr = @lt_all-matnr
+      AND mcha~werks  = @lt_all-werks
+      AND mcha~charg = @lt_all-charg.
+  ENDIF.
+
+  CLEAR gt_item.
+  LOOP AT lt_all INTO ls_all.
+    CLEAR gs_item.
+    MOVE-CORRESPONDING ls_all TO gs_item.
+    CLEAR gs_item-menge.
+    "判断移动类型，如果是325的话，排除限制仓
+    "8100:1180    8200:3180
+    IF p_bwart = '325'.
+      IF ls_all-werks = '8100' AND ls_all-lgort = '1180'.
+        CLEAR:ls_all,gs_item.
+        CONTINUE.
+      ELSEIF ls_all-werks = '8100' AND ls_all-lgort = '2180'.
+        CLEAR:ls_all,gs_item.
+        CONTINUE.
+      ELSEIF ls_all-werks = '8200' AND ls_all-lgort = '3180'.
+        CLEAR:ls_all,gs_item.
+        CONTINUE.
+      ENDIF.
+      READ TABLE lt_mcha INTO DATA(ls_mcha) WITH KEY matnr = ls_all-matnr
+                                                     werks = ls_all-werks
+                                                     charg = ls_all-charg.
+      IF sy-subrc = 0.
+        "货架寿命到期日
+        gs_item-vfdat = ls_mcha-vfdat.
+        DATA(date) = gs_item-vfdat - sy-datum.
+        IF date > p_day.
+          CLEAR:gs_item,ls_all.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+      gs_item-menge = ls_all-cspem + ls_all-kaspe + ls_all-sspem.
+      CLEAR ls_mcha.
+    ENDIF.
+    IF p_bwart = '344'.
+      READ TABLE lt_mcha INTO ls_mcha WITH KEY matnr = ls_all-matnr
+                                               werks = ls_all-werks
+                                               charg = ls_all-charg.
+      IF sy-subrc = 0.
+        "货架寿命到期日
+        gs_item-vfdat = ls_mcha-vfdat.
+        CLEAR date.
+        date = gs_item-vfdat - sy-datum.
+        IF date > p_day.
+          CLEAR:gs_item,ls_all.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+      gs_item-menge = ls_all-clabs + ls_all-kalab + ls_all-slabs.
+      CLEAR ls_mcha.
+    ENDIF.
+    IF gs_item-menge IS INITIAL.
+      CLEAR:gs_item,ls_all.
+      CONTINUE.
+    ENDIF.
+
+    "变更之后的库存地点
+    IF p_bwart = 325.
+      DATA(lv_flag) = gs_item-lgort+0(1).
+      IF gs_item-werks = 8100 AND lv_flag = '1'.
+        gs_item-dlgort = 1180.
+      ELSEIF gs_item-werks = 8200 AND lv_flag = '1'.
+        gs_item-dlgort = 2180.
+      ENDIF.
+      IF gs_item-werks = 8200.
+        gs_item-dlgort = 3180.
+      ENDIF.
+    ELSEIF p_bwart = 344.
+      gs_item-dlgort = gs_item-lgort.
+    ENDIF.
+
+    "计量单位文本
+    READ TABLE lt_t006a INTO DATA(ls_t006a) WITH KEY msehi = ls_all-meins.
+    IF sy-subrc = 0.
+      gs_item-mseht = ls_t006a-mseht.
+      gs_item-mseh3 = ls_t006a-mseh3.
+      gs_item-mseh6 = ls_t006a-mseh6.
+      gs_item-meins = ls_all-meins.
+    ENDIF.
+    CLEAR ls_t006a.
+    "判断特殊标识
+    IF ls_all-z_table = 'MSKA'.
+      gs_item-sobkz = 'E'.
+    ELSEIF ls_all-z_table = 'MKOL'.
+      gs_item-sobkz = 'K'.
+    ELSEIF ls_all-z_table = 'MCHB'.
+      gs_item-sobkz = ' '.
+    ENDIF.
+    "物料描述
+    READ TABLE lt_makt INTO DATA(ls_makt) WITH KEY matnr = ls_all-matnr.
+    IF sy-subrc = 0.
+      gs_item-maktx = ls_makt-maktx.
+    ENDIF.
+    CLEAR ls_makt.
+    "销售订单号和行号
+    IF gs_item-kdauf IS INITIAL.
+      gs_item-kdauf = ls_all-vbeln.
+      gs_item-kdpos = ls_all-posnr.
+    ENDIF.
+
+    APPEND gs_item TO gt_item.
+    CLEAR:ls_all,gs_item.
+  ENDLOOP.
+
+
 
 
 

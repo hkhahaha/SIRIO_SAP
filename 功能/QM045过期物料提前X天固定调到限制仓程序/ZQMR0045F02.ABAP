@@ -24,6 +24,7 @@ ENDMODULE.
 *&SPWIZARD: INPUT MODULE FOR TC 'TC_100'. DO NOT CHANGE THIS LINE!
 *&SPWIZARD: MODIFY TABLE
 MODULE tc_100_modify INPUT.
+
   IF gt_item IS INITIAL.
     APPEND gs_item TO gt_item.
   ENDIF.
@@ -50,8 +51,9 @@ MODULE tc_100_user_command INPUT.
       MESSAGE 'ENTER' TYPE 'S' DISPLAY LIKE 'E'.
     WHEN 'CANCEL'.
       LEAVE PROGRAM.
-    WHEN '&DATA_SAVE'.
-      MESSAGE '保存' TYPE 'I'.
+    WHEN 'SAVE'.
+      PERFORM save_data.
+      MESSAGE '保存中' TYPE 'I'.
       SET SCREEN 0.
     WHEN '&NEW'.
       PERFORM addrecord.
@@ -382,23 +384,26 @@ ENDMODULE.
 *       text
 *----------------------------------------------------------------------*
 MODULE mod_get_dw INPUT.
+*  IF gs_item-matnr IS NOT INITIAL.
+*    gs_item-matnr = zcl_bc_public=>conv_by_ddic( i_input = gs_item-matnr ).
+*    SELECT SINGLE matnr INTO @DATA(lv_flag) FROM mara WHERE matnr = @gs_item-matnr.
+*    IF sy-subrc <> 0.
+*      MESSAGE '物料号不存在，请重新输入' TYPE 'E'.
+*    ENDIF.
+*    SELECT SINGLE
+*      maktx
+*    INTO gs_item-maktx
+*    FROM makt
+*    WHERE matnr = gs_item-matnr.
+*  ENDIF.
+*  CASE sy-ucomm.
+*    WHEN 'ENTER'.
+*      gs_item-maktx = '123'.
+*    WHEN OTHERS.
+*  ENDCASE.
   IF gs_item-matnr IS NOT INITIAL.
-    gs_item-matnr = zcl_bc_public=>conv_by_ddic( i_input = gs_item-matnr ).
-    SELECT SINGLE matnr INTO @DATA(lv_flag) FROM mara WHERE matnr = @gs_item-matnr.
-    IF sy-subrc <> 0.
-      MESSAGE '物料号不存在，请重新输入' TYPE 'E'.
-    ENDIF.
-    SELECT SINGLE
-      maktx
-    INTO gs_item-maktx
-    FROM makt
-    WHERE matnr = gs_item-matnr.
+    gs_item-maktx = '123'.
   ENDIF.
-  CASE sy-ucomm.
-    WHEN 'ENTER'.
-      gs_item-maktx = '123'.
-    WHEN OTHERS.
-  ENDCASE.
 ENDMODULE.
 *&---------------------------------------------------------------------*
 *&      Module  MOD_EXIT  INPUT
@@ -433,7 +438,12 @@ MODULE ahead OUTPUT.
 * SET TITLEBAR 'xxx'.
   gs_head-bwart = p_bwart.
   t001w-werks = p_werks.
-
+  "获取抬头的货主ID字段
+  SELECT SINGLE
+    wms_custid
+  INTO wms_custid
+  FROM zmmwms_sys
+  WHERE werks = p_werks.
 ENDMODULE.
 *&---------------------------------------------------------------------*
 *&      Module  AHEAD_CHECK  INPUT
@@ -443,3 +453,56 @@ ENDMODULE.
 MODULE ahead_check INPUT.
 
 ENDMODULE.
+*&---------------------------------------------------------------------*
+*& Form FRM_SEND_TO_WMS
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM frm_send_to_wms .
+  DATA:lt_alv2   LIKE TABLE OF ls_alv,
+       ls_alv2   LIKE ls_alv,
+       ls_output TYPE zsmessage_out.
+  CLEAR:ls_alv,lt_alv2.
+  LOOP AT lt_alv INTO ls_alv WHERE sel = 'X'.
+    COLLECT ls_alv INTO lt_alv2.
+    CLEAR ls_alv.
+  ENDLOOP.
+  IF sy-subrc <> 0.
+    MESSAGE '没有要传输的数据' TYPE 'S' DISPLAY LIKE 'E'.
+  ENDIF.
+
+  CLEAR ls_alv.
+  LOOP AT lt_alv INTO ls_alv WHERE sel = 'X'.
+    CALL FUNCTION 'Z_MM_SEND_NOTE_TO_WMS'
+      EXPORTING
+        iv_note_no = ls_alv-zsapnote_no
+      IMPORTING
+        output     = ls_output.
+    ls_alv-zstatus = ls_output-success.
+    ls_alv-zreason = ls_output-message.
+
+    IF ls_alv-zstatus = 'S'.
+      ls_alv-light = icon_led_green.
+    ELSE.
+      ls_alv-light = icon_led_red.
+    ENDIF.
+    UPDATE zmm_changeno
+    SET zstatus = ls_alv-zstatus
+        zreason = ls_alv-zreason
+    WHERE zsapnote_no = ls_alv-zsapnote_no.
+
+    LOOP AT lt_alv2 INTO ls_alv2 WHERE light = '' AND zsapnote_no = ls_alv-zsapnote_no.
+      ls_alv2-zstatus = ls_alv-zstatus.
+      ls_alv2-zreason = ls_alv-zreason.
+      ls_alv2-light = ls_alv-light.
+      ls_alv2-zsapnote_line = ls_alv-zsapnote_line.
+      MODIFY lt_alv FROM ls_alv2.
+      CLEAR  ls_alv2.
+    ENDLOOP.
+    CLEAR ls_alv.
+  ENDLOOP.
+  COMMIT WORK.
+ENDFORM.

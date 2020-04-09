@@ -25,6 +25,7 @@ DATA: gv_fcode  LIKE sy-ucomm,
       gt_alv_hd TYPE TABLE OF ty_alv_hd,
       gt_alv_it TYPE TABLE OF ty_alv_it,
       gt_item   TYPE TABLE OF ty_alv_it,
+      gt_item2  TYPE TABLE OF ty_alv_it,
       gr_zwmszt TYPE REF TO zcl_domain_helper.
 
 CONSTANTS: gc_green  LIKE dv70a-statusicon VALUE '@08@',
@@ -217,6 +218,7 @@ FORM frm_get_data .
       ENDIF.
 *******************************END*****************
     ENDLOOP.
+    SORT gt_item BY posnr zfhsx.
     CHECK sy-subrc EQ 0.
 
     READ TABLE lt_but INTO DATA(ls_but) WITH KEY partner = ls_head-kunag BINARY SEARCH.
@@ -434,7 +436,27 @@ FORM frm_send_data .
         lt_zero   TYPE TABLE OF ty_alv_it,
         l_key(90).
   DATA:lt_lips TYPE TABLE OF lips,
-       ls_lips TYPE lips.
+       ls_lips TYPE lips,
+       gs_item LIKE LINE OF gt_item.
+
+******************排序，优先按照发货顺序进行排序*********************
+  IF gt_item IS NOT INITIAL.
+    CLEAR gt_item2.
+    MOVE gt_item TO gt_item2.
+    CLEAR gt_item.
+    SORT gt_item2 BY zfhsx.
+    LOOP AT gt_item2 INTO gs_item WHERE zfhsx <> ''.
+      APPEND gs_item TO gt_item.
+      CLEAR gs_item.
+    ENDLOOP.
+    DELETE gt_item2 WHERE zfhsx <> ''.
+    SORT gt_item2 BY posnr.
+    LOOP AT gt_item2 INTO gs_item.
+      APPEND gs_item TO gt_item.
+      CLEAR gs_item.
+    ENDLOOP.
+  ENDIF.
+*************************END***********************************
   LOOP AT gt_alv_hd ASSIGNING FIELD-SYMBOL(<fs_head>) WHERE sel EQ 'X'.
     CLEAR ls_input.
     MOVE-CORRESPONDING <fs_head> TO ls_input-header.

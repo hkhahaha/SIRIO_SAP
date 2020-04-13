@@ -159,7 +159,7 @@ FORM get_data.
 *      "  CHARG SAP批号
 *      ls_out-charg = ls_mseg-charg.
 *      " WMS_EXT_ST  WMS状态控制字
-*      "外寄标识ZOUT_X
+*      "外寄标识d
 *      "质量标准ZST_CODE
 *      "XCONSIGN寄售库存标记
 *      IF ls_mseg-matnr IS NOT INITIAL AND ls_mseg-werks IS NOT INITIAL AND ls_mseg-charg IS NOT INITIAL.

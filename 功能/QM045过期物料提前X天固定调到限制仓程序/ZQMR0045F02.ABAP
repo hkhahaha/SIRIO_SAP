@@ -3,7 +3,7 @@
 *&---------------------------------------------------------------------*
 
 *&SPWIZARD: DECLARATION OF TABLECONTROL 'TC_100' ITSELF
-CONTROLS: tc_100 TYPE TABLEVIEW USING SCREEN 0100.
+*CONTROLS: tc_100 TYPE TABLEVIEW USING SCREEN 0100.
 
 *&SPWIZARD: LINES OF TABLECONTROL 'TC_100'
 DATA:     g_tc_100_lines  LIKE sy-loopc.
@@ -53,10 +53,15 @@ MODULE tc_100_user_command INPUT.
       LEAVE PROGRAM.
     WHEN 'SAVE'.
       PERFORM save_data.
-      MESSAGE '保存中' TYPE 'I'.
-      SET SCREEN 0.
+      LEAVE TO SCREEN 0.
     WHEN '&NEW'.
       PERFORM addrecord.
+    WHEN '&DELETE'.
+      PERFORM deleterecord.
+    WHEN '&ALL'.
+      PERFORM allselect.
+    WHEN '&DALL'.
+      PERFORM dallselect.
     WHEN OTHERS.
   ENDCASE.
 ENDMODULE.
@@ -401,9 +406,9 @@ MODULE mod_get_dw INPUT.
 *      gs_item-maktx = '123'.
 *    WHEN OTHERS.
 *  ENDCASE.
-  IF gs_item-matnr IS NOT INITIAL.
-    gs_item-maktx = '123'.
-  ENDIF.
+*  IF gs_item-matnr IS NOT INITIAL.
+*    gs_item-maktx = '123'.
+*  ENDIF.
 ENDMODULE.
 *&---------------------------------------------------------------------*
 *&      Module  MOD_EXIT  INPUT
@@ -475,34 +480,83 @@ FORM frm_send_to_wms .
   ENDIF.
 
   CLEAR ls_alv.
-  LOOP AT lt_alv INTO ls_alv WHERE sel = 'X'.
-    CALL FUNCTION 'Z_MM_SEND_NOTE_TO_WMS'
-      EXPORTING
-        iv_note_no = ls_alv-zsapnote_no
-      IMPORTING
-        output     = ls_output.
-    ls_alv-zstatus = ls_output-success.
-    ls_alv-zreason = ls_output-message.
+  IF p_bwart = '344'.
+    LOOP AT lt_alv INTO ls_alv WHERE sel = 'X'.
+      CALL FUNCTION 'Z_MM_SEND_NOTE_TO_WMS'
+        EXPORTING
+          iv_note_no = ls_alv-zsapnote_no
+        IMPORTING
+          output     = ls_output.
+      ls_alv-zstatus = ls_output-success.
+      ls_alv-zreason = ls_output-message.
 
-    IF ls_alv-zstatus = 'S'.
-      ls_alv-light = icon_led_green.
-    ELSE.
-      ls_alv-light = icon_led_red.
-    ENDIF.
-    UPDATE zmm_changeno
-    SET zstatus = ls_alv-zstatus
-        zreason = ls_alv-zreason
-    WHERE zsapnote_no = ls_alv-zsapnote_no.
+      IF ls_alv-zstatus = 'S'.
+        ls_alv-light = icon_led_green.
+      ELSE.
+        ls_alv-light = icon_led_red.
+      ENDIF.
+      UPDATE zmm_changeno
+      SET zstatus = ls_alv-zstatus
+      zreason = ls_alv-zreason
+      WHERE zsapnote_no = ls_alv-zsapnote_no.
 
-    LOOP AT lt_alv2 INTO ls_alv2 WHERE light = '' AND zsapnote_no = ls_alv-zsapnote_no.
-      ls_alv2-zstatus = ls_alv-zstatus.
-      ls_alv2-zreason = ls_alv-zreason.
-      ls_alv2-light = ls_alv-light.
-      ls_alv2-zsapnote_line = ls_alv-zsapnote_line.
-      MODIFY lt_alv FROM ls_alv2.
-      CLEAR  ls_alv2.
+      LOOP AT lt_alv2 INTO ls_alv2 WHERE light = '' AND zsapnote_no = ls_alv-zsapnote_no.
+        ls_alv2-zstatus = ls_alv-zstatus.
+        ls_alv2-zreason = ls_alv-zreason.
+        ls_alv2-light = ls_alv-light.
+        ls_alv2-zsapnote_line = ls_alv-zsapnote_line.
+        MODIFY lt_alv FROM ls_alv2 TRANSPORTING light zstatus zreason.
+        CLEAR  ls_alv2.
+      ENDLOOP.
+      CLEAR ls_alv.
     ENDLOOP.
-    CLEAR ls_alv.
+    COMMIT WORK.
+  ELSE.
+    LOOP AT lt_alv INTO ls_alv WHERE sel = 'X'.
+      CALL FUNCTION 'Z_MM_SEND_NOTE_TO_WMS2'
+        EXPORTING
+          iv_note_no = ls_alv-zsapnote_no
+        IMPORTING
+          output     = ls_output.
+      ls_alv-zstatus = ls_output-success.
+      ls_alv-zreason = ls_output-message.
+
+      IF ls_alv-zstatus = 'S'.
+        ls_alv-light = icon_led_green.
+      ELSE.
+        ls_alv-light = icon_led_red.
+      ENDIF.
+      UPDATE zmm_changeno
+      SET zstatus = ls_alv-zstatus
+      zreason = ls_alv-zreason
+      WHERE zsapnote_no = ls_alv-zsapnote_no.
+
+      LOOP AT lt_alv2 INTO ls_alv2 WHERE light = '' AND zsapnote_no = ls_alv-zsapnote_no.
+        ls_alv2-zstatus = ls_alv-zstatus.
+        ls_alv2-zreason = ls_alv-zreason.
+        ls_alv2-light = ls_alv-light.
+        ls_alv2-zsapnote_line = ls_alv-zsapnote_line.
+        MODIFY lt_alv FROM ls_alv2 TRANSPORTING light zstatus zreason.
+        CLEAR  ls_alv2.
+      ENDLOOP.
+      CLEAR ls_alv.
+    ENDLOOP.
+    COMMIT WORK.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form DELETERECORD
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM deleterecord .
+  CLEAR gs_item.
+  LOOP AT gt_item INTO gs_item.
+    IF gs_item-sel = 'X'.
+      DELETE TABLE gt_item FROM gs_item.
+    ENDIF.
   ENDLOOP.
-  COMMIT WORK.
 ENDFORM.

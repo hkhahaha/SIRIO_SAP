@@ -17,7 +17,10 @@ INITIALIZATION.
 
 START-OF-SELECTION.
 
+
   PERFORM frm_get_ext_st.
+
+
   CASE 'X'.
     WHEN r_01.
       PERFORM frm_authority_check_01.

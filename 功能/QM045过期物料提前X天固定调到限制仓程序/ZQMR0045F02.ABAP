@@ -53,7 +53,9 @@ MODULE tc_100_user_command INPUT.
       LEAVE PROGRAM.
     WHEN 'SAVE'.
       PERFORM save_data.
+*      SET SCREEN 0.
       LEAVE TO SCREEN 0.
+*      LEAVE PROGRAM.
     WHEN '&NEW'.
       PERFORM addrecord.
     WHEN '&DELETE'.
@@ -479,67 +481,67 @@ FORM frm_send_to_wms .
     MESSAGE '没有要传输的数据' TYPE 'S' DISPLAY LIKE 'E'.
   ENDIF.
 
-  CLEAR ls_alv.
+  CLEAR ls_alv2.
   IF p_bwart = '344'.
-    LOOP AT lt_alv INTO ls_alv WHERE sel = 'X'.
+    LOOP AT lt_alv2 INTO ls_alv2 WHERE sel = 'X'.
       CALL FUNCTION 'Z_MM_SEND_NOTE_TO_WMS'
         EXPORTING
-          iv_note_no = ls_alv-zsapnote_no
+          iv_note_no = ls_alv2-zsapnote_no
         IMPORTING
           output     = ls_output.
-      ls_alv-zstatus = ls_output-success.
-      ls_alv-zreason = ls_output-message.
+      ls_alv2-zstatus = ls_output-success.
+      ls_alv2-zreason = ls_output-message.
 
-      IF ls_alv-zstatus = 'S'.
-        ls_alv-light = icon_led_green.
+      IF ls_alv2-zstatus = 'S'.
+        ls_alv2-light = icon_led_green.
       ELSE.
-        ls_alv-light = icon_led_red.
+        ls_alv2-light = icon_led_red.
       ENDIF.
       UPDATE zmm_changeno
-      SET zstatus = ls_alv-zstatus
-      zreason = ls_alv-zreason
-      WHERE zsapnote_no = ls_alv-zsapnote_no.
+      SET zstatus = ls_alv2-zstatus
+      zreason = ls_alv2-zreason
+      WHERE zsapnote_no = ls_alv2-zsapnote_no.
 
-      LOOP AT lt_alv2 INTO ls_alv2 WHERE light = '' AND zsapnote_no = ls_alv-zsapnote_no.
-        ls_alv2-zstatus = ls_alv-zstatus.
-        ls_alv2-zreason = ls_alv-zreason.
-        ls_alv2-light = ls_alv-light.
-        ls_alv2-zsapnote_line = ls_alv-zsapnote_line.
-        MODIFY lt_alv FROM ls_alv2 TRANSPORTING light zstatus zreason.
-        CLEAR  ls_alv2.
+      LOOP AT lt_alv INTO ls_alv WHERE light = '' AND zsapnote_no = ls_alv2-zsapnote_no.
+        ls_alv-zstatus = ls_alv2-zstatus.
+        ls_alv-zreason = ls_alv2-zreason.
+        ls_alv-light = ls_alv2-light.
+        ls_alv-zsapnote_line = ls_alv2-zsapnote_line.
+        MODIFY lt_alv FROM ls_alv TRANSPORTING light zstatus zreason.
+        CLEAR  ls_alv.
       ENDLOOP.
-      CLEAR ls_alv.
+      CLEAR ls_alv2.
     ENDLOOP.
     COMMIT WORK.
   ELSE.
-    LOOP AT lt_alv INTO ls_alv WHERE sel = 'X'.
+    LOOP AT lt_alv2 INTO ls_alv2 WHERE sel = 'X'.
       CALL FUNCTION 'Z_MM_SEND_NOTE_TO_WMS2'
         EXPORTING
-          iv_note_no = ls_alv-zsapnote_no
+          iv_note_no = ls_alv2-zsapnote_no
         IMPORTING
           output     = ls_output.
-      ls_alv-zstatus = ls_output-success.
-      ls_alv-zreason = ls_output-message.
+      ls_alv2-zstatus = ls_output-success.
+      ls_alv2-zreason = ls_output-message.
 
-      IF ls_alv-zstatus = 'S'.
-        ls_alv-light = icon_led_green.
+      IF ls_alv2-zstatus = 'S'.
+        ls_alv2-light = icon_led_green.
       ELSE.
-        ls_alv-light = icon_led_red.
+        ls_alv2-light = icon_led_red.
       ENDIF.
       UPDATE zmm_changeno
-      SET zstatus = ls_alv-zstatus
-      zreason = ls_alv-zreason
-      WHERE zsapnote_no = ls_alv-zsapnote_no.
+      SET zstatus = ls_alv2-zstatus
+      zreason = ls_alv2-zreason
+      WHERE zsapnote_no = ls_alv2-zsapnote_no.
 
-      LOOP AT lt_alv2 INTO ls_alv2 WHERE light = '' AND zsapnote_no = ls_alv-zsapnote_no.
-        ls_alv2-zstatus = ls_alv-zstatus.
-        ls_alv2-zreason = ls_alv-zreason.
-        ls_alv2-light = ls_alv-light.
-        ls_alv2-zsapnote_line = ls_alv-zsapnote_line.
-        MODIFY lt_alv FROM ls_alv2 TRANSPORTING light zstatus zreason.
-        CLEAR  ls_alv2.
+      LOOP AT lt_alv INTO ls_alv WHERE light = '' AND zsapnote_no = ls_alv2-zsapnote_no.
+        ls_alv-zstatus = ls_alv2-zstatus.
+        ls_alv-zreason = ls_alv2-zreason.
+        ls_alv-light = ls_alv2-light.
+        ls_alv-zsapnote_line = ls_alv2-zsapnote_line.
+        MODIFY lt_alv FROM ls_alv TRANSPORTING light zstatus zreason.
+        CLEAR  ls_alv.
       ENDLOOP.
-      CLEAR ls_alv.
+      CLEAR ls_alv2.
     ENDLOOP.
     COMMIT WORK.
   ENDIF.

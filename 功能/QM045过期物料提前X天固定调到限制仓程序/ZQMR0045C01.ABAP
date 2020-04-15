@@ -26,8 +26,11 @@ FORM frm_change_screen .
         ENDIF.
     ENDCASE.
 
+
     MODIFY SCREEN.
   ENDLOOP.
+
+
 
   DATA: lv_name TYPE vrm_id.
   lv_name = 'p_bwart'.
@@ -290,14 +293,18 @@ FORM get_item.
       DATA(lv_flag) = gs_item-lgort+0(1).
       IF gs_item-werks = 8100 AND lv_flag = '1'.
         gs_item-dlgort = 1180.
-      ELSEIF gs_item-werks = 8200 AND lv_flag = '1'.
+      ELSEIF gs_item-werks = 8100 AND lv_flag = '2'.
         gs_item-dlgort = 2180.
       ENDIF.
       IF gs_item-werks = 8200.
         gs_item-dlgort = 3180.
       ENDIF.
+      CLEAR lv_flag.
+      gs_item-stock_st = 'B'.
+      gs_item-dstock_st = 'B'.
     ELSEIF p_bwart = 344.
       gs_item-dlgort = gs_item-lgort.
+      gs_item-dstock_st = 'B'.
     ENDIF.
 
     "计量单位文本
@@ -329,6 +336,7 @@ FORM get_item.
       gs_item-kdpos = ls_all-posnr.
     ENDIF.
 
+
     APPEND gs_item TO gt_item.
     CLEAR:ls_all,gs_item.
   ENDLOOP.
@@ -340,5 +348,33 @@ FORM get_item.
 
 
 
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form CHECK_ITEM
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM check_item .
+  DATA lv_flag1(1) VALUE ''.
+  DATA lv_flag2(1) VALUE ''.
+  IF gt_item IS NOT INITIAL.
+    READ TABLE gt_item INTO gs_item INDEX 1.
+    lv_flag1 = gs_item-lgort+0(1).
+    LOOP AT gt_item INTO gs_item.
+      lv_flag2 = gs_item-lgort+0(1).
+      IF lv_flag1 <> lv_flag2.
+        CLEAR:gs_item.
+        MESSAGE '存在不同工厂的库位地点' TYPE 'S' DISPLAY LIKE 'E'.
+        CALL SCREEN 100.
+      ENDIF.
+      CLEAR:gs_item,lv_flag2,lv_flag1.
+      READ TABLE gt_item INTO DATA(gs_item2) INDEX 1.
+      lv_flag1 = gs_item2-lgort+0(1).
+    ENDLOOP.
+  ENDIF.
 
 ENDFORM.

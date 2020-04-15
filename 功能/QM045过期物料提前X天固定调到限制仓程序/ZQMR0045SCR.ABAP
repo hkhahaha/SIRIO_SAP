@@ -8,7 +8,7 @@ SELECTION-SCREEN END OF BLOCK blk.
 
 SELECTION-SCREEN BEGIN OF BLOCK blk1 WITH FRAME TITLE TEXT-002.
 PARAMETERS: p_werks  TYPE marc-werks DEFAULT '8100' MODIF ID m1,
-            p_day(6) TYPE c MODIF ID m1, "到期提前天数
+            p_day(6) TYPE c MODIF ID m1 OBLIGATORY, "到期提前天数
             p_bwart  LIKE mseg-bwart AS LISTBOX VISIBLE LENGTH 20 OBLIGATORY MODIF ID m1. "移动类型
 
 SELECT-OPTIONS: s_matnr FOR mara-matnr MODIF ID m1,"物料

@@ -17,7 +17,8 @@ FUNCTION z_mm_send_note_to_wms2.
         ls_charg        TYPE zdt_sap2wms_other_list_of_othe.
 
   DATA:lv_message_id TYPE zbc_guid,
-       lv_intf_id    TYPE ze_intf_id.
+       lv_intf_id    TYPE ze_intf_id,
+       date          LIKE  cawn-atwrt.
   DATA:lv_atinn1(15),
        lv_atinn2(15),
        zhsdat(15),
@@ -149,7 +150,7 @@ FUNCTION z_mm_send_note_to_wms2.
                                                    atinn = lv_atinn1.
     "ZOUT_X外寄标识
     zout_x = ls_mcha-atwrt.
-    CLEAR ls_charg.
+    CLEAR:ls_charg,ls_mcha.
 *    ls_charg-atnam = 'ZVFDAT'.
 *    ls_charg-atwrt = '20200202'.
 *    APPEND ls_charg TO lt_charg.
@@ -184,7 +185,7 @@ FUNCTION z_mm_send_note_to_wms2.
     ls_item-charg = ls_note-charg.
     "需求日期、需求时间等字段
     ls_item-bdter = ls_note-datum.
-    ls_item-bdztp = ls_note-uzeit.
+*    ls_item-bdztp = ls_note-uzeit.
     ls_item-menge = ls_note-menge.
     ls_item-meins = ls_note-meins.
     ls_item-mseht = ls_note-mseht.
@@ -199,7 +200,7 @@ FUNCTION z_mm_send_note_to_wms2.
 *    ls_item-stock_st = 'B'.
 *    ls_item-dstock_st = 'B'.
 *    ls_item-wms_ext_st = '123'.
-    ls_item-sgtxt = '无'.
+*    ls_item-sgtxt = '无'.
 *    LS_ITEM-KOSTL   = LS_NOTE
 *    LS_ITEM-AUFNR   = LS_NOTE-
 *    LS_ITEM-ABLAD   = LS_NOTE
@@ -212,18 +213,29 @@ FUNCTION z_mm_send_note_to_wms2.
     CLEAR ls_mcha.
     LOOP AT lt_mcha INTO ls_mcha WHERE matnr = ls_note-matnr AND charg = ls_note-charg AND werks = ls_note-werks.
       IF ls_mcha-atinn = zhsdat OR ls_mcha-atinn = z_batch_scrq OR ls_mcha-atinn = zvfdat OR ls_mcha-atinn = z_batch_scrq OR ls_mcha-atinn = zlwedt.
-        ls_charg-atnam = ls_mcha-atinn.
+        CALL FUNCTION 'CONVERSION_EXIT_ATINN_OUTPUT'
+          EXPORTING
+            input  = ls_mcha-atinn
+          IMPORTING
+            output = ls_charg-atnam.
+*        ls_charg-atnam = ls_mcha-atinn.
         CALL FUNCTION 'CTCV_CONVERT_FLOAT_TO_DATE'
           EXPORTING
             float = ls_mcha-atflv
           IMPORTING
-            date  = ls_charg-atwrt.
+            date  = date.
+        ls_charg-atwrt = date.
       ELSE.
-        ls_charg-atnam = ls_mcha-atinn.
+        CALL FUNCTION 'CONVERSION_EXIT_ATINN_OUTPUT'
+          EXPORTING
+            input  = ls_mcha-atinn
+          IMPORTING
+            output = ls_charg-atnam.
+*        ls_charg-atnam = ls_mcha-atinn.
         ls_charg-atwrt = ls_mcha-atwrt.
       ENDIF.
       APPEND ls_charg TO lt_charg.
-      CLEAR ls_charg.
+      CLEAR:ls_charg,ls_mcha.
     ENDLOOP.
     ls_item-lines_of_character = lt_charg.
 

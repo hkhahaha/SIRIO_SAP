@@ -207,7 +207,17 @@ FORM getdata .
   SELECT
     *
   INTO CORRESPONDING FIELDS OF TABLE lt_alv
-  FROM zmm_changeno.
+  FROM zmm_changeno AS a
+  WHERE a~zsapnote_no IN s_no
+    AND a~werks IN s_werks
+    AND a~matnr IN s_matnr2
+    AND a~charg IN s_charg2
+    AND a~lgort IN s_lgort2
+    AND a~datum IN s_date.
+
+  IF p_no IS INITIAL.
+    DELETE lt_alv WHERE zstatus = 'S'.
+  ENDIF.
 ENDFORM.
 *&---------------------------------------------------------------------*
 *& Form SHOWALV
@@ -290,6 +300,29 @@ FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
         wms_custid = ls_alv-wms_custid.
         gs_head-bwart = ls_alv-bwart.
         gs_head-note = ls_alv-note.
+        "物料描述
+        SELECT SINGLE
+          maktx
+        INTO gs_item-maktx
+        FROM makt
+        WHERE makt~matnr = gs_item-matnr
+          AND makt~spras = '1'.
+        "变更之后的库存地点
+        IF p_bwart = 325.
+          DATA(lv_flag) = gs_item-lgort+0(1).
+          IF gs_item-werks = 8100 AND lv_flag = '1'.
+            gs_item-dlgort = 1180.
+          ELSEIF gs_item-werks = 8100 AND lv_flag = '2'.
+            gs_item-dlgort = 2180.
+          ENDIF.
+          IF gs_item-werks = 8200.
+            gs_item-dlgort = 3180.
+          ENDIF.
+        ELSEIF p_bwart = 344.
+          gs_item-dlgort = gs_item-lgort.
+          gs_item-dstock_st = 'B'.
+        ENDIF.
+
         APPEND gs_item TO gt_item.
         CLEAR:gs_item,ls_alv.
       ENDLOOP.
@@ -429,11 +462,84 @@ ENDMODULE.
 *& <--  p2        text
 *&---------------------------------------------------------------------*
 FORM save_data .
-  DATA:lv_line TYPE zmm_changeno-zsapnote_line,
-       lv_no   TYPE zmm_changeno-zsapnote_no,
-       lv_num  TYPE zesapnote_no.
-  lv_num = zcl_cm_public=>get_bus_no( iv_bwart = gs_head-bwart ).
+  DATA:lv_line    TYPE zmm_changeno-zsapnote_line,
+       lv_no      TYPE zmm_changeno-zsapnote_no,
+       lv_num     TYPE zesapnote_no,
+       zout_x     TYPE zmmwms_ext_st-zout_x,
+       zst_code   TYPE zmmwms_ext_st-zst_code,
+       xconsign   TYPE zmmwms_ext_st-xconsign,
+       wms_ext_st TYPE zmmwms_ext_st-wms_ext_st.
+  DATA:lv_atinn1(15),
+       lv_atinn2(15).
+  CALL FUNCTION 'CONVERSION_EXIT_ATINN_INPUT'
+    EXPORTING
+      input  = 'ZOUT_X'
+    IMPORTING
+      output = lv_atinn1.
+*
+  CALL FUNCTION 'CONVERSION_EXIT_ATINN_INPUT'
+    EXPORTING
+      input  = 'ZST_CODE'
+    IMPORTING
+      output = lv_atinn2.
+  READ TABLE gt_item INTO gs_item INDEX 1.
+  IF gs_item-zsapnote_no IS INITIAL.
+    lv_num = zcl_cm_public=>get_bus_no( iv_bwart = gs_head-bwart ).
+    lv_noall = lv_num.
+    IF lv_noall IS INITIAL.
+      CLEAR s_no.
+      s_no-sign = 'I'.
+      s_no-option = 'EQ'.
+      s_no-low = lv_noall.
+      APPEND s_no.
+    ENDIF.
+  ENDIF.
   lv_line = 1.
+
+  SELECT
+  *
+  FROM zmmwms_ext_st
+  INTO TABLE @DATA(lt_zmmwms_ext_st).
+
+  SELECT
+  matnr,
+  charg,
+  werks,
+  cuobj_bm,
+  atinn,
+  atwrt,
+  atflv
+  FROM mcha
+  INNER JOIN ausp
+  ON ausp~objek = mcha~cuobj_bm
+  FOR ALL ENTRIES IN @gt_item
+  WHERE mcha~werks = @gt_item-werks
+  AND mcha~charg = @gt_item-charg
+  AND mcha~matnr = @gt_item-matnr
+*    AND ausp~atinn IN ( @lv_atinn1,@lv_atinn2 )
+  INTO TABLE @DATA(lt_mcha).
+
+
+  SELECT
+  matnr,
+  werks,
+  charg,
+  sobkz
+  FROM mkol
+  INTO TABLE @DATA(lt_mkol)
+  FOR ALL ENTRIES IN @gt_item
+  WHERE mkol~werks = @gt_item-werks
+  AND mkol~charg = @gt_item-charg
+  AND mkol~matnr = @gt_item-matnr.
+
+*  SELECT
+*    *
+*  INTO TABLE @DATA(lt_makt)
+*  FROM makt
+*  FOR ALL ENTRIES IN @gt_item
+*  WHERE makt~spras = '1'
+*    AND makt~matnr = @gt_item-matnr.
+  CLEAR lt_zmm_changeno.
   LOOP AT gt_item INTO gs_item.
     CLEAR ls_zmm_changeno.
     "首先先把抬头的数据存在LT_zmm_changeno内表里面，抬头的数据一般是固定的
@@ -482,19 +588,52 @@ FORM save_data .
     "库存地点
     ls_zmm_changeno-lgort = gs_item-lgort.
 *    "变更后的物料
-*    LS_ZMM_CHANGENO-dmatnr = gs_item-matnr.
+    ls_zmm_changeno-dmatnr = gs_item-matnr.
 *    "变更后的批次
-*    LS_ZMM_CHANGENO-dcharg.
+    ls_zmm_changeno-dcharg = gs_item-charg.
     "变更后的库存状态
     ls_zmm_changeno-dstock_st = gs_item-dstock_st.
     ls_zmm_changeno-datum = sy-datum.
     ls_zmm_changeno-uzeit = sy-uzeit.
     ls_zmm_changeno-sobkz = gs_item-sobkz.
     ls_zmm_changeno-lifnr = gs_item-lifnr.
-    "WMS库存控制字
-*    LS_ZMM_CHANGENO-WMS_EXT_ST.
-    "变更后的库存地点
     ls_zmm_changeno-dlgort = gs_item-dlgort.
+    "WMS库存控制字
+*    ls_zmm_changeno-wms_ext_st = ''.
+
+    IF gs_head-bwart = '344'.
+      ls_zmm_changeno-dstock_st = 'B'.
+      ls_zmm_changeno-stock_st = ''.
+      CLEAR:zout_x,zst_code,xconsign,wms_ext_st.
+      READ TABLE lt_mcha INTO DATA(ls_mcha) WITH KEY matnr = gs_item-matnr
+                                                        charg = gs_item-charg
+                                                        werks = gs_item-werks
+                                                        atinn = lv_atinn1.
+      "ZOUT_X外寄标识
+      zout_x = ls_mcha-atwrt.
+
+      CLEAR ls_mcha.
+      READ TABLE lt_mcha INTO ls_mcha WITH KEY matnr = gs_item-matnr
+                                              charg = gs_item-charg
+                                              werks = gs_item-werks
+                                              atinn = lv_atinn2.
+      "ZOUT_X外寄标识
+      zst_code = ls_mcha-atwrt.
+      CLEAR ls_mcha.
+      "XCONSIGN寄售库存标记
+      READ TABLE lt_mkol INTO DATA(ls_mkol) WITH KEY matnr = gs_item-matnr
+                                                    charg = gs_item-charg
+                                                    werks = gs_item-werks.
+      xconsign = ls_mkol-sobkz.
+      CLEAR ls_mkol.
+
+      READ TABLE lt_zmmwms_ext_st INTO DATA(ls_zmmwms_ext_st) WITH KEY zout_x = zout_x
+                                                                      zst_code = zst_code
+                                                                      xconsign = xconsign.
+      ls_zmm_changeno-wms_ext_st = ls_zmmwms_ext_st-wms_ext_st.
+      "变更后的库存地点
+      ls_zmm_changeno-dlgort = gs_item-dlgort.
+    ENDIF.
 
 
 
@@ -512,5 +651,68 @@ FORM save_data .
 
     CLEAR:gs_item,ls_zmm_changeno.
   ENDLOOP.
+  PERFORM check_item.
   MODIFY zmm_changeno FROM TABLE lt_zmm_changeno.
+  IF lv_num IS NOT INITIAL.
+    MESSAGE '通知单:' && lv_num && '创建成功' TYPE 'S' DISPLAY LIKE 'S'.
+  ELSE.
+    MESSAGE '修改成功' TYPE 'S' DISPLAY LIKE 'S'.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Module  TC_100_01_MARK  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE tc_100_01_mark INPUT.
+  DATA: g_tc_100_01_wa2 LIKE LINE OF gt_item.
+  IF tc_100-line_sel_mode = 1
+  AND gs_item-sel = 'X'.
+    LOOP AT gt_item INTO g_tc_100_01_wa2
+    WHERE sel = 'X'.
+      g_tc_100_01_wa2-sel = ''.
+      MODIFY gt_item
+      FROM g_tc_100_01_wa2
+      TRANSPORTING sel.
+    ENDLOOP.
+  ENDIF.
+  MODIFY gt_item FROM gs_item INDEX tc_100-current_line TRANSPORTING sel.
+*  MODIFY gt_item
+*  FROM gt_item
+*  INDEX tc_100-current_line
+*  TRANSPORTING sel.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*& Form ALLSELECT
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM allselect .
+  CLEAR gs_item.
+  DATA lv_flag(5) VALUE '1'.
+  LOOP AT gt_item INTO gs_item.
+    gs_item-sel = 'X'.
+    MODIFY gt_item FROM gs_item INDEX lv_flag TRANSPORTING sel.
+    lv_flag = lv_flag + 1.
+  ENDLOOP.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form DALLSELECT
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM dallselect .
+  CLEAR gs_item.
+  DATA lv_flag(5) VALUE '1'.
+  LOOP AT gt_item INTO gs_item.
+    gs_item-sel = ''.
+    MODIFY gt_item FROM gs_item INDEX lv_flag TRANSPORTING sel.
+    lv_flag = lv_flag + 1.
+  ENDLOOP.
 ENDFORM.

@@ -20,6 +20,7 @@ TYPES: name1       TYPE name1_gp,
        zstat_l(20),"下传WMS状态
        style       TYPE lvc_t_styl,
        drop1       TYPE int4,
+       drop2       TYPE int4, "库存地点下拉框
        sel(1),
        type(1),
        END OF ty_alv.
@@ -56,6 +57,10 @@ DATA: gt_list        TYPE lvc_t_drop, "单元格下拉列表
       g_input        TYPE i VALUE 0,
       gr_renotice_st TYPE REF TO zcl_domain_helper,
       gr_bstar       TYPE REF TO zcl_domain_helper.
+DATA:lt_dropdown TYPE lvc_t_drop,
+     ls_dropdown TYPE lvc_s_drop.
+DATA:lt_dral TYPE lvc_t_dral,
+     ls_dral TYPE lvc_s_dral.
 
 INITIALIZATION.
   PERFORM frm_init.
@@ -153,7 +158,7 @@ FORM frm_get_data .
         r_bsart   TYPE RANGE OF ekko-bsart,
         r_bwart   TYPE RANGE OF mseg-bwart,
         r_lgort   TYPE RANGE OF mseg-lgort.
-
+  PERFORM set_drdn_table.
   IF p_closed EQ 'X'.
     l_sql = 'XCLOSED IN (``,`X`)'.
   ENDIF.
@@ -362,6 +367,11 @@ FORM frm_get_data .
 
         <fs_alv>-bstar_t = gr_bstar->get_value( <fs_alv>-bstar ).
         <fs_alv>-zstat_l = gr_renotice_st->get_value_l( <fs_alv>-zstat ).
+        "如果采购类型为ZRT的话，库存类型为空,并设置下拉框的值
+        IF <fs_alv>-bsart = 'ZRT'.
+          <fs_alv>-bstar_t = '冻结'.
+          <fs_alv>-drop2 = '2'.
+        ENDIF.
       ENDLOOP.
     ELSE.
       APPEND VALUE #( drop1 = 1 style = gt_disable ) TO gt_alv ASSIGNING <fs_alv>.
@@ -448,6 +458,13 @@ FORM frm_save_data .
       <fs_alv>-zstat = 'A'.
       <fs_alv>-zstat_l = gr_renotice_st->get_value_l( <fs_alv>-zstat ).
       <fs_alv>-style = gt_disable.
+      IF <fs_alv>-bstar_t = '非限制'.
+        <fs_alv>-bstar = ''.
+      ELSEIF <fs_alv>-bstar_t = '冻结'.
+        <fs_alv>-bstar = 'B'.
+      ELSEIF <fs_alv>-bstar_t = '质量'.
+        <fs_alv>-bstar = 'I'.
+      ENDIF.
       APPEND INITIAL LINE TO lt_data ASSIGNING FIELD-SYMBOL(<fs_data>).
       MOVE-CORRESPONDING <fs_alv> TO <fs_data>.
       CLEAR <fs_data>-menge_cr."实际退货数量
@@ -662,6 +679,7 @@ FORM frm_close_data .
   LOOP AT gt_alv ASSIGNING FIELD-SYMBOL(<fs_alv>) WHERE sel EQ 'X' AND zstat EQ 'A'.
     <fs_alv>-xclosed = 'X'.
     UPDATE zmmtreord SET xclosed = 'X' WHERE zrenotice EQ <fs_alv>-zrenotice AND zrelines EQ <fs_alv>-zrelines.
+    COMMIT WORK.
   ENDLOOP.
 *已经下发的需要WMS返回成功才能关闭
   LOOP AT gt_alv ASSIGNING <fs_alv> WHERE sel EQ 'X' AND zstat EQ 'C'.
@@ -695,6 +713,9 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 FORM frm_check_data USING is_data TYPE ty_alv it_msg TYPE bapiret2_t.
   DATA l_msg TYPE string.
+  IF is_data-bstar_t = ''.
+    l_msg = '库存类型不能为空'.
+  ENDIF.
 
   IF is_data-zreda IS INITIAL.
     l_msg = '计划退货日期不能为空！'.
@@ -712,6 +733,15 @@ FORM frm_check_data USING is_data TYPE ty_alv it_msg TYPE bapiret2_t.
     LOOP AT gt_alv ASSIGNING FIELD-SYMBOL(<fs_alv>) WHERE charg EQ is_data-charg AND bstar EQ is_data-bstar.
       l_qty = l_qty + <fs_alv>-zrequ.
     ENDLOOP.
+    "ZRT类型的冻结数量需要累加 HK 20200423.
+    IF is_data-bsart = 'ZRT'.
+      CLEAR is_data-cspem.
+      LOOP AT gt_alv INTO DATA(gs_temp) WHERE charg EQ is_data-charg AND bstar EQ is_data-bstar.
+        is_data-cspem = is_data-cspem + gs_temp-menge.
+        CLEAR gs_temp.
+      ENDLOOP.
+    ENDIF.
+    "修改结束位置
     IF l_qty GT is_data-cspem.
       l_msg = l_msg && |{ '退货总数' }{ l_qty } { '不能大于已冻结库存' }{ is_data-cspem }|.
     ENDIF.
@@ -762,10 +792,15 @@ FORM frm_show_data .
     ENDIF.
     wa_fieldcat-outputlen = &4.
     CASE &1.
+      "2020.04.17 HK修改库存类型可编辑BSTAR_T
       WHEN 'ZREQU' OR 'ZREDA' OR 'NOTE'.
         wa_fieldcat-edit = 'X'.
       WHEN 'ZSTAT_L'.
         wa_fieldcat-drdn_field = 'DROP1'.
+*        wa_fieldcat-edit = 'X'.
+      WHEN 'BSTAR_T'.
+        wa_fieldcat-edit = 'X'.
+        wa_fieldcat-drdn_field = 'DROP2'.
     ENDCASE.
     APPEND wa_fieldcat TO lt_fieldcat. CLEAR: wa_fieldcat.
   END-OF-DEFINITION.
@@ -863,6 +898,10 @@ FORM frm_caller_exit USING ls_data TYPE slis_data_caller_exit.
   CALL METHOD go_alv->set_drop_down_table
     EXPORTING
       it_drop_down = gt_list.
+
+  CALL METHOD go_alv->set_drop_down_table
+    EXPORTING
+      it_drop_down = lt_dropdown.
 
 ENDFORM.                    "frm_caller_exit
 *&---------------------------------------------------------------------*
@@ -1040,4 +1079,21 @@ FORM frm_check_lgort USING is_data TYPE ty_alv.
     MESSAGE is_data-lgort && '不是退货库存地！' TYPE 'E'.
   ENDIF.
 
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form SET_DRDN_TABLE
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*& -->  p1        text
+*& <--  p2        text
+*&---------------------------------------------------------------------*
+FORM set_drdn_table .
+
+  ls_dropdown-handle = '2'.
+  ls_dropdown-value = '非限制'.
+  APPEND ls_dropdown TO lt_dropdown.
+  ls_dropdown-handle = '2'.
+  ls_dropdown-value = '冻结'.
+  APPEND ls_dropdown TO lt_dropdown.
 ENDFORM.

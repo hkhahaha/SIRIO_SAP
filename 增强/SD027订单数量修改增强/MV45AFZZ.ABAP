@@ -93,10 +93,27 @@ FORM USEREXIT_FIELD_MODIFICATION.
     ENDIF.
   ENDIF.
 *黄铠 2020.05.11增加库存地点可编辑
- CASE SCREEN-NAME.
-   WHEN 'VBAP-LGORT'.
-     SCREEN-ACTIVE = 1.
- ENDCASE.
+* CASE SCREEN-NAME.
+*   WHEN 'VBAP-LGORT'.
+*     SCREEN-ACTIVE = 1.
+*     SCREEN-OUTPUT = 1.
+*     SCREEN-INPUT = 1.
+* ENDCASE.
+*黄铠 2020.05.11增加库存地点字段的显示，显示在抬头下面行项目里面
+  IF SY-tcode = 'VA02'.
+    DATA: slcol LIKE LINE OF tctrl_u_erf_auftrag-cols.
+    LOOP AT tctrl_u_erf_auftrag-cols INTO slcol.
+      IF SLCOL-SCREEN-NAME = 'VBAP-LGORT'.
+        slcol-invisible = ''.
+        slcol-SCREEN-active = 1.
+        slcol-SCREEN-OUTPUT = 1.
+        slcol-SCREEN-INPUT = 1.
+        MODIFY tctrl_u_erf_auftrag-cols FROM SLCOL.
+        CLEAR slcol.
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+
 *}   INSERT
 
 ENDFORM.

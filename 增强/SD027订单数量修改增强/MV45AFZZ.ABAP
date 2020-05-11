@@ -77,7 +77,7 @@ FORM USEREXIT_FIELD_MODIFICATION.
 *{   INSERT         S4DK900880                                        2
 *一审二审订单权限检查不通过灰掉所有字段
   IF sy-tcode EQ 'VA02' AND screen-input EQ 1
-    AND NOT ( screen-name EQ 'VBAK-VBELN' OR screen-name EQ 'RV45A-KWMENG' OR screen-name EQ 'VBEP-ETTYP' ).
+    AND NOT ( screen-name EQ 'VBAK-VBELN' OR screen-name EQ 'RV45A-KWMENG' OR screen-name EQ 'VBEP-ETTYP' OR screen-name EQ 'RV45A-ETDAT' OR screen-name = 'VBAP-LGORT' )."黄铠添加RV45A-ETDAT
     CALL FUNCTION 'Z_SD_AUTH_CHECK'
       EXPORTING
         i_vbak       = vbak
@@ -92,6 +92,11 @@ FORM USEREXIT_FIELD_MODIFICATION.
       ENDIF.
     ENDIF.
   ENDIF.
+*黄铠 2020.05.11增加库存地点可编辑
+ CASE SCREEN-NAME.
+   WHEN 'VBAP-LGORT'.
+     SCREEN-ACTIVE = 1.
+ ENDCASE.
 *}   INSERT
 
 ENDFORM.

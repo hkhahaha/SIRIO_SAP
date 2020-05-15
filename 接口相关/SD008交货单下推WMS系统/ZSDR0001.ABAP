@@ -125,6 +125,14 @@ FORM frm_get_data .
     MESSAGE '未查询到数据！' TYPE 'S' DISPLAY LIKE 'E'.
     EXIT.
   ENDIF.
+  SELECT
+    vbeln,
+    kunnr
+  INTO TABLE @DATA(lt_vbpa)
+  FROM vbpa
+  FOR ALL ENTRIES IN @lt_head
+  WHERE vbpa~parvw = 'Z1'
+    AND vbpa~vbeln = @lt_head-vbeln.
 *行项目数据
   SELECT lips~*, meins AS zmeins
     INTO CORRESPONDING FIELDS OF TABLE @gt_item FROM lips
@@ -135,10 +143,6 @@ FORM frm_get_data .
     MESSAGE '未查询到数据！' TYPE 'S' DISPLAY LIKE 'E'.
     EXIT.
   ENDIF.
-*业务伙伴的搜索词 1
-  SELECT partner,bu_sort1 INTO TABLE @DATA(lt_but) FROM but000
-    FOR ALL ENTRIES IN @lt_head
-    WHERE partner EQ @lt_head-kunag.
 *物料描述
   SELECT matnr,maktx INTO TABLE @DATA(lt_makt) FROM makt
     FOR ALL ENTRIES IN @gt_item
@@ -162,6 +166,10 @@ FORM frm_get_data .
     LEFT JOIN adrct AS b ON b~addrnumber EQ a~adrnr AND b~langu EQ @sy-langu
     FOR ALL ENTRIES IN @lt_head
     WHERE a~vbeln EQ @lt_head-vbeln AND parvw EQ 'Z2'.
+*业务伙伴的搜索词 1
+  SELECT partner,bu_sort1 INTO TABLE @DATA(lt_but) FROM but000
+        FOR ALL ENTRIES IN @lt_vbpa
+        WHERE partner EQ @lt_vbpa-kunnr.
 *联系电话
   SELECT a~vbeln,
          b~tel_number,
@@ -177,6 +185,7 @@ FORM frm_get_data .
   SORT lt_adrct BY vbeln.
   SORT lt_adr2  BY vbeln.
   SORT gt_item  BY vgpos posnr.
+  SORT lt_vbpa BY vbeln.
 
   LOOP AT lt_head INTO DATA(ls_head).
     LOOP AT gt_item ASSIGNING FIELD-SYMBOL(<fs_item>) WHERE vbeln = ls_head-vbeln.
@@ -220,6 +229,12 @@ FORM frm_get_data .
     ENDLOOP.
     SORT gt_item BY posnr zfhsx.
     CHECK sy-subrc EQ 0.
+
+    READ TABLE lt_vbpa INTO DATA(ls_vbpa) WITH KEY vbeln = ls_head-vbeln BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_head-kunag = ls_vbpa-kunnr.
+    ENDIF.
+    CLEAR ls_vbpa.
 
     READ TABLE lt_but INTO DATA(ls_but) WITH KEY partner = ls_head-kunag BINARY SEARCH.
     IF sy-subrc EQ 0.
@@ -494,15 +509,22 @@ FORM frm_send_data .
             MESSAGE '批次为空，不允许下传,行号：' && ls_item-posnr TYPE 'E' DISPLAY LIKE 'S'.
             EXIT.
           ENDIF.
+          "当数量>0的时候，库存地点不为空
+          IF ls_lips-lgort = '' OR ls_lips-lgort IS INITIAL.
+            MESSAGE '库存地点为空，不允许下传，行号：' && ls_item-posnr TYPE 'E' DISPLAY LIKE 'S'.
+            EXIT.
+          ENDIF.
         ENDIF.
-
         IF ls_lips-charg IS NOT INITIAL .
           IF ls_lips-lfimg IS INITIAL OR ls_lips-lfimg = 0.
             MESSAGE '批次不为空数量大于0时，不允许下传，行号' && ls_item-posnr TYPE 'E' DISPLAY LIKE 'S'.
             EXIT.
           ENDIF.
         ENDIF.
-
+        IF ls_lips-lgort+0(1) = '7'.
+          MESSAGE '库存地点为车间仓，不允许下传,行号：' && ls_item-posnr TYPE 'E' DISPLAY LIKE 'S'.
+          EXIT.
+        ENDIF.
 
 
       ENDLOOP.
@@ -545,6 +567,11 @@ FORM frm_send_data .
         i_input  = ls_input
       IMPORTING
         e_output = ls_output.
+    "发货日期为空不下传
+    IF <fs_head>-zfhrq IS INITIAL.
+      MESSAGE '发货日期为空，不允许下传'  TYPE 'E' DISPLAY LIKE 'E'.
+      EXIT.
+    ENDIF.
 
     <fs_head>-message = ls_output-message.
     IF ls_output-type EQ 'S'.

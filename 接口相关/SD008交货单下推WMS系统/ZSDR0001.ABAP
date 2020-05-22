@@ -18,7 +18,8 @@ TYPES: sel(1),
 
 TYPES BEGIN OF ty_alv_it.
 INCLUDE TYPE zsds0001_item.
-TYPES: vbeln TYPE likp-vbeln,
+TYPES: vbeln    TYPE likp-vbeln,
+       zwms(20) TYPE i,
        END OF ty_alv_it.
 
 DATA: gv_fcode  LIKE sy-ucomm,

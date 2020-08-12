@@ -314,10 +314,11 @@ FORM frm_show_data USING p_name.
   "ls_layout-totals_bef = 'X'.
 
   gv_fcode = p_name.
-  ls_variant-report = sy-repid.
+
 
   CASE p_name.
     WHEN 'GT_ALV_HD'.
+      CLEAR lt_fieldcat.
       ls_layout-box_fname  = 'SEL'.
 
       setfieldcat 'LFART' '交货类型' '' ''.
@@ -347,6 +348,7 @@ FORM frm_show_data USING p_name.
       setfieldcat 'LIGHT' '状态' '' ''.
       setfieldcat 'MESSAGE' '处理消息' '' ''.
     WHEN 'GT_ALV_IT'.
+      CLEAR lt_fieldcat.
       setfieldcat 'POSNR' '行项目号' '' ''.
       setfieldcat 'ZFHSX' 'WMS发货顺序' '' ''.
       setfieldcat 'MATNR' '产品编码' 'MARA-MATNR' ''.
@@ -373,7 +375,7 @@ FORM frm_show_data USING p_name.
 
 *  APPEND VALUE #( name = 'CALLER_EXIT' form = 'FRM_CALLER_EXIT' ) TO lt_events.
 *  APPEND VALUE #( spos = 1 fieldname = 'MATNR' up = 'X' ) TO lt_sort.
-
+*  ls_variant-report = sy-repid.
   ASSIGN (p_name) TO <fs_tab>.
   CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
     EXPORTING
@@ -384,8 +386,9 @@ FORM frm_show_data USING p_name.
 *     it_events                = lt_events
 *     it_sort_lvc              = lt_sort
       is_layout_lvc            = ls_layout
-      is_variant               = ls_variant
-      i_save                   = 'A'
+*      is_variant               = ls_variant
+     i_save                   = 'X'
+*     i_default                = 'X'
     TABLES
       t_outtab                 = <fs_tab>.
 
@@ -456,24 +459,89 @@ FORM frm_send_data .
        gs_item LIKE LINE OF gt_item.
 
 ******************排序，优先按照发货顺序进行排序*********************
-  IF gt_item IS NOT INITIAL.
+  "因为原先的发货顺序这个字段的数据类型是异常，所以只能在内表内添加一个字段专门用于排序
+*  LOOP AT gt_item INTO gs_item.
+*    gs_item-zwms = gs_item-zfhsx.
+*    MODIFY gt_item FROM gs_item.
+*    CLEAR gs_item.
+*  ENDLOOP.
+*  IF gt_item IS NOT INITIAL.
+*    CLEAR gt_item2.
+*    MOVE gt_item TO gt_item2.
+*    CLEAR gt_item.
+*    SORT gt_item2 BY zwms.
+*    LOOP AT gt_item2 INTO gs_item WHERE zwms <> ''.
+*      APPEND gs_item TO gt_item.
+*      CLEAR gs_item.
+*    ENDLOOP.
+*    DELETE gt_item2 WHERE zwms <> ''.
+*    SORT gt_item2 BY posnr.
+*    LOOP AT gt_item2 INTO gs_item.
+*      APPEND gs_item TO gt_item.
+*      CLEAR gs_item.
+*    ENDLOOP.
+*  ENDIF.
+
+***********最新修改：加上前导0之后再进行排序
+  CLEAR gt_item2.
+  LOOP AT gt_item INTO gs_item.
+    gs_item-zfhsx = zcl_bc_public=>conv_by_ddic( i_input = gs_item-zfhsx ).
+    APPEND gs_item TO gt_item2.
+    CLEAR gs_item.
+  ENDLOOP.
+  CLEAR gt_item.
+  SORT gt_item2 BY zfhsx.
+  MOVE gt_item2 TO gt_item.
+**************END********
+
+  LOOP AT gt_alv_hd ASSIGNING FIELD-SYMBOL(<fs_head>) WHERE sel EQ 'X'.
+**************最新更改
+*   1.同个交货单不同工厂的不允许下传
+    DATA:rows(5),flag(1).
+    CLEAR:rows,gs_item,flag.
+    DESCRIBE TABLE gt_item LINES rows.
+*    LOOP AT gt_item INTO DATA(gs_item2) WHERE lgort <> ' ' OR lgort IS NOT INITIAL.
+*      IF gs_item2-lgort+0(1) = 1 OR gs_item2-lgort+0(1) = 2.
+*        flag = gs_item-lgort.
+*      ENDIF.
+*      CLEAR gs_item2.
+*    ENDLOOP.
+*    CLEAR gs_item2.
+*    IF rows >= 2.
+*      LOOP AT gt_item INTO gs_item2 WHERE lgort <> ' ' OR lgort IS NOT INITIAL.
+*        IF  gs_item2-lgort+0(1) = 1 OR  gs_item2-lgort+0(1) = 2.
+*          IF gs_item2-lgort+0(1) <> flag.
+*            CLEAR gs_item2.
+*            MESSAGE '同个交货单存在不同工厂，不允许下传'  TYPE 'E' DISPLAY LIKE 'E'.
+*            EXIT.
+*          ENDIF.
+*        ENDIF.
+*      ENDLOOP.
+*    ENDIF.
     CLEAR gt_item2.
     MOVE gt_item TO gt_item2.
-    CLEAR gt_item.
-    SORT gt_item2 BY zfhsx.
-    LOOP AT gt_item2 INTO gs_item WHERE zfhsx <> ''.
-      APPEND gs_item TO gt_item.
-      CLEAR gs_item.
+    DELETE gt_item2 WHERE lgort IS INITIAL OR lgort = ' '.
+    LOOP AT gt_item2 INTO DATA(gs_item2).
+      IF gs_item2-lgort+0(1) = 1 OR gs_item2-lgort+0(1) = 2.
+        flag = gs_item2-lgort.
+      ENDIF.
+      CLEAR gs_item2.
     ENDLOOP.
-    DELETE gt_item2 WHERE zfhsx <> ''.
-    SORT gt_item2 BY posnr.
-    LOOP AT gt_item2 INTO gs_item.
-      APPEND gs_item TO gt_item.
-      CLEAR gs_item.
-    ENDLOOP.
-  ENDIF.
+    CLEAR gs_item2.
+    IF rows >= 2.
+      LOOP AT gt_item INTO gs_item2.
+        IF  gs_item2-lgort+0(1) = 1 OR  gs_item2-lgort+0(1) = 2.
+          IF gs_item2-lgort+0(1) <> flag.
+            CLEAR gs_item2.
+            MESSAGE '同个交货单存在不同工厂，不允许下传'  TYPE 'E' DISPLAY LIKE 'E'.
+            EXIT.
+          ENDIF.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+
+
 *************************END***********************************
-  LOOP AT gt_alv_hd ASSIGNING FIELD-SYMBOL(<fs_head>) WHERE sel EQ 'X'.
     CLEAR ls_input.
     MOVE-CORRESPONDING <fs_head> TO ls_input-header.
     LOOP AT gt_item INTO DATA(ls_item) WHERE vbeln EQ <fs_head>-vbeln.
@@ -559,6 +627,12 @@ FORM frm_send_data .
               <fs_item>-yxqz = ls_value-value_char.
           ENDCASE.
         ENDLOOP.
+*********Seashell 2020.7.29
+        IF <fs_head>-lfart = 'ZLR1' AND <fs_item>-scrq IS INITIAL.
+          MESSAGE 'ZLR1类型的交货单，存在批次但生产日期为空，不允许下传。行号：' && ls_item-posnr TYPE 'E' DISPLAY LIKE 'E'.
+          EXIT.
+        ENDIF.
+************END******************
       ENDIF.
 
     ENDLOOP.

@@ -9,35 +9,35 @@
 *&      --> LW_MRAR_MATNR
 *&      <-- LV_SUBRC
 *&---------------------------------------------------------------------*
-FORM FRM_CHECK_EXIST  USING    UV_MATNR TYPE MATNR
-                               UV_PLANT TYPE WERKS_D
+FORM frm_check_exist  USING    uv_matnr TYPE matnr
+                               uv_plant TYPE werks_d
 *                               UV_SALES TYPE VKORG
 *                               UV_DISTR TYPE VTWEG
-                      CHANGING CV_SUBRC TYPE C.
-  DATA: LS_CLIENTDATA TYPE BAPI_MARA_GA,
-        LS_PLANTDATA  TYPE BAPI_MARC_GA,
-        LS_SALESDATA  TYPE BAPI_MVKE_GA,
-        LV_MATNR      TYPE BAPI_MARA_GA-MATERIAL.
-  CLEAR: LS_CLIENTDATA, LS_PLANTDATA, LS_SALESDATA, LV_MATNR.
-  LV_MATNR = UV_MATNR.
+                      CHANGING cv_subrc TYPE c.
+  DATA: ls_clientdata TYPE bapi_mara_ga,
+        ls_plantdata  TYPE bapi_marc_ga,
+        ls_salesdata  TYPE bapi_mvke_ga,
+        lv_matnr      TYPE bapi_mara_ga-material.
+  CLEAR: ls_clientdata, ls_plantdata, ls_salesdata, lv_matnr.
+  lv_matnr = uv_matnr.
   CALL FUNCTION 'BAPI_MATERIAL_GET_ALL'
     EXPORTING
-      MATERIAL   = LV_MATNR
-      PLANT      = UV_PLANT
+      material   = lv_matnr
+      plant      = uv_plant
 *     SALESORG   = UV_SALES
 *     DISTR_CHAN = UV_DISTR
     IMPORTING
-      CLIENTDATA = LS_CLIENTDATA
-      PLANTDATA  = LS_PLANTDATA
-      SALESDATA  = LS_SALESDATA.
+      clientdata = ls_clientdata
+      plantdata  = ls_plantdata
+      salesdata  = ls_salesdata.
   " CHECK MATERIAL DATA EXIST
-  IF LS_CLIENTDATA IS INITIAL.
-    CV_SUBRC = 'X'.
+  IF ls_clientdata IS INITIAL.
+    cv_subrc = 'X'.
   ELSE.
     " CHECK PLANT DATA EXIST
-    IF UV_PLANT IS NOT INITIAL.
-      IF LS_PLANTDATA IS INITIAL.
-        CV_SUBRC = 'X'.
+    IF uv_plant IS NOT INITIAL.
+      IF ls_plantdata IS INITIAL.
+        cv_subrc = 'X'.
       ENDIF.
     ENDIF.
 *    " CHECK SALESORG DATA EXIST
@@ -56,113 +56,143 @@ ENDFORM.
 *&      --> LW_MRAR
 *&      --> ENDIF
 *&---------------------------------------------------------------------*
-FORM FRM_CREATE_MATNR  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
-                       CHANGING CS_RETURN TYPE ZDT_OA2SAP_MDM_RET_ZMD001.
-  DATA: LW_HEADDATA            TYPE BAPIMATHEAD,
-        LW_CLIENTDATA          TYPE BAPI_MARA,
-        LW_CLIENTDATAX         TYPE BAPI_MARAX,
-        LW_RETURN              TYPE BAPIRET2,
-        LT_UNITSOFMEASURE      TYPE STANDARD TABLE OF BAPI_MARM,
-        LW_UNITSOFMEASURE      TYPE BAPI_MARM,
-        LT_UNITSOFMEASUREX     TYPE STANDARD TABLE OF BAPI_MARMX,
-        LW_UNITSOFMEASUREX     TYPE BAPI_MARMX,
-        LT_MATERIALDESCRIPTION TYPE STANDARD TABLE OF BAPI_MAKT,
-        LW_MATERIALDESCRIPTION TYPE BAPI_MAKT.
+FORM frm_create_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
+                       CHANGING cs_return TYPE zdt_oa2sap_mdm_ret_zmd001.
+  DATA: lw_headdata            TYPE bapimathead,
+        lw_clientdata          TYPE bapi_mara,
+        lw_clientdatax         TYPE bapi_marax,
+        lw_return              TYPE bapiret2,
+        lt_unitsofmeasure      TYPE STANDARD TABLE OF bapi_marm,
+        lw_unitsofmeasure      TYPE bapi_marm,
+        lt_unitsofmeasurex     TYPE STANDARD TABLE OF bapi_marmx,
+        lw_unitsofmeasurex     TYPE bapi_marmx,
+        lt_materialdescription TYPE STANDARD TABLE OF bapi_makt,
+        lw_materialdescription TYPE bapi_makt.
 
-  DATA: LT_SMEINH TYPE ZDT_OA2SAP_MDM_MARA_SMEINH_TAB,
-        LS_SMEINH TYPE ZDT_OA2SAP_MDM_MARA_SMEINH,
-        LV_MTART  TYPE MTART,
-        LV_MATNR  TYPE MATNR,
-        LV_FLAG   TYPE C.
+  DATA: lt_smeinh   TYPE zdt_oa2sap_mdm_mara_smeinh_tab,
+        ls_smeinh   TYPE zdt_oa2sap_mdm_mara_smeinh,
+        lt_describe TYPE zdt_oa2sap_mdm_mara_descri_tab,
+        ls_describe TYPE zdt_oa2sap_mdm_mara_describe,
+        lv_mtart    TYPE mtart,
+        lv_matnr    TYPE matnr,
+        lv_flag     TYPE c.
   " 取物料码段
-  CLEAR: LV_MATNR, LV_MTART, LV_FLAG.
-  LV_MTART = US_INPUT-MTART.
-  PERFORM FRM_GET_MATNR USING LV_MTART CHANGING LV_MATNR.
+  CLEAR: lv_matnr, lv_mtart, lv_flag.
+  lv_mtart = us_input-mtart.
+  PERFORM frm_get_matnr USING lv_mtart CHANGING lv_matnr.
   " 创建物料基本视图
-  CLEAR: LW_HEADDATA, LW_CLIENTDATA, LW_CLIENTDATAX.
-  LW_HEADDATA-MATERIAL = LV_MATNR.                        " 物料号
-  LW_HEADDATA-MATL_TYPE = US_INPUT-MTART.                 " 物料类型
-  LW_HEADDATA-IND_SECTOR = 'P'.                           " 行业领域
-  LW_HEADDATA-BASIC_VIEW = 'X'.                           " 基本数据视图
-  LW_CLIENTDATA-MATL_GROUP = US_INPUT-MATKL.              " 物料组
-  LW_CLIENTDATAX-MATL_GROUP = 'X'.
-  LW_CLIENTDATA-OLD_MAT_NO = US_INPUT-BISMT.              " 旧物料号
-  LW_CLIENTDATAX-OLD_MAT_NO = 'X'.
-  LW_CLIENTDATA-BASE_UOM = US_INPUT-MEINS.                " 基本计量单位
-  LW_CLIENTDATAX-BASE_UOM = 'X'.
-  LW_CLIENTDATA-SIZE_DIM = US_INPUT-GROES.                " 规格型号（大小/量纲）
-  LW_CLIENTDATAX-SIZE_DIM = 'X'.
-  LW_CLIENTDATA-MFR_NO = US_INPUT-MFRNR.                  " 制造商
-  LW_CLIENTDATAX-MFR_NO = 'X'.
-  LW_CLIENTDATA-PUR_VALKEY = US_INPUT-EKWSL.              " 采购价值代码
-  LW_CLIENTDATAX-PUR_VALKEY = 'X'.
-  CLEAR: LT_MATERIALDESCRIPTION, LW_MATERIALDESCRIPTION.
-  LW_MATERIALDESCRIPTION-LANGU = '1'.
-  LW_MATERIALDESCRIPTION-MATL_DESC = US_INPUT-MAKTX.      " 物料描述
-  APPEND LW_MATERIALDESCRIPTION TO LT_MATERIALDESCRIPTION.
-  CLEAR: LT_UNITSOFMEASURE, LW_UNITSOFMEASURE, LT_UNITSOFMEASUREX, LW_UNITSOFMEASUREX, LT_SMEINH, LS_SMEINH.
-  LT_SMEINH = US_INPUT-SMEINH.
-  LOOP AT LT_SMEINH INTO LS_SMEINH.
-    LW_UNITSOFMEASURE-GROSS_WT = US_INPUT-BRGEW.          " 毛重
-    LW_UNITSOFMEASUREX-GROSS_WT = 'X'.
-    LW_UNITSOFMEASURE-VOLUME = US_INPUT-VOLUM.            " 体积
-    LW_UNITSOFMEASUREX-VOLUME = 'X'.
-    LW_UNITSOFMEASURE-UNIT_OF_WT = US_INPUT-GEWEI.        " 重量单位
-    LW_UNITSOFMEASUREX-UNIT_OF_WT = 'X'.
-    LW_UNITSOFMEASURE-VOLUMEUNIT = US_INPUT-VOLEH.        " 体积单位
-    LW_UNITSOFMEASUREX-VOLUMEUNIT = 'X'.
-    LW_UNITSOFMEASURE-DENOMINATR = LS_SMEINH-UMREN.       " 转换为基本计量单位的分母
-    LW_UNITSOFMEASUREX-DENOMINATR = 'X'.
-    LW_UNITSOFMEASURE-ALT_UNIT = LS_SMEINH-MEINH.         " 用于显示的计量单位
-    LW_UNITSOFMEASUREX-ALT_UNIT = LS_SMEINH-MEINH.
-    LW_UNITSOFMEASURE-NUMERATOR = LS_SMEINH-UMREZ.        " 基本计量单位转换分子
-    LW_UNITSOFMEASUREX-NUMERATOR = 'X'.
-    APPEND LW_UNITSOFMEASURE TO LT_UNITSOFMEASURE.
-    APPEND LW_UNITSOFMEASUREX TO LT_UNITSOFMEASUREX.
-    CLEAR: LW_UNITSOFMEASURE, LW_UNITSOFMEASUREX.
+  CLEAR: lw_headdata, lw_clientdata, lw_clientdatax.
+  lw_headdata-material = lv_matnr.                        " 物料号
+  lw_headdata-matl_type = us_input-mtart.                 " 物料类型
+  lw_headdata-ind_sector = 'P'.                           " 行业领域
+  lw_headdata-basic_view = 'X'.                           " 基本数据视图
+  lw_clientdata-matl_group = us_input-matkl.              " 物料组
+  lw_clientdatax-matl_group = 'X'.
+  lw_clientdata-old_mat_no = us_input-bismt.              " 旧物料号
+  lw_clientdatax-old_mat_no = 'X'.
+  lw_clientdata-base_uom = us_input-meins.                " 基本计量单位
+  lw_clientdatax-base_uom = 'X'.
+  lw_clientdata-size_dim = us_input-groes.                " 规格型号（大小/量纲）
+  lw_clientdatax-size_dim = 'X'.
+  lw_clientdata-mfr_no = us_input-mfrnr.                  " 制造商
+  lw_clientdatax-mfr_no = 'X'.
+  lw_clientdata-pur_valkey = us_input-ekwsl.              " 采购价值代码
+  lw_clientdatax-pur_valkey = 'X'.
+*  CLEAR: LT_MATERIALDESCRIPTION, LW_MATERIALDESCRIPTION.
+*  LW_MATERIALDESCRIPTION-LANGU = '1'.
+*  LW_MATERIALDESCRIPTION-MATL_DESC = US_INPUT-MAKTX.      " 物料描述
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：05.11.2020 10:50:53
+*&---------------------------------------------------------------------*
+*&修改记录：修改物料描述为子表
+*&
+*&---------------------------------------------------------------------*
+  CLEAR: lt_materialdescription, lw_materialdescription,ls_describe.
+  lt_describe = us_input-describe.
+  LOOP AT lt_describe INTO ls_describe.
+    CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
+      EXPORTING
+        input            = ls_describe-lag
+      IMPORTING
+        output           = lw_materialdescription-langu
+      EXCEPTIONS
+        unknown_language = 1
+        OTHERS           = 2.
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+    ENDIF.
+
+*    lw_materialdescription-langu = ls_describe-lag.
+    lw_materialdescription-matl_desc = ls_describe-maktx.
+    APPEND lw_materialdescription TO lt_materialdescription.
+    CLEAR:ls_describe,lw_materialdescription.
   ENDLOOP.
-  CLEAR: LW_RETURN.
+**********************END***************
+  APPEND lw_materialdescription TO lt_materialdescription.
+  CLEAR: lt_unitsofmeasure, lw_unitsofmeasure, lt_unitsofmeasurex, lw_unitsofmeasurex, lt_smeinh, ls_smeinh.
+  lt_smeinh = us_input-smeinh.
+  LOOP AT lt_smeinh INTO ls_smeinh.
+    lw_unitsofmeasure-gross_wt = us_input-brgew.          " 毛重
+    lw_unitsofmeasurex-gross_wt = 'X'.
+    lw_unitsofmeasure-volume = us_input-volum.            " 体积
+    lw_unitsofmeasurex-volume = 'X'.
+    lw_unitsofmeasure-unit_of_wt = us_input-gewei.        " 重量单位
+    lw_unitsofmeasurex-unit_of_wt = 'X'.
+    lw_unitsofmeasure-volumeunit = us_input-voleh.        " 体积单位
+    lw_unitsofmeasurex-volumeunit = 'X'.
+    lw_unitsofmeasure-denominatr = ls_smeinh-umren.       " 转换为基本计量单位的分母
+    lw_unitsofmeasurex-denominatr = 'X'.
+    lw_unitsofmeasure-alt_unit = ls_smeinh-meinh.         " 用于显示的计量单位
+    lw_unitsofmeasurex-alt_unit = ls_smeinh-meinh.
+    lw_unitsofmeasure-numerator = ls_smeinh-umrez.        " 基本计量单位转换分子
+    lw_unitsofmeasurex-numerator = 'X'.
+    APPEND lw_unitsofmeasure TO lt_unitsofmeasure.
+    APPEND lw_unitsofmeasurex TO lt_unitsofmeasurex.
+    CLEAR: lw_unitsofmeasure, lw_unitsofmeasurex.
+  ENDLOOP.
+  CLEAR: lw_return.
   CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
     EXPORTING
-      HEADDATA            = LW_HEADDATA
-      CLIENTDATA          = LW_CLIENTDATA
-      CLIENTDATAX         = LW_CLIENTDATAX
+      headdata            = lw_headdata
+      clientdata          = lw_clientdata
+      clientdatax         = lw_clientdatax
     IMPORTING
-      RETURN              = LW_RETURN
+      return              = lw_return
     TABLES
-      MATERIALDESCRIPTION = LT_MATERIALDESCRIPTION
-      UNITSOFMEASURE      = LT_UNITSOFMEASURE
-      UNITSOFMEASUREX     = LT_UNITSOFMEASUREX.
-  IF LW_RETURN-TYPE <> 'E'.
+      materialdescription = lt_materialdescription
+      unitsofmeasure      = lt_unitsofmeasure
+      unitsofmeasurex     = lt_unitsofmeasurex.
+  IF lw_return-type <> 'E'.
     CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
       EXPORTING
-        WAIT = 'X'.
+        wait = 'X'.
     " 扩张工厂视图
-    IF US_INPUT-WERKS IS NOT INITIAL.
-      PERFORM FRM_PLANT_VIEW USING US_INPUT LV_MATNR CHANGING CS_RETURN.
+    IF us_input-werks IS NOT INITIAL.
+      PERFORM frm_plant_view USING us_input lv_matnr CHANGING cs_return.
     ENDIF.
     " 扩张MRP AREA
-    IF US_INPUT-MRP_AERA IS NOT INITIAL.
-      PERFORM FRM_MRP_AERA_CREATE USING US_INPUT LV_MATNR CHANGING CS_RETURN.
+    IF us_input-mrp_aera IS NOT INITIAL.
+      PERFORM frm_mrp_aera_create USING us_input lv_matnr CHANGING cs_return.
     ENDIF.
     " 扩张销售组织视图
-    IF US_INPUT-VKORG IS NOT INITIAL.
-      PERFORM FRM_SALESORG_VIEW USING US_INPUT LV_MATNR CHANGING CS_RETURN.
+    IF us_input-vkorg IS NOT INITIAL.
+      PERFORM frm_salesorg_view USING us_input lv_matnr CHANGING cs_return.
     ENDIF.
     " 维护分类视图
-    IF US_INPUT-CLASS IS NOT INITIAL.
-      PERFORM FRM_CLASS_VIEW USING US_INPUT LV_MATNR LV_FLAG CHANGING CS_RETURN.
+    IF us_input-class IS NOT INITIAL.
+      PERFORM frm_class_view USING us_input lv_matnr lv_flag CHANGING cs_return.
     ENDIF.
-    IF CS_RETURN IS INITIAL.
-      CS_RETURN-MSG_MATNR = LV_MATNR.
-      CS_RETURN-MSG_TYPE = 'S'.
-      CS_RETURN-MESSAGE = '成功'.
+    IF cs_return IS INITIAL.
+      cs_return-msg_matnr = lv_matnr.
+      cs_return-msg_type = 'S'.
+      cs_return-message = '成功'.
     ENDIF.
   ELSE.
     CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
-    CS_RETURN-MSG_MATNR = LV_MATNR.
-    CS_RETURN-MSG_TYPE = 'E'.
-    CS_RETURN-MESSAGE = LW_RETURN-MESSAGE.
+    cs_return-msg_matnr = lv_matnr.
+    cs_return-msg_type = 'E'.
+    cs_return-message = lw_return-message.
   ENDIF.
 ENDFORM.
 *&---------------------------------------------------------------------*
@@ -172,9 +202,9 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 *&      <-- LV_MATNR
 *&---------------------------------------------------------------------*
-FORM FRM_GET_MATNR  USING    UV_MTART TYPE MTART
-                    CHANGING CV_MATNR TYPE MATNR.
-  DEFINE MATN1_INPUT.
+FORM frm_get_matnr  USING    uv_mtart TYPE mtart
+                    CHANGING cv_matnr TYPE matnr.
+  DEFINE matn1_input.
     CALL FUNCTION 'CONVERSION_EXIT_MATN1_INPUT'
       EXPORTING
         input         = &1
@@ -187,151 +217,151 @@ FORM FRM_GET_MATNR  USING    UV_MTART TYPE MTART
 * Implement suitable error handling here
     ENDIF.
   END-OF-DEFINITION.
-  DATA: LV_MATNR TYPE CHAR18.
-  CLEAR: LV_MATNR.
-  IF UV_MTART = 'Z010'.
-    SELECT MAX( MATNR ) INTO CV_MATNR FROM MARA
-      WHERE MATNR BETWEEN '000000000100000001' AND '000000000109999999'.
-    IF SY-SUBRC <> 0.
-      CV_MATNR = '000000000100000001'.
+  DATA: lv_matnr TYPE char18.
+  CLEAR: lv_matnr.
+  IF uv_mtart = 'Z010'.
+    SELECT MAX( matnr ) INTO cv_matnr FROM mara
+      WHERE matnr BETWEEN '000000000100000001' AND '000000000109999999'.
+    IF sy-subrc <> 0.
+      cv_matnr = '000000000100000001'.
     ELSE.
-      LV_MATNR = CV_MATNR.
-      LV_MATNR = LV_MATNR + 1.
-      CV_MATNR = LV_MATNR.
-      CONDENSE CV_MATNR NO-GAPS.
-      MATN1_INPUT: CV_MATNR.
+      lv_matnr = cv_matnr.
+      lv_matnr = lv_matnr + 1.
+      cv_matnr = lv_matnr.
+      CONDENSE cv_matnr NO-GAPS.
+      matn1_input: cv_matnr.
     ENDIF.
-  ELSEIF UV_MTART = 'Z020'.
-    SELECT MAX( MATNR ) INTO CV_MATNR FROM MARA
-      WHERE MATNR BETWEEN '000000000200000001' AND '000000000209999999'.
-    IF SY-SUBRC <> 0.
-      CV_MATNR = '000000000200000001'.
+  ELSEIF uv_mtart = 'Z020'.
+    SELECT MAX( matnr ) INTO cv_matnr FROM mara
+      WHERE matnr BETWEEN '000000000200000001' AND '000000000209999999'.
+    IF sy-subrc <> 0.
+      cv_matnr = '000000000200000001'.
     ELSE.
-      LV_MATNR = CV_MATNR.
-      LV_MATNR = LV_MATNR + 1.
-      CV_MATNR = LV_MATNR.
-      CONDENSE CV_MATNR NO-GAPS.
-      MATN1_INPUT: CV_MATNR.
+      lv_matnr = cv_matnr.
+      lv_matnr = lv_matnr + 1.
+      cv_matnr = lv_matnr.
+      CONDENSE cv_matnr NO-GAPS.
+      matn1_input: cv_matnr.
     ENDIF.
-  ELSEIF UV_MTART = 'Z030'.
-    SELECT MAX( MATNR ) INTO CV_MATNR FROM MARA
-      WHERE MATNR BETWEEN '000000000300000001' AND '000000000309999999'.
-    IF SY-SUBRC <> 0.
-      CV_MATNR = '000000000300000001'.
+  ELSEIF uv_mtart = 'Z030'.
+    SELECT MAX( matnr ) INTO cv_matnr FROM mara
+      WHERE matnr BETWEEN '000000000300000001' AND '000000000309999999'.
+    IF sy-subrc <> 0.
+      cv_matnr = '000000000300000001'.
     ELSE.
-      LV_MATNR = CV_MATNR.
-      LV_MATNR = LV_MATNR + 1.
-      CV_MATNR = LV_MATNR.
-      CONDENSE CV_MATNR NO-GAPS.
-      MATN1_INPUT: CV_MATNR.
+      lv_matnr = cv_matnr.
+      lv_matnr = lv_matnr + 1.
+      cv_matnr = lv_matnr.
+      CONDENSE cv_matnr NO-GAPS.
+      matn1_input: cv_matnr.
     ENDIF.
-  ELSEIF UV_MTART = 'Z040'.
-    SELECT MAX( MATNR ) INTO CV_MATNR FROM MARA
-      WHERE MATNR BETWEEN '000000000400000001' AND '000000000409999999'.
-    IF SY-SUBRC <> 0.
-      CV_MATNR = '000000000400000001'.
+  ELSEIF uv_mtart = 'Z040'.
+    SELECT MAX( matnr ) INTO cv_matnr FROM mara
+      WHERE matnr BETWEEN '000000000400000001' AND '000000000409999999'.
+    IF sy-subrc <> 0.
+      cv_matnr = '000000000400000001'.
     ELSE.
-      LV_MATNR = CV_MATNR.
-      LV_MATNR = LV_MATNR + 1.
-      CV_MATNR = LV_MATNR.
-      CONDENSE CV_MATNR NO-GAPS.
-      MATN1_INPUT: CV_MATNR.
+      lv_matnr = cv_matnr.
+      lv_matnr = lv_matnr + 1.
+      cv_matnr = lv_matnr.
+      CONDENSE cv_matnr NO-GAPS.
+      matn1_input: cv_matnr.
     ENDIF.
-  ELSEIF UV_MTART = 'Z050'.
-    SELECT MAX( MATNR ) INTO CV_MATNR FROM MARA
-      WHERE MATNR BETWEEN '000000000500000001' AND '000000000509999999'.
-    IF SY-SUBRC <> 0.
-      CV_MATNR = '000000000500000001'.
+  ELSEIF uv_mtart = 'Z050'.
+    SELECT MAX( matnr ) INTO cv_matnr FROM mara
+      WHERE matnr BETWEEN '000000000500000001' AND '000000000509999999'.
+    IF sy-subrc <> 0.
+      cv_matnr = '000000000500000001'.
     ELSE.
-      LV_MATNR = CV_MATNR.
-      LV_MATNR = LV_MATNR + 1.
-      CV_MATNR = LV_MATNR.
-      CONDENSE CV_MATNR NO-GAPS.
-      MATN1_INPUT: CV_MATNR.
+      lv_matnr = cv_matnr.
+      lv_matnr = lv_matnr + 1.
+      cv_matnr = lv_matnr.
+      CONDENSE cv_matnr NO-GAPS.
+      matn1_input: cv_matnr.
     ENDIF.
-  ELSEIF UV_MTART = 'Z060'.
-    SELECT MAX( MATNR ) INTO CV_MATNR FROM MARA
-      WHERE MATNR BETWEEN '000000000600000001' AND '000000000609999999'.
-    IF SY-SUBRC <> 0.
-      CV_MATNR = '000000000600000001'.
+  ELSEIF uv_mtart = 'Z060'.
+    SELECT MAX( matnr ) INTO cv_matnr FROM mara
+      WHERE matnr BETWEEN '000000000600000001' AND '000000000609999999'.
+    IF sy-subrc <> 0.
+      cv_matnr = '000000000600000001'.
     ELSE.
-      LV_MATNR = CV_MATNR.
-      LV_MATNR = LV_MATNR + 1.
-      CV_MATNR = LV_MATNR.
-      CONDENSE CV_MATNR NO-GAPS.
-      MATN1_INPUT: CV_MATNR.
+      lv_matnr = cv_matnr.
+      lv_matnr = lv_matnr + 1.
+      cv_matnr = lv_matnr.
+      CONDENSE cv_matnr NO-GAPS.
+      matn1_input: cv_matnr.
     ENDIF.
-  ELSEIF UV_MTART = 'Z070'.
-    SELECT MAX( MATNR ) INTO CV_MATNR FROM MARA
-      WHERE MATNR BETWEEN '000000000700000001' AND '000000000709999999'.
-    IF SY-SUBRC <> 0.
-      CV_MATNR = '000000000700000001'.
+  ELSEIF uv_mtart = 'Z070'.
+    SELECT MAX( matnr ) INTO cv_matnr FROM mara
+      WHERE matnr BETWEEN '000000000700000001' AND '000000000709999999'.
+    IF sy-subrc <> 0.
+      cv_matnr = '000000000700000001'.
     ELSE.
-      LV_MATNR = CV_MATNR.
-      LV_MATNR = LV_MATNR + 1.
-      CV_MATNR = LV_MATNR.
-      CONDENSE CV_MATNR NO-GAPS.
-      MATN1_INPUT: CV_MATNR.
+      lv_matnr = cv_matnr.
+      lv_matnr = lv_matnr + 1.
+      cv_matnr = lv_matnr.
+      CONDENSE cv_matnr NO-GAPS.
+      matn1_input: cv_matnr.
     ENDIF.
-  ELSEIF UV_MTART = 'Z080'.
-    SELECT MAX( MATNR ) INTO CV_MATNR FROM MARA
-      WHERE MATNR BETWEEN '000000000800000001' AND '000000000809999999'.
-    IF SY-SUBRC <> 0.
-      CV_MATNR = '000000000800000001'.
+  ELSEIF uv_mtart = 'Z080'.
+    SELECT MAX( matnr ) INTO cv_matnr FROM mara
+      WHERE matnr BETWEEN '000000000800000001' AND '000000000809999999'.
+    IF sy-subrc <> 0.
+      cv_matnr = '000000000800000001'.
     ELSE.
-      LV_MATNR = CV_MATNR.
-      LV_MATNR = LV_MATNR + 1.
-      CV_MATNR = LV_MATNR.
-      CONDENSE CV_MATNR NO-GAPS.
-      MATN1_INPUT: CV_MATNR.
+      lv_matnr = cv_matnr.
+      lv_matnr = lv_matnr + 1.
+      cv_matnr = lv_matnr.
+      CONDENSE cv_matnr NO-GAPS.
+      matn1_input: cv_matnr.
     ENDIF.
-  ELSEIF UV_MTART = 'Z090'.
-    SELECT MAX( MATNR ) INTO CV_MATNR FROM MARA
-      WHERE MATNR BETWEEN '000000000900000001' AND '000000000909999999'.
-    IF SY-SUBRC <> 0.
-      CV_MATNR = '000000000900000001'.
+  ELSEIF uv_mtart = 'Z090'.
+    SELECT MAX( matnr ) INTO cv_matnr FROM mara
+      WHERE matnr BETWEEN '000000000900000001' AND '000000000909999999'.
+    IF sy-subrc <> 0.
+      cv_matnr = '000000000900000001'.
     ELSE.
-      LV_MATNR = CV_MATNR.
-      LV_MATNR = LV_MATNR + 1.
-      CV_MATNR = LV_MATNR.
-      CONDENSE CV_MATNR NO-GAPS.
-      MATN1_INPUT: CV_MATNR.
+      lv_matnr = cv_matnr.
+      lv_matnr = lv_matnr + 1.
+      cv_matnr = lv_matnr.
+      CONDENSE cv_matnr NO-GAPS.
+      matn1_input: cv_matnr.
     ENDIF.
-  ELSEIF UV_MTART = 'Z098'.
-    SELECT MAX( MATNR ) INTO CV_MATNR FROM MARA
-      WHERE MATNR BETWEEN '000000000980000001' AND '000000000989999999'.
-    IF SY-SUBRC <> 0.
-      CV_MATNR = '000000000980000001'.
+  ELSEIF uv_mtart = 'Z098'.
+    SELECT MAX( matnr ) INTO cv_matnr FROM mara
+      WHERE matnr BETWEEN '000000000980000001' AND '000000000989999999'.
+    IF sy-subrc <> 0.
+      cv_matnr = '000000000980000001'.
     ELSE.
-      LV_MATNR = CV_MATNR.
-      LV_MATNR = LV_MATNR + 1.
-      CV_MATNR = LV_MATNR.
-      CONDENSE CV_MATNR NO-GAPS.
-      MATN1_INPUT: CV_MATNR.
+      lv_matnr = cv_matnr.
+      lv_matnr = lv_matnr + 1.
+      cv_matnr = lv_matnr.
+      CONDENSE cv_matnr NO-GAPS.
+      matn1_input: cv_matnr.
     ENDIF.
-  ELSEIF UV_MTART = 'Z099'.
-    SELECT MAX( MATNR ) INTO CV_MATNR FROM MARA
-      WHERE MATNR BETWEEN '000000000990000001' AND '000000000999999999'.
-    IF SY-SUBRC <> 0.
-      CV_MATNR = '000000000990000001'.
+  ELSEIF uv_mtart = 'Z099'.
+    SELECT MAX( matnr ) INTO cv_matnr FROM mara
+      WHERE matnr BETWEEN '000000000990000001' AND '000000000999999999'.
+    IF sy-subrc <> 0.
+      cv_matnr = '000000000990000001'.
     ELSE.
-      LV_MATNR = CV_MATNR.
-      LV_MATNR = LV_MATNR + 1.
-      CV_MATNR = LV_MATNR.
-      CONDENSE CV_MATNR NO-GAPS.
-      MATN1_INPUT: CV_MATNR.
+      lv_matnr = cv_matnr.
+      lv_matnr = lv_matnr + 1.
+      cv_matnr = lv_matnr.
+      CONDENSE cv_matnr NO-GAPS.
+      matn1_input: cv_matnr.
     ENDIF.
-  ELSEIF UV_MTART = 'HERS'.
-    SELECT MAX( MATNR ) INTO CV_MATNR FROM MARA
-      WHERE MATNR BETWEEN '000000001000000001' AND '000000001099999999'.
-    IF SY-SUBRC <> 0.
-      CV_MATNR = '000000001000000001'.
+  ELSEIF uv_mtart = 'HERS'.
+    SELECT MAX( matnr ) INTO cv_matnr FROM mara
+      WHERE matnr BETWEEN '000000001000000001' AND '000000001099999999'.
+    IF sy-subrc <> 0.
+      cv_matnr = '000000001000000001'.
     ELSE.
-      LV_MATNR = CV_MATNR.
-      LV_MATNR = LV_MATNR + 1.
-      CV_MATNR = LV_MATNR.
-      CONDENSE CV_MATNR NO-GAPS.
-      MATN1_INPUT: CV_MATNR.
+      lv_matnr = cv_matnr.
+      lv_matnr = lv_matnr + 1.
+      cv_matnr = lv_matnr.
+      CONDENSE cv_matnr NO-GAPS.
+      matn1_input: cv_matnr.
     ENDIF.
   ENDIF.
 ENDFORM.
@@ -342,10 +372,10 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 *&      --> US_INPUT
 *&---------------------------------------------------------------------*
-FORM FRM_PLANT_VIEW  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
-                              UV_MATNR  TYPE MATNR
-                     CHANGING CS_RETURN TYPE ZDT_OA2SAP_MDM_RET_ZMD001.
-  DEFINE MATN1_INPUT.
+FORM frm_plant_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
+                              uv_matnr  TYPE matnr
+                     CHANGING cs_return TYPE zdt_oa2sap_mdm_ret_zmd001.
+  DEFINE matn1_input.
     CALL FUNCTION 'CONVERSION_EXIT_MATN1_INPUT'
       EXPORTING
         input           = &1
@@ -359,155 +389,155 @@ FORM FRM_PLANT_VIEW  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
     ENDIF.
   END-OF-DEFINITION.
 
-  DATA: LT_WERKS   TYPE ZDT_OA2SAP_MDM_MARA_WERKS_TAB,
-        LS_WERKS   TYPE ZDT_OA2SAP_MDM_MARA_WERKS,
-        LT_QMAT    TYPE ZDT_OA2SAP_MDM_MARA_WERKS__TAB,
-        LS_QMAT    TYPE ZDT_OA2SAP_MDM_MARA_WERKS_QMAT,
-        LT_TQ34    TYPE STANDARD TABLE OF TQ34,
-        LW_TQ34    TYPE TQ34,
-        LV_MATNR   TYPE MATNR18,
-        LV_NFMAT40 TYPE NFMAT40,
-        LV_MESS    TYPE C LENGTH 1000,
-        LV_MESS1   TYPE C LENGTH 1000.
-  DATA: LW_HEADDATA       TYPE BAPIMATHEAD,
-        LW_CLIENTDATA     TYPE BAPI_MARA,
-        LW_CLIENTDATAX    TYPE BAPI_MARAX,
-        LT_RETURN         TYPE STANDARD TABLE OF BAPIRET2,
-        LW_RETURN         TYPE BAPIRET2,
-        LW_PLANTDATA      TYPE BAPI_MARC,
-        LW_PLANTDATAX     TYPE BAPI_MARCX,
-        LW_VALUATIONDATA  TYPE BAPI_MBEW,
-        LW_VALUATIONDATAX TYPE BAPI_MBEWX.
-  DATA: LT_INSPECTIONCTRL TYPE STANDARD TABLE OF BAPI1001004_QMAT,
-        LW_INSPECTIONCTRL TYPE BAPI1001004_QMAT.
+  DATA: lt_werks   TYPE zdt_oa2sap_mdm_mara_werks_tab,
+        ls_werks   TYPE zdt_oa2sap_mdm_mara_werks,
+        lt_qmat    TYPE zdt_oa2sap_mdm_mara_werks__tab,
+        ls_qmat    TYPE zdt_oa2sap_mdm_mara_werks_qmat,
+        lt_tq34    TYPE STANDARD TABLE OF tq34,
+        lw_tq34    TYPE tq34,
+        lv_matnr   TYPE matnr18,
+        lv_nfmat40 TYPE nfmat40,
+        lv_mess    TYPE c LENGTH 1000,
+        lv_mess1   TYPE c LENGTH 1000.
+  DATA: lw_headdata       TYPE bapimathead,
+        lw_clientdata     TYPE bapi_mara,
+        lw_clientdatax    TYPE bapi_marax,
+        lt_return         TYPE STANDARD TABLE OF bapiret2,
+        lw_return         TYPE bapiret2,
+        lw_plantdata      TYPE bapi_marc,
+        lw_plantdatax     TYPE bapi_marcx,
+        lw_valuationdata  TYPE bapi_mbew,
+        lw_valuationdatax TYPE bapi_mbewx.
+  DATA: lt_inspectionctrl TYPE STANDARD TABLE OF bapi1001004_qmat,
+        lw_inspectionctrl TYPE bapi1001004_qmat.
 
-  DATA: LS_MARC TYPE MARC,
-        LS_MBEW TYPE MBEW,
-        LS_MARA TYPE MARA.
+  DATA: ls_marc TYPE marc,
+        ls_mbew TYPE mbew,
+        ls_mara TYPE mara.
 
 
   " 检验类型缺省值
-  CLEAR: LT_TQ34.
-  SELECT * FROM TQ34 INTO TABLE LT_TQ34.
+  CLEAR: lt_tq34.
+  SELECT * FROM tq34 INTO TABLE lt_tq34.
 
-  CLEAR: LT_WERKS, LS_WERKS, LV_MESS.
-  LT_WERKS = US_INPUT-WERKS.
+  CLEAR: lt_werks, ls_werks, lv_mess.
+  lt_werks = us_input-werks.
 
 
-  LOOP AT LT_WERKS INTO LS_WERKS.
-    IF LS_WERKS-WERKS IS NOT INITIAL.
+  LOOP AT lt_werks INTO ls_werks.
+    IF ls_werks-werks IS NOT INITIAL.
 
 
 ***************** add by sujx 20191201**********************************
-      CLEAR: LS_MBEW, LS_MARC, LS_MARA.
+      CLEAR: ls_mbew, ls_marc, ls_mara.
 
-      SELECT SINGLE * INTO LS_MBEW
-        FROM MBEW
-       WHERE MATNR = UV_MATNR
-         AND BWKEY = LS_WERKS-WERKS.
-      IF SY-SUBRC <> 0.
-        CLEAR: LS_MBEW.
+      SELECT SINGLE * INTO ls_mbew
+        FROM mbew
+       WHERE matnr = uv_matnr
+         AND bwkey = ls_werks-werks.
+      IF sy-subrc <> 0.
+        CLEAR: ls_mbew.
       ENDIF.
 
-      SELECT SINGLE * INTO LS_MARC
-        FROM MARC
-       WHERE MATNR = UV_MATNR
-         AND WERKS = LS_WERKS-WERKS.
-      IF SY-SUBRC <> 0.
-        CLEAR: LS_MARC.
+      SELECT SINGLE * INTO ls_marc
+        FROM marc
+       WHERE matnr = uv_matnr
+         AND werks = ls_werks-werks.
+      IF sy-subrc <> 0.
+        CLEAR: ls_marc.
       ENDIF.
 
-      SELECT SINGLE * INTO LS_MARA
-        FROM MARA
-       WHERE MATNR = UV_MATNR.
-      IF SY-SUBRC <> 0.
-        CLEAR: LS_MARA.
+      SELECT SINGLE * INTO ls_mara
+        FROM mara
+       WHERE matnr = uv_matnr.
+      IF sy-subrc <> 0.
+        CLEAR: ls_mara.
       ENDIF.
 
 ******************* end add ******************************************
 
 
-      CLEAR: LW_HEADDATA.
-      LW_HEADDATA-MATERIAL = UV_MATNR.                                    " 物料号
-      LW_HEADDATA-MATL_TYPE = US_INPUT-MTART.                             " 物料类型
-      LW_HEADDATA-IND_SECTOR = 'P'.                                       " 行业领域
-      LW_HEADDATA-PURCHASE_VIEW = 'X'.                                    " 采购视图
-      IF US_INPUT-MTART <> 'Z080'
-        AND US_INPUT-MTART <> 'Z098'.
+      CLEAR: lw_headdata.
+      lw_headdata-material = uv_matnr.                                    " 物料号
+      lw_headdata-matl_type = us_input-mtart.                             " 物料类型
+      lw_headdata-ind_sector = 'P'.                                       " 行业领域
+      lw_headdata-purchase_view = 'X'.                                    " 采购视图
+      IF us_input-mtart <> 'Z080'
+        AND us_input-mtart <> 'Z098'.
 *        AND us_input-mtart <> 'Z099'.
-        LW_HEADDATA-MRP_VIEW = 'X'.                                       " MRP视图
+        lw_headdata-mrp_view = 'X'.                                       " MRP视图
       ENDIF.
-      LW_HEADDATA-WORK_SCHED_VIEW = 'X'.                                  " 工作计划视图
-      IF US_INPUT-MTART <> 'Z099'.
-        LW_HEADDATA-ACCOUNT_VIEW = 'X'.                                   " 会计视图
-        LW_HEADDATA-STORAGE_VIEW = 'X'.                                   " 库存视图
-        LW_HEADDATA-COST_VIEW = 'X'.                                      " 成本视图
+      lw_headdata-work_sched_view = 'X'.                                  " 工作计划视图
+      IF us_input-mtart <> 'Z099'.
+        lw_headdata-account_view = 'X'.                                   " 会计视图
+        lw_headdata-storage_view = 'X'.                                   " 库存视图
+        lw_headdata-cost_view = 'X'.                                      " 成本视图
       ENDIF.
-      IF US_INPUT-MTART <> 'Z040'
-        AND US_INPUT-MTART <> 'Z099'.
-        LW_HEADDATA-QUALITY_VIEW = 'X'.                                   " 质量管理视图
+      IF us_input-mtart <> 'Z040'
+        AND us_input-mtart <> 'Z099'.
+        lw_headdata-quality_view = 'X'.                                   " 质量管理视图
       ENDIF.
-      CLEAR: LW_CLIENTDATA, LW_CLIENTDATAX.
+      CLEAR: lw_clientdata, lw_clientdatax.
 
       " 温度条件
-      IF LS_WERKS-TEMPB <> LS_MARA-TEMPB OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-TEMP_CONDS = LS_WERKS-TEMPB.
-        LW_CLIENTDATAX-TEMP_CONDS = 'X'.
+      IF ls_werks-tempb <> ls_mara-tempb OR ls_mara IS INITIAL.
+        lw_clientdata-temp_conds = ls_werks-tempb.
+        lw_clientdatax-temp_conds = 'X'.
       ENDIF.
 
       " 存储条件
-      IF LS_WERKS-RAUBE <> LS_MARA-RAUBE OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-STOR_CONDS = LS_WERKS-RAUBE.
-        LW_CLIENTDATAX-STOR_CONDS = 'X'.
+      IF ls_werks-raube <> ls_mara-raube OR ls_mara IS INITIAL.
+        lw_clientdata-stor_conds = ls_werks-raube.
+        lw_clientdatax-stor_conds = 'X'.
       ENDIF.
 
       " 最小剩余货架寿命
-      IF LS_WERKS-MHDRZ <> LS_MARA-MHDRZ OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-MINREMLIFE = LS_WERKS-MHDRZ.
-        LW_CLIENTDATAX-MINREMLIFE = 'X'.
+      IF ls_werks-mhdrz <> ls_mara-mhdrz OR ls_mara IS INITIAL.
+        lw_clientdata-minremlife = ls_werks-mhdrz.
+        lw_clientdatax-minremlife = 'X'.
       ENDIF.
 
 *      lw_clientdata-temp_conds = ls_werks-tempb.                          " 温度条件
 *      lw_clientdata-stor_conds = ls_werks-raube.                          " 存储条件
 *      lw_clientdata-minremlife = ls_werks-mhdrz.                          " 最小剩余货架寿命
       " 总货架寿命
-      IF US_INPUT-MTART <> 'Z010'
-        AND US_INPUT-MTART <> 'Z020'
-        AND US_INPUT-MTART <> 'Z040'.
-        IF LS_WERKS-MHDHB <> LS_MARA-MHDHB OR LS_MARA IS INITIAL.
-          LW_CLIENTDATA-SHELF_LIFE = LS_WERKS-MHDHB.
-          LW_CLIENTDATAX-SHELF_LIFE = 'X'.
+      IF us_input-mtart <> 'Z010'
+        AND us_input-mtart <> 'Z020'
+        AND us_input-mtart <> 'Z040'.
+        IF ls_werks-mhdhb <> ls_mara-mhdhb OR ls_mara IS INITIAL.
+          lw_clientdata-shelf_life = ls_werks-mhdhb.
+          lw_clientdatax-shelf_life = 'X'.
         ENDIF.
 *        lw_clientdata-shelf_life = ls_werks-mhdhb.                        " 总货架寿命
 *        lw_clientdatax-shelf_life = 'X'.
       ENDIF.
       " 激活采购中的 QM
-      IF US_INPUT-MTART = 'Z010'
-        OR US_INPUT-MTART = 'Z020'.
-        IF LS_MARA-QMPUR IS INITIAL OR LS_MARA IS INITIAL.
-          LW_CLIENTDATA-QM_PROCMNT = 'X'.
-          LW_CLIENTDATAX-QM_PROCMNT = 'X'.
+      IF us_input-mtart = 'Z010'
+        OR us_input-mtart = 'Z020'.
+        IF ls_mara-qmpur IS INITIAL OR ls_mara IS INITIAL.
+          lw_clientdata-qm_procmnt = 'X'.
+          lw_clientdatax-qm_procmnt = 'X'.
         ENDIF.
 *        lw_clientdata-qm_procmnt = 'X'.                                   " 激活采购中的 QM
 *        lw_clientdatax-qm_procmnt = 'X'.
       ENDIF.
 
       " 期间标识
-      IF LS_WERKS-IPRKZ <> LS_MARA-IPRKZ OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-PERIOD_IND_EXPIRATION_DATE = LS_WERKS-IPRKZ.
-        LW_CLIENTDATAX-PERIOD_IND_EXPIRATION_DATE = 'X'.
+      IF ls_werks-iprkz <> ls_mara-iprkz OR ls_mara IS INITIAL.
+        lw_clientdata-period_ind_expiration_date = ls_werks-iprkz.
+        lw_clientdatax-period_ind_expiration_date = 'X'.
       ENDIF.
 
       " 舍入规则
-      IF LS_WERKS-RDMHD <> LS_MARA-RDMHD OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-ROUND_UP_RULE_EXPIRATION_DATE = LS_WERKS-RDMHD.
-        LW_CLIENTDATAX-ROUND_UP_RULE_EXPIRATION_DATE = 'X'.
+      IF ls_werks-rdmhd <> ls_mara-rdmhd OR ls_mara IS INITIAL.
+        lw_clientdata-round_up_rule_expiration_date = ls_werks-rdmhd.
+        lw_clientdatax-round_up_rule_expiration_date = 'X'.
       ENDIF.
 
       " 采购价值代码
-      IF US_INPUT-EKWSL <> LS_MARA-EKWSL OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-PUR_VALKEY = US_INPUT-EKWSL.
-        LW_CLIENTDATAX-PUR_VALKEY = 'X'.
+      IF us_input-ekwsl <> ls_mara-ekwsl OR ls_mara IS INITIAL.
+        lw_clientdata-pur_valkey = us_input-ekwsl.
+        lw_clientdatax-pur_valkey = 'X'.
       ENDIF.
 *      lw_clientdata-period_ind_expiration_date = ls_werks-iprkz.          " 期间标识
 *      lw_clientdata-round_up_rule_expiration_date = ls_werks-rdmhd.       " 舍入规则
@@ -521,262 +551,262 @@ FORM FRM_PLANT_VIEW  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 ********************因为特殊采购标识字段作废，所以下面这段逻辑判断作废*******
       " 制造商部件的参数文件
 *      IF us_input-mtart = 'Z010' AND ls_werks-sobsl IS INITIAL.
-      IF LS_MARA-MPROF <> LS_MARA-MPROF OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-MANUF_PROF = US_INPUT-MPROF.
-        LW_CLIENTDATAX-MANUF_PROF = 'X'.
+      IF ls_mara-mprof <> ls_mara-mprof OR ls_mara IS INITIAL.
+        lw_clientdata-manuf_prof = us_input-mprof.
+        lw_clientdatax-manuf_prof = 'X'.
       ENDIF.
 **        lw_clientdata-manuf_prof = 'IMPN'.
 **        lw_clientdatax-manuf_prof = 'X'.
 *      ENDIF.
 *******************作废结束*************************************************
-      CLEAR: LW_PLANTDATA, LW_PLANTDATAX.
-      LW_PLANTDATA-PLANT = LS_WERKS-WERKS.                              " 工厂
-      LW_PLANTDATAX-PLANT = LS_WERKS-WERKS.
-      LW_PLANTDATA-DEL_FLAG = LS_WERKS-LVOMA.                           " 删除标记
-      LW_PLANTDATAX-DEL_FLAG = 'X'.
+      CLEAR: lw_plantdata, lw_plantdatax.
+      lw_plantdata-plant = ls_werks-werks.                              " 工厂
+      lw_plantdatax-plant = ls_werks-werks.
+      lw_plantdata-del_flag = ls_werks-lvoma.                           " 删除标记
+      lw_plantdatax-del_flag = 'X'.
 
 *      CRIT_PART
       " 采购组
-      IF LS_MARC-EKGRP <> LS_WERKS-EKGRP OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-PUR_GROUP = LS_WERKS-EKGRP.
-        LW_PLANTDATAX-PUR_GROUP = 'X'.
+      IF ls_marc-ekgrp <> ls_werks-ekgrp OR ls_marc IS INITIAL.
+        lw_plantdata-pur_group = ls_werks-ekgrp.
+        lw_plantdatax-pur_group = 'X'.
       ENDIF.
       " 源清单
-      IF LS_MARC-KORDB <> LS_WERKS-KORDB OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-SOURCELIST = LS_WERKS-KORDB.
-        LW_PLANTDATAX-SOURCELIST = 'X'.
+      IF ls_marc-kordb <> ls_werks-kordb OR ls_marc IS INITIAL.
+        lw_plantdata-sourcelist = ls_werks-kordb.
+        lw_plantdatax-sourcelist = 'X'.
       ENDIF.
       " 批次管理
-      IF LS_MARC-XCHPF <> LS_WERKS-XCHPF OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-BATCH_MGMT = LS_WERKS-XCHPF.
-        LW_PLANTDATAX-BATCH_MGMT = 'X'.
+      IF ls_marc-xchpf <> ls_werks-xchpf OR ls_marc IS INITIAL.
+        lw_plantdata-batch_mgmt = ls_werks-xchpf.
+        lw_plantdatax-batch_mgmt = 'X'.
       ENDIF.
       " 利润中心
-      IF LS_MARC-PRCTR <> LS_WERKS-PRCTL OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-PROFIT_CTR = LS_WERKS-PRCTL.
-        LW_PLANTDATAX-PROFIT_CTR = 'X'.
+      IF ls_marc-prctr <> ls_werks-prctl OR ls_marc IS INITIAL.
+        lw_plantdata-profit_ctr = ls_werks-prctl.
+        lw_plantdatax-profit_ctr = 'X'.
       ENDIF.
       " 不计算成本
-      IF LS_MARC-NCOST <> LS_WERKS-NCOST OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-NO_COSTING = LS_WERKS-NCOST.
-        LW_PLANTDATAX-NO_COSTING = 'X'.
+      IF ls_marc-ncost <> ls_werks-ncost OR ls_marc IS INITIAL.
+        lw_plantdata-no_costing = ls_werks-ncost.
+        lw_plantdatax-no_costing = 'X'.
       ENDIF.
       " 特定工厂的物料状态
-      IF LS_MARC-MMSTA <> LS_WERKS-MMSTA OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-PUR_STATUS = LS_WERKS-MMSTA.
-        LW_PLANTDATAX-PUR_STATUS = 'X'.
+      IF ls_marc-mmsta <> ls_werks-mmsta OR ls_marc IS INITIAL.
+        lw_plantdata-pur_status = ls_werks-mmsta.
+        lw_plantdatax-pur_status = 'X'.
       ENDIF.
       " 特定工厂的物料状态
-      IF LS_MARC-MMSTD <> LS_WERKS-MMSTD OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-PVALIDFROM = LS_WERKS-MMSTD.
-        LW_PLANTDATAX-PVALIDFROM = 'X'.
+      IF ls_marc-mmstd <> ls_werks-mmstd OR ls_marc IS INITIAL.
+        lw_plantdata-pvalidfrom = ls_werks-mmstd.
+        lw_plantdatax-pvalidfrom = 'X'.
       ENDIF.
       " 最大批量大小
-      IF LS_MARC-BSTMA <> LS_WERKS-BSTMA OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-MAXLOTSIZE = LS_WERKS-BSTMA.
-        LW_PLANTDATAX-MAXLOTSIZE = 'X'.
+      IF ls_marc-bstma <> ls_werks-bstma OR ls_marc IS INITIAL.
+        lw_plantdata-maxlotsize = ls_werks-bstma.
+        lw_plantdatax-maxlotsize = 'X'.
       ENDIF.
       " 最小批量大小
-      IF LS_MARC-BSTMI <> LS_WERKS-BSTMI OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-MINLOTSIZE = LS_WERKS-BSTMI.
-        LW_PLANTDATAX-MINLOTSIZE = 'X'.
+      IF ls_marc-bstmi <> ls_werks-bstmi OR ls_marc IS INITIAL.
+        lw_plantdata-minlotsize = ls_werks-bstmi.
+        lw_plantdatax-minlotsize = 'X'.
       ENDIF.
       " 舍入值
-      IF LS_MARC-BSTRF <> LS_WERKS-BSTRF OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-ROUND_VAL = LS_WERKS-BSTRF.
-        LW_PLANTDATAX-ROUND_VAL = 'X'.
+      IF ls_marc-bstrf <> ls_werks-bstrf OR ls_marc IS INITIAL.
+        lw_plantdata-round_val = ls_werks-bstrf.
+        lw_plantdatax-round_val = 'X'.
       ENDIF.
       " 计划交货时间
-      IF LS_MARC-PLIFZ <> LS_WERKS-PLIFZ OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-PLND_DELRY = LS_WERKS-PLIFZ.
-        LW_PLANTDATAX-PLND_DELRY = 'X'.
+      IF ls_marc-plifz <> ls_werks-plifz OR ls_marc IS INITIAL.
+        lw_plantdata-plnd_delry = ls_werks-plifz.
+        lw_plantdatax-plnd_delry = 'X'.
       ENDIF.
       " MRP类型
-      IF LS_MARC-DISMM <> LS_WERKS-DISMM OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-MRP_TYPE = LS_WERKS-DISMM.
-        LW_PLANTDATAX-MRP_TYPE = 'X'.
+      IF ls_marc-dismm <> ls_werks-dismm OR ls_marc IS INITIAL.
+        lw_plantdata-mrp_type = ls_werks-dismm.
+        lw_plantdatax-mrp_type = 'X'.
       ENDIF.
       " MRP控制者/物料需求计划控制员
-      IF LS_MARC-DISPO <> LS_WERKS-DISPO OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-MRP_CTRLER = LS_WERKS-DISPO.
-        LW_PLANTDATAX-MRP_CTRLER = 'X'.
+      IF ls_marc-dispo <> ls_werks-dispo OR ls_marc IS INITIAL.
+        lw_plantdata-mrp_ctrler = ls_werks-dispo.
+        lw_plantdatax-mrp_ctrler = 'X'.
       ENDIF.
       " 批量大小
-      IF LS_MARC-DISLS <> LS_WERKS-DISLS OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-LOTSIZEKEY = LS_WERKS-DISLS.
-        LW_PLANTDATAX-LOTSIZEKEY = 'X'.
+      IF ls_marc-disls <> ls_werks-disls OR ls_marc IS INITIAL.
+        lw_plantdata-lotsizekey = ls_werks-disls.
+        lw_plantdatax-lotsizekey = 'X'.
       ENDIF.
       " 采购类型
-      IF LS_MARC-BESKZ <> LS_WERKS-BESKZ OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-PROC_TYPE = LS_WERKS-BESKZ.
-        LW_PLANTDATAX-PROC_TYPE = 'X'.
+      IF ls_marc-beskz <> ls_werks-beskz OR ls_marc IS INITIAL.
+        lw_plantdata-proc_type = ls_werks-beskz.
+        lw_plantdatax-proc_type = 'X'.
       ENDIF.
       " 特殊采购类
-      IF LS_MARC-SOBSL <> LS_WERKS-SOBSL OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-SPPROCTYPE = LS_WERKS-SOBSL.
-        LW_PLANTDATAX-SPPROCTYPE = 'X'.
+      IF ls_marc-sobsl <> ls_werks-sobsl OR ls_marc IS INITIAL.
+        lw_plantdata-spproctype = ls_werks-sobsl.
+        lw_plantdatax-spproctype = 'X'.
       ENDIF.
       " 安全库存
-      IF LS_MARC-EISBE <> LS_WERKS-EISBE OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-SAFETY_STK = LS_WERKS-EISBE.
-        LW_PLANTDATAX-SAFETY_STK = 'X'.
+      IF ls_marc-eisbe <> ls_werks-eisbe OR ls_marc IS INITIAL.
+        lw_plantdata-safety_stk = ls_werks-eisbe.
+        lw_plantdatax-safety_stk = 'X'.
       ENDIF.
       " 策略组
-      IF LS_MARC-STRGR <> LS_WERKS-STRGR OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-PLAN_STRGP = LS_WERKS-STRGR.
-        LW_PLANTDATAX-PLAN_STRGP = 'X'.
+      IF ls_marc-strgr <> ls_werks-strgr OR ls_marc IS INITIAL.
+        lw_plantdata-plan_strgp = ls_werks-strgr.
+        lw_plantdatax-plan_strgp = 'X'.
       ENDIF.
       " 不足交货容差
-      IF LS_MARC-UNETO <> LS_WERKS-UNETO OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-UNDER_TOL = LS_WERKS-UNETO.
-        LW_PLANTDATAX-UNDER_TOL = 'X'.
+      IF ls_marc-uneto <> ls_werks-uneto OR ls_marc IS INITIAL.
+        lw_plantdata-under_tol = ls_werks-uneto.
+        lw_plantdatax-under_tol = 'X'.
       ENDIF.
       " 厂内生产时间
-      IF LS_MARC-DZEIT <> LS_WERKS-DZEIT OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-INHSEPRODT = LS_WERKS-DZEIT.
-        LW_PLANTDATAX-INHSEPRODT = 'X'.
+      IF ls_marc-dzeit <> ls_werks-dzeit OR ls_marc IS INITIAL.
+        lw_plantdata-inhseprodt = ls_werks-dzeit.
+        lw_plantdatax-inhseprodt = 'X'.
       ENDIF.
       " 固定批量
-      IF LS_MARC-BSTFE <> LS_WERKS-BSTFE OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-FIXED_LOT = LS_WERKS-BSTFE.
-        LW_PLANTDATAX-FIXED_LOT = 'X'.
+      IF ls_marc-bstfe <> ls_werks-bstfe OR ls_marc IS INITIAL.
+        lw_plantdata-fixed_lot = ls_werks-bstfe.
+        lw_plantdatax-fixed_lot = 'X'.
       ENDIF.
       " 过度交货容差
-      IF LS_MARC-UEETO <> LS_WERKS-UEETO OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-OVER_TOL = LS_WERKS-UEETO.
-        LW_PLANTDATAX-OVER_TOL = 'X'.
+      IF ls_marc-ueeto <> ls_werks-ueeto OR ls_marc IS INITIAL.
+        lw_plantdata-over_tol = ls_werks-ueeto.
+        lw_plantdatax-over_tol = 'X'.
       ENDIF.
       " 检查间隔
-      IF LS_MARC-PRFRQ <> LS_WERKS-PRFRQ OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-INSP_INT = LS_WERKS-PRFRQ.
-        LW_PLANTDATAX-INSP_INT = 'X'.
+      IF ls_marc-prfrq <> ls_werks-prfrq OR ls_marc IS INITIAL.
+        lw_plantdata-insp_int = ls_werks-prfrq.
+        lw_plantdatax-insp_int = 'X'.
       ENDIF.
       " MRP组
-      IF LS_MARC-DISGR <> LS_WERKS-DISGR OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-MRP_GROUP = LS_WERKS-DISGR.
-        LW_PLANTDATAX-MRP_GROUP = 'X'.
+      IF ls_marc-disgr <> ls_werks-disgr OR ls_marc IS INITIAL.
+        lw_plantdata-mrp_group = ls_werks-disgr.
+        lw_plantdatax-mrp_group = 'X'.
       ENDIF.
       " 计划时界
-      IF LS_MARC-FXHOR <> LS_WERKS-FXHOR OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-PL_TI_FNCE = LS_WERKS-FXHOR.
-        LW_PLANTDATAX-PL_TI_FNCE = 'X'.
+      IF ls_marc-fxhor <> ls_werks-fxhor OR ls_marc IS INITIAL.
+        lw_plantdata-pl_ti_fnce = ls_werks-fxhor.
+        lw_plantdatax-pl_ti_fnce = 'X'.
       ENDIF.
       " 反冲
-      IF LS_MARC-RGEKZ <> LS_WERKS-RGEKZ OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-BACKFLUSH = LS_WERKS-RGEKZ.
-        LW_PLANTDATAX-BACKFLUSH = 'X'.
+      IF ls_marc-rgekz <> ls_werks-rgekz OR ls_marc IS INITIAL.
+        lw_plantdata-backflush = ls_werks-rgekz.
+        lw_plantdatax-backflush = 'X'.
       ENDIF.
       " 计划边际码
-      IF LS_MARC-FHORI <> LS_WERKS-FHORI OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-SM_KEY = LS_WERKS-FHORI.
-        LW_PLANTDATAX-SM_KEY = 'X'.
+      IF ls_marc-fhori <> ls_werks-fhori OR ls_marc IS INITIAL.
+        lw_plantdata-sm_key = ls_werks-fhori.
+        lw_plantdatax-sm_key = 'X'.
       ENDIF.
       " 消耗模式
-      IF LS_MARC-VRMOD <> LS_WERKS-VRMOD OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-CONSUMMODE = LS_WERKS-VRMOD.
-        LW_PLANTDATAX-CONSUMMODE = 'X'.
+      IF ls_marc-vrmod <> ls_werks-vrmod OR ls_marc IS INITIAL.
+        lw_plantdata-consummode = ls_werks-vrmod.
+        lw_plantdatax-consummode = 'X'.
       ENDIF.
       " 向前消耗时间
-      IF LS_MARC-VINT2 <> LS_WERKS-VINT1 OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-FWD_CONS = LS_WERKS-VINT1.
-        LW_PLANTDATAX-FWD_CONS = 'X'.
+      IF ls_marc-vint2 <> ls_werks-vint1 OR ls_marc IS INITIAL.
+        lw_plantdata-fwd_cons = ls_werks-vint1.
+        lw_plantdatax-fwd_cons = 'X'.
       ENDIF.
       " 逆向消耗时间
-      IF LS_MARC-VINT1 <> LS_WERKS-VINT2 OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-BWD_CONS = LS_WERKS-VINT2.
-        LW_PLANTDATAX-BWD_CONS = 'X'.
+      IF ls_marc-vint1 <> ls_werks-vint2 OR ls_marc IS INITIAL.
+        lw_plantdata-bwd_cons = ls_werks-vint2.
+        lw_plantdatax-bwd_cons = 'X'.
       ENDIF.
       " 独立/集中
-      IF LS_MARC-SBDKZ <> LS_WERKS-SBDKZ OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-DEP_REQ_ID = LS_WERKS-SBDKZ.
-        LW_PLANTDATAX-DEP_REQ_ID = 'X'.
+      IF ls_marc-sbdkz <> ls_werks-sbdkz OR ls_marc IS INITIAL.
+        lw_plantdata-dep_req_id = ls_werks-sbdkz.
+        lw_plantdatax-dep_req_id = 'X'.
       ENDIF.
       " 非连续标识
-      IF LS_MARC-KZAUS <> LS_WERKS-KZAUS OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-DISCONTINU = LS_WERKS-KZAUS.
-        LW_PLANTDATAX-DISCONTINU = 'X'.
+      IF ls_marc-kzaus <> ls_werks-kzaus OR ls_marc IS INITIAL.
+        lw_plantdata-discontinu = ls_werks-kzaus.
+        lw_plantdatax-discontinu = 'X'.
       ENDIF.
       " 生效期
-      IF LS_MARC-AUSDT <> LS_WERKS-AUSDT OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-EFF_O_DAY = LS_WERKS-AUSDT.
-        LW_PLANTDATAX-EFF_O_DAY = 'X'.
+      IF ls_marc-ausdt <> ls_werks-ausdt OR ls_marc IS INITIAL.
+        lw_plantdata-eff_o_day = ls_werks-ausdt.
+        lw_plantdatax-eff_o_day = 'X'.
       ENDIF.
       " 后继物料
-      CLEAR: LV_NFMAT40.
-      LV_NFMAT40 = LS_WERKS-NFMAT.
-      MATN1_INPUT: LV_NFMAT40.
-      IF LS_MARC-NFMAT <> LV_NFMAT40 OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-FOLLOW_UP_LONG = LV_NFMAT40.
-        LW_PLANTDATAX-FOLLOW_UP_LONG = 'X'.
+      CLEAR: lv_nfmat40.
+      lv_nfmat40 = ls_werks-nfmat.
+      matn1_input: lv_nfmat40.
+      IF ls_marc-nfmat <> lv_nfmat40 OR ls_marc IS INITIAL.
+        lw_plantdata-follow_up_long = lv_nfmat40.
+        lw_plantdatax-follow_up_long = 'X'.
       ENDIF.
       " 生产管理员
-      IF LS_MARC-FEVOR <> LS_WERKS-FEVOR OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-PRODUCTION_SCHEDULER = LS_WERKS-FEVOR.
-        LW_PLANTDATAX-PRODUCTION_SCHEDULER = 'X'.
+      IF ls_marc-fevor <> ls_werks-fevor OR ls_marc IS INITIAL.
+        lw_plantdata-production_scheduler = ls_werks-fevor.
+        lw_plantdatax-production_scheduler = 'X'.
       ENDIF.
       " 生产计划参数文件
-      IF LS_MARC-SFCPF <> LS_WERKS-SFCPF OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-PRODPROF = LS_WERKS-SFCPF.
-        LW_PLANTDATAX-PRODPROF = 'X'.
+      IF ls_marc-sfcpf <> ls_werks-sfcpf OR ls_marc IS INITIAL.
+        lw_plantdata-prodprof = ls_werks-sfcpf.
+        lw_plantdatax-prodprof = 'X'.
       ENDIF.
       " 处理时间
-      IF LS_MARC-BEARZ <> LS_WERKS-BEARZ OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-PROC_TIME = LS_WERKS-BEARZ.
-        LW_PLANTDATAX-PROC_TIME = 'X'.
+      IF ls_marc-bearz <> ls_werks-bearz OR ls_marc IS INITIAL.
+        lw_plantdata-proc_time = ls_werks-bearz.
+        lw_plantdatax-proc_time = 'X'.
       ENDIF.
       " 装配报废比例
-      IF LS_MARC-AUSSS <> LS_WERKS-AUSSS OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-ASSY_SCRAP = LS_WERKS-AUSSS.
-        LW_PLANTDATAX-ASSY_SCRAP = 'X'.
+      IF ls_marc-ausss <> ls_werks-ausss OR ls_marc IS INITIAL.
+        lw_plantdata-assy_scrap = ls_werks-ausss.
+        lw_plantdatax-assy_scrap = 'X'.
       ENDIF.
       " 外部采购仓储地点
-      IF LS_MARC-LGFSB <> LS_WERKS-LGFSB OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-SLOC_EXPRC = LS_WERKS-LGFSB.
-        LW_PLANTDATAX-SLOC_EXPRC = 'X'.
+      IF ls_marc-lgfsb <> ls_werks-lgfsb OR ls_marc IS INITIAL.
+        lw_plantdata-sloc_exprc = ls_werks-lgfsb.
+        lw_plantdatax-sloc_exprc = 'X'.
       ENDIF.
       " 准备时间
-      IF LS_MARC-RUEZT <> LS_WERKS-RUEZT OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-SETUPTIME = LS_WERKS-RUEZT.
-        LW_PLANTDATAX-SETUPTIME = 'X'.
+      IF ls_marc-ruezt <> ls_werks-ruezt OR ls_marc IS INITIAL.
+        lw_plantdata-setuptime = ls_werks-ruezt.
+        lw_plantdatax-setuptime = 'X'.
       ENDIF.
       " 收货处理时间
-      IF LS_MARC-WEBAZ <> LS_WERKS-WEBAZ OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-GR_PR_TIME = LS_WERKS-WEBAZ.
-        LW_PLANTDATAX-GR_PR_TIME = 'X'.
+      IF ls_marc-webaz <> ls_werks-webaz OR ls_marc IS INITIAL.
+        lw_plantdata-gr_pr_time = ls_werks-webaz.
+        lw_plantdatax-gr_pr_time = 'X'.
       ENDIF.
       " 批量产品成本核算
-      IF LS_MARC-LOSGR <> LS_WERKS-LOSGR OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-LOT_SIZE = LS_WERKS-LOSGR.
-        LW_PLANTDATAX-LOT_SIZE = 'X'.
+      IF ls_marc-losgr <> ls_werks-losgr OR ls_marc IS INITIAL.
+        lw_plantdata-lot_size = ls_werks-losgr.
+        lw_plantdatax-lot_size = 'X'.
       ENDIF.
       " 凭证需求
-      IF LS_MARC-KZDKZ IS INITIAL OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-DOC_REQD = 'X'.
-        LW_PLANTDATAX-DOC_REQD = 'X'.
+      IF ls_marc-kzdkz IS INITIAL OR ls_marc IS INITIAL.
+        lw_plantdata-doc_reqd = 'X'.
+        lw_plantdatax-doc_reqd = 'X'.
       ENDIF.
       " 可用性检查
-      IF LS_MARC-MTVFP <> LS_WERKS-MTVFP OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-AVAILCHECK = LS_WERKS-MTVFP.
-        LW_PLANTDATAX-AVAILCHECK = 'X'.
+      IF ls_marc-mtvfp <> ls_werks-mtvfp OR ls_marc IS INITIAL.
+        lw_plantdata-availcheck = ls_werks-mtvfp.
+        lw_plantdatax-availcheck = 'X'.
       ENDIF.
-      IF US_INPUT-MTART = 'Z010'
-        OR US_INPUT-MTART = 'Z020'.
+      IF us_input-mtart = 'Z010'
+        OR us_input-mtart = 'Z020'.
         " 采购中质量管理的控制码
-        IF LS_MARC-SSQSS IS INITIAL OR LS_MARC IS INITIAL.
-          LW_PLANTDATA-CTRL_KEY = 'ZQMCER'.
-          LW_PLANTDATAX-CTRL_KEY = 'X'.
+        IF ls_marc-ssqss IS INITIAL OR ls_marc IS INITIAL.
+          lw_plantdata-ctrl_key = 'ZQMCER'.
+          lw_plantdatax-ctrl_key = 'X'.
         ENDIF.
         " 证书类型
-        IF LS_MARC-QZGTP IS INITIAL OR LS_MARC IS INITIAL.
-          LW_PLANTDATA-CERT_TYPE = 'Z001'.
-          LW_PLANTDATAX-CERT_TYPE = 'X'.
+        IF ls_marc-qzgtp IS INITIAL OR ls_marc IS INITIAL.
+          lw_plantdata-cert_type = 'Z001'.
+          lw_plantdatax-cert_type = 'X'.
         ENDIF.
       ENDIF.
       "ADD BY LANGJINGCUN 20200409 增加字段 bengin
       " 关键部件
-      IF LS_MARC-KZKRI <> LS_WERKS-KZKRI OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-CRIT_PART = LS_WERKS-KZKRI.
-        LW_PLANTDATAX-CRIT_PART = 'X'.
+      IF ls_marc-kzkri <> ls_werks-kzkri OR ls_marc IS INITIAL.
+        lw_plantdata-crit_part = ls_werks-kzkri.
+        lw_plantdatax-crit_part = 'X'.
       ENDIF.
       "ADD BY LANGJINGCUN 20200409 增加字段 end
 
@@ -784,8 +814,8 @@ FORM FRM_PLANT_VIEW  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 
 
 *********************************Seashell Huang 20191219  质量管理视图添加“QM物料授权"
-      LW_PLANTDATA-QM_AUTHGRP = 'ZQM001'.
-      LW_PLANTDATAX-QM_AUTHGRP = 'X'.
+      lw_plantdata-qm_authgrp = 'ZQM001'.
+      lw_plantdatax-qm_authgrp = 'X'.
 ******************************END*****************************************************
 *      lw_plantdata-pur_group = ls_werks-ekgrp.                          " 采购组
 *      lw_plantdata-sourcelist = ls_werks-kordb.                         " 源清单
@@ -891,106 +921,106 @@ FORM FRM_PLANT_VIEW  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 *        lw_plantdatax-proc_type = 'X'.
 *      ENDIF.
 
-      IF US_INPUT-MTART = 'Z099'.
-        IF LS_WERKS-DISMM IS INITIAL AND LS_MARC-DISMM <> LS_WERKS-DISMM.
-          LW_PLANTDATA-MRP_TYPE = 'ND'.
-          LW_PLANTDATAX-MRP_TYPE = 'X'.
-          LW_PLANTDATA-MRP_CTRLER = ''.
-          LW_PLANTDATAX-MRP_CTRLER = 'X'.
-          LW_PLANTDATA-LOTSIZEKEY = ''.
-          LW_PLANTDATAX-LOTSIZEKEY = 'X'.
+      IF us_input-mtart = 'Z099'.
+        IF ls_werks-dismm IS INITIAL AND ls_marc-dismm <> ls_werks-dismm.
+          lw_plantdata-mrp_type = 'ND'.
+          lw_plantdatax-mrp_type = 'X'.
+          lw_plantdata-mrp_ctrler = ''.
+          lw_plantdatax-mrp_ctrler = 'X'.
+          lw_plantdata-lotsizekey = ''.
+          lw_plantdatax-lotsizekey = 'X'.
         ENDIF.
-        IF LS_WERKS-BESKZ IS INITIAL AND LS_MARC-BESKZ <> 'F'.
-          LW_PLANTDATA-PROC_TYPE = 'F'.
-          LW_PLANTDATAX-PROC_TYPE = 'X'.
+        IF ls_werks-beskz IS INITIAL AND ls_marc-beskz <> 'F'.
+          lw_plantdata-proc_type = 'F'.
+          lw_plantdatax-proc_type = 'X'.
         ENDIF.
-        IF LS_WERKS-SOBSL IS INITIAL AND LS_MARC-SOBSL <> '50'.
-          LW_PLANTDATA-SPPROCTYPE = '50'.
-          LW_PLANTDATAX-SPPROCTYPE = 'X'.
+        IF ls_werks-sobsl IS INITIAL AND ls_marc-sobsl <> '50'.
+          lw_plantdata-spproctype = '50'.
+          lw_plantdatax-spproctype = 'X'.
         ENDIF.
-        IF LS_WERKS-SBDKZ IS INITIAL AND LS_MARC-SBDKZ <> '2'.
-          LW_PLANTDATA-DEP_REQ_ID = '2'.
-          LW_PLANTDATAX-DEP_REQ_ID = 'X'.
+        IF ls_werks-sbdkz IS INITIAL AND ls_marc-sbdkz <> '2'.
+          lw_plantdata-dep_req_id = '2'.
+          lw_plantdatax-dep_req_id = 'X'.
         ENDIF.
       ENDIF.
 
-      CLEAR: LW_VALUATIONDATA, LW_VALUATIONDATAX.
-      LW_VALUATIONDATA-VAL_AREA = LS_WERKS-WERKS.                       " 估价范围
-      LW_VALUATIONDATAX-VAL_AREA = LS_WERKS-WERKS.
+      CLEAR: lw_valuationdata, lw_valuationdatax.
+      lw_valuationdata-val_area = ls_werks-werks.                       " 估价范围
+      lw_valuationdatax-val_area = ls_werks-werks.
       " 评估分类
-      IF LS_MBEW-BKLAS <> LS_WERKS-BKLAS OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-VAL_CLASS = LS_WERKS-BKLAS.
-        LW_VALUATIONDATAX-VAL_CLASS = 'X'.
+      IF ls_mbew-bklas <> ls_werks-bklas OR ls_mbew IS INITIAL.
+        lw_valuationdata-val_class = ls_werks-bklas.
+        lw_valuationdatax-val_class = 'X'.
       ENDIF.
       " 上期的评价分类
-      IF LS_MBEW-VMBKL <> LS_WERKS-BKLAS OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-VCLASS_PP = LS_WERKS-BKLAS.
-        LW_VALUATIONDATAX-VCLASS_PP = 'X'.
+      IF ls_mbew-vmbkl <> ls_werks-bklas OR ls_mbew IS INITIAL.
+        lw_valuationdata-vclass_pp = ls_werks-bklas.
+        lw_valuationdatax-vclass_pp = 'X'.
       ENDIF.
       " 上年的评价分类
-      IF LS_MBEW-VJBKL <> LS_WERKS-BKLAS OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-VCLASS_PY = LS_WERKS-BKLAS.
-        LW_VALUATIONDATAX-VCLASS_PY = 'X'.
+      IF ls_mbew-vjbkl <> ls_werks-bklas OR ls_mbew IS INITIAL.
+        lw_valuationdata-vclass_py = ls_werks-bklas.
+        lw_valuationdatax-vclass_py = 'X'.
       ENDIF.
       " 价格控制
-      IF LS_MBEW-VPRSV <> LS_WERKS-VPRSV_1 OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-PRICE_CTRL = LS_WERKS-VPRSV_1.
-        LW_VALUATIONDATAX-PRICE_CTRL = 'X'.
+      IF ls_mbew-vprsv <> ls_werks-vprsv_1 OR ls_mbew IS INITIAL.
+        lw_valuationdata-price_ctrl = ls_werks-vprsv_1.
+        lw_valuationdatax-price_ctrl = 'X'.
       ENDIF.
       " 价格控制上一期间
-      IF LS_MBEW-VMVPR <> LS_WERKS-VPRSV_1 OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-PR_CTRL_PY = LS_WERKS-VPRSV_1.
-        LW_VALUATIONDATAX-PR_CTRL_PY = 'X'.
+      IF ls_mbew-vmvpr <> ls_werks-vprsv_1 OR ls_mbew IS INITIAL.
+        lw_valuationdata-pr_ctrl_py = ls_werks-vprsv_1.
+        lw_valuationdatax-pr_ctrl_py = 'X'.
       ENDIF.
       " 价格控制上一年度
-      IF LS_MBEW-VJVPR <> LS_WERKS-VPRSV_1 OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-PR_CTRL_PP = LS_WERKS-VPRSV_1.
-        LW_VALUATIONDATAX-PR_CTRL_PP = 'X'.
+      IF ls_mbew-vjvpr <> ls_werks-vprsv_1 OR ls_mbew IS INITIAL.
+        lw_valuationdata-pr_ctrl_pp = ls_werks-vprsv_1.
+        lw_valuationdatax-pr_ctrl_pp = 'X'.
       ENDIF.
       " 价格单位
-      IF LS_MBEW-PEINH <> LS_WERKS-PEINH_1 OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-PRICE_UNIT = LS_WERKS-PEINH_1.
-        LW_VALUATIONDATAX-PRICE_UNIT = 'X'.
+      IF ls_mbew-peinh <> ls_werks-peinh_1 OR ls_mbew IS INITIAL.
+        lw_valuationdata-price_unit = ls_werks-peinh_1.
+        lw_valuationdatax-price_unit = 'X'.
       ENDIF.
       " 计划价格1
-      IF LS_MBEW-ZPLP1 <> LS_WERKS-ZPLP1 OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-PLNDPRICE1 = LS_WERKS-ZPLP1.
-        LW_VALUATIONDATAX-PLNDPRICE1 = 'X'.
+      IF ls_mbew-zplp1 <> ls_werks-zplp1 OR ls_mbew IS INITIAL.
+        lw_valuationdata-plndprice1 = ls_werks-zplp1.
+        lw_valuationdatax-plndprice1 = 'X'.
       ENDIF.
       " 计划价格日期1
-      IF LS_MBEW-ZPLD1 <> LS_WERKS-ZPLD1 OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-PLNDPRDATE1 = LS_WERKS-ZPLD1.
-        LW_VALUATIONDATAX-PLNDPRDATE1 = 'X'.
+      IF ls_mbew-zpld1 <> ls_werks-zpld1 OR ls_mbew IS INITIAL.
+        lw_valuationdata-plndprdate1 = ls_werks-zpld1.
+        lw_valuationdatax-plndprdate1 = 'X'.
       ENDIF.
       " 计划价格2
-      IF LS_MBEW-ZPLP2 <> LS_WERKS-ZPLP2 OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-PLNDPRICE2 = LS_WERKS-ZPLP2.
-        LW_VALUATIONDATAX-PLNDPRICE2 = 'X'.
+      IF ls_mbew-zplp2 <> ls_werks-zplp2 OR ls_mbew IS INITIAL.
+        lw_valuationdata-plndprice2 = ls_werks-zplp2.
+        lw_valuationdatax-plndprice2 = 'X'.
       ENDIF.
       " 计划价格日期2
-      IF LS_MBEW-ZPLD2 <> LS_WERKS-ZPLD2 OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-PLNDPRDATE2 = LS_WERKS-ZPLD2.
-        LW_VALUATIONDATAX-PLNDPRDATE2 = 'X'.
+      IF ls_mbew-zpld2 <> ls_werks-zpld2 OR ls_mbew IS INITIAL.
+        lw_valuationdata-plndprdate2 = ls_werks-zpld2.
+        lw_valuationdatax-plndprdate2 = 'X'.
       ENDIF.
       " 计划价格3
-      IF LS_MBEW-ZPLP3 <> LS_WERKS-ZPLP3 OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-PLNDPRICE3 = LS_WERKS-ZPLP3.
-        LW_VALUATIONDATAX-PLNDPRICE3 = 'X'.
+      IF ls_mbew-zplp3 <> ls_werks-zplp3 OR ls_mbew IS INITIAL.
+        lw_valuationdata-plndprice3 = ls_werks-zplp3.
+        lw_valuationdatax-plndprice3 = 'X'.
       ENDIF.
       " 计划价格日期3
-      IF LS_MBEW-ZPLD3 <> LS_WERKS-ZPLD3 OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-PLNDPRDATE3 = LS_WERKS-ZPLD3.
-        LW_VALUATIONDATAX-PLNDPRDATE3 = 'X'.
+      IF ls_mbew-zpld3 <> ls_werks-zpld3 OR ls_mbew IS INITIAL.
+        lw_valuationdata-plndprdate3 = ls_werks-zpld3.
+        lw_valuationdatax-plndprdate3 = 'X'.
       ENDIF.
       " 用QS的成本估算
-      IF LS_MBEW-EKALR <> LS_WERKS-EKALR OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-QTY_STRUCT = LS_WERKS-EKALR.
-        LW_VALUATIONDATAX-QTY_STRUCT = 'X'.
+      IF ls_mbew-ekalr <> ls_werks-ekalr OR ls_mbew IS INITIAL.
+        lw_valuationdata-qty_struct = ls_werks-ekalr.
+        lw_valuationdatax-qty_struct = 'X'.
       ENDIF.
       " 物料来源
-      IF LS_MBEW-HKMAT IS INITIAL OR LS_MBEW IS INITIAL.
-        LW_VALUATIONDATA-ORIG_MAT = 'X'.
-        LW_VALUATIONDATAX-ORIG_MAT = 'X'.
+      IF ls_mbew-hkmat IS INITIAL OR ls_mbew IS INITIAL.
+        lw_valuationdata-orig_mat = 'X'.
+        lw_valuationdatax-orig_mat = 'X'.
       ENDIF.
 *      lw_valuationdata-val_class = ls_werks-bklas.                      " 评估分类
 *      lw_valuationdata-vclass_pp = ls_werks-bklas.                      " 上期的评价分类
@@ -1052,187 +1082,187 @@ FORM FRM_PLANT_VIEW  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 *********************add by sujx 20191130*********************************
 *      LW_VALUATIONDATA-ML_SETTLE = LS_WERKS-MLAST.                      " 价格确定
 
-      IF LS_MBEW IS NOT INITIAL .
-        LW_PLANTDATA-PROFIT_CTR = ''.     "利润中心
-        LW_PLANTDATAX-PROFIT_CTR = ''.
-        LW_VALUATIONDATA-PRICE_CTRL = ''.      "价格控制
-        LW_VALUATIONDATAX-PRICE_CTRL = ''.
-        LW_VALUATIONDATA-PR_CTRL_PY = ''.
-        LW_VALUATIONDATAX-PR_CTRL_PY = ''.
-        LW_VALUATIONDATA-PR_CTRL_PP = ''.
-        LW_VALUATIONDATAX-PR_CTRL_PP = ''.
-        LW_VALUATIONDATA-ML_SETTLE = ''.       "价格确定
-        LW_VALUATIONDATAX-ML_SETTLE = ''.
-        LW_VALUATIONDATA-VAL_CLASS = '' .      "评估类
-        LW_VALUATIONDATAX-VAL_CLASS = '' .
-        LW_VALUATIONDATA-VCLASS_PP = '' .
-        LW_VALUATIONDATAX-VCLASS_PP = '' .
-        LW_VALUATIONDATA-VCLASS_PY = '' .
-        LW_VALUATIONDATAX-VCLASS_PY = '' .
+      IF ls_mbew IS NOT INITIAL .
+        lw_plantdata-profit_ctr = ''.     "利润中心
+        lw_plantdatax-profit_ctr = ''.
+        lw_valuationdata-price_ctrl = ''.      "价格控制
+        lw_valuationdatax-price_ctrl = ''.
+        lw_valuationdata-pr_ctrl_py = ''.
+        lw_valuationdatax-pr_ctrl_py = ''.
+        lw_valuationdata-pr_ctrl_pp = ''.
+        lw_valuationdatax-pr_ctrl_pp = ''.
+        lw_valuationdata-ml_settle = ''.       "价格确定
+        lw_valuationdatax-ml_settle = ''.
+        lw_valuationdata-val_class = '' .      "评估类
+        lw_valuationdatax-val_class = '' .
+        lw_valuationdata-vclass_pp = '' .
+        lw_valuationdatax-vclass_pp = '' .
+        lw_valuationdata-vclass_py = '' .
+        lw_valuationdatax-vclass_py = '' .
       ELSE.
-        IF LW_VALUATIONDATA-PRICE_CTRL = 'S'.
-          LW_VALUATIONDATA-ML_SETTLE = '3'.
-          LW_VALUATIONDATAX-PRICE_CTRL = 'X'.
-          LW_VALUATIONDATAX-ML_SETTLE = 'X'.
+        IF lw_valuationdata-price_ctrl = 'S'.
+          lw_valuationdata-ml_settle = '3'.
+          lw_valuationdatax-price_ctrl = 'X'.
+          lw_valuationdatax-ml_settle = 'X'.
         ENDIF.
-        IF LW_VALUATIONDATA-PRICE_CTRL = 'V' .
-          LW_VALUATIONDATA-ML_SETTLE = '2'.
-          LW_VALUATIONDATAX-PRICE_CTRL = 'X'.
-          LW_VALUATIONDATAX-ML_SETTLE = 'X'.
+        IF lw_valuationdata-price_ctrl = 'V' .
+          lw_valuationdata-ml_settle = '2'.
+          lw_valuationdatax-price_ctrl = 'X'.
+          lw_valuationdatax-ml_settle = 'X'.
         ENDIF.
       ENDIF.
 
-      IF LS_MARC IS NOT INITIAL.
-        LW_PLANTDATA-BATCH_MGMT = ''.     " 批次管理
-        LW_PLANTDATAX-BATCH_MGMT = ''.
+      IF ls_marc IS NOT INITIAL.
+        lw_plantdata-batch_mgmt = ''.     " 批次管理
+        lw_plantdatax-batch_mgmt = ''.
       ENDIF.
 
-      CLEAR:LS_MBEW,LS_MARC.
+      CLEAR:ls_mbew,ls_marc.
 
 ***********************end add***********************************************
 
       " 创建采购，MRP，质量，会计，成本视图
-      CLEAR: LW_RETURN.
+      CLEAR: lw_return.
       CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
         EXPORTING
-          HEADDATA       = LW_HEADDATA
-          CLIENTDATA     = LW_CLIENTDATA
-          CLIENTDATAX    = LW_CLIENTDATAX
-          PLANTDATA      = LW_PLANTDATA
-          PLANTDATAX     = LW_PLANTDATAX
-          VALUATIONDATA  = LW_VALUATIONDATA
-          VALUATIONDATAX = LW_VALUATIONDATAX
+          headdata       = lw_headdata
+          clientdata     = lw_clientdata
+          clientdatax    = lw_clientdatax
+          plantdata      = lw_plantdata
+          plantdatax     = lw_plantdatax
+          valuationdata  = lw_valuationdata
+          valuationdatax = lw_valuationdatax
         IMPORTING
-          RETURN         = LW_RETURN.
-      IF LW_RETURN-TYPE = 'E'.
+          return         = lw_return.
+      IF lw_return-type = 'E'.
         CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
 
-        IF LV_MESS IS INITIAL.
-          CONCATENATE LS_WERKS-WERKS '-' LW_RETURN-MESSAGE INTO LV_MESS.
+        IF lv_mess IS INITIAL.
+          CONCATENATE ls_werks-werks '-' lw_return-message INTO lv_mess.
         ELSE.
-          CONCATENATE LV_MESS '|' LS_WERKS-WERKS '-' LW_RETURN-MESSAGE INTO LV_MESS.
+          CONCATENATE lv_mess '|' ls_werks-werks '-' lw_return-message INTO lv_mess.
         ENDIF.
       ELSE.
         CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
           EXPORTING
-            WAIT = 'X'.
+            wait = 'X'.
         " 视图创建成功时，创建质检视图
-        IF US_INPUT-MTART <> 'Z040'
-          AND US_INPUT-MTART <> 'Z099'.
-          CLEAR: LT_QMAT, LS_QMAT, LT_INSPECTIONCTRL, LW_INSPECTIONCTRL.
-          LT_QMAT = LS_WERKS-QMAT.
-          LOOP AT LT_QMAT INTO LS_QMAT.
-            CLEAR: LW_TQ34.
-            READ TABLE LT_TQ34 INTO LW_TQ34 WITH KEY ART = LS_QMAT-ART.
-            IF SY-SUBRC = 0.
-              CLEAR: LV_MATNR.
-              LV_MATNR = UV_MATNR.
-              LW_INSPECTIONCTRL-INSPTYPE = LS_QMAT-ART.                     " 检验类型
-              LW_INSPECTIONCTRL-MATERIAL = LV_MATNR.                        " 物料编号（18 个字符）
-              LW_INSPECTIONCTRL-PLANT = LS_WERKS-WERKS.                     " 工厂
-              LW_INSPECTIONCTRL-AVE_INSP_DURATION = LS_QMAT-MPDAU.          " 平均检验期
-              LW_INSPECTIONCTRL-PREFERRED_INSPTYPE = LS_QMAT-QAPA.          " 首选检验类型
-              LW_INSPECTIONCTRL-IND_INSPTYPE_MAT_ACTIVE = 'X'.              " 检验类型 － 物料合并已激活
-              LW_INSPECTIONCTRL-IND_INSP_WITH_TSK_LIST = LW_TQ34-PPL.       " 有任务清单的检验
-              LW_INSPECTIONCTRL-IND_SPEC_MATSPEC = LW_TQ34-SPEZUEBER.       " 使用物料说明的检验
-              LW_INSPECTIONCTRL-IND_SPEC_CONFIG = LW_TQ34-CONF.             " 来自配置的检验规范
-              LW_INSPECTIONCTRL-IND_SPEC_BATCH = LW_TQ34-TLS.               " 批次确定的检验规范
-              LW_INSPECTIONCTRL-IND_AUTO_ASSIGN = LW_TQ34-APP.              " 自动规格分配
-              LW_INSPECTIONCTRL-IND_INSP_BY_CHARAC = LW_TQ34-MER.           " 按特征检验
-              LW_INSPECTIONCTRL-IND_POST_TO_INSP_STOCK = LW_TQ34-INSMK.     " 过帐到检验库存
-              LW_INSPECTIONCTRL-IND_AUTOMATIC_UD = LW_TQ34-AVE.             " 计划的自动用途决定
-              LW_INSPECTIONCTRL-SAMPLING_PROCEDURE = LW_TQ34-STICHPRVER.    " 采样程序
-              LW_INSPECTIONCTRL-DYN_MODIF_RULE = LW_TQ34-DYNREGEL.          " 动态修改规则
-              LW_INSPECTIONCTRL-INSP_PERCENTAGE = LW_TQ34-SPROZ.            " 检验百分比
-              LW_INSPECTIONCTRL-IND_100_PERCENT_INSPECTION = LW_TQ34-HPZ.   " 100% 检验
-              LW_INSPECTIONCTRL-IND_SKIPS_ALLOWED = LW_TQ34-DYN.            " 允许略过
-              LW_INSPECTIONCTRL-IND_MANUAL_SAMPLE = LW_TQ34-MPB.            " 手工输入采样
-              LW_INSPECTIONCTRL-IND_MANUAL_SAMPLE_CALC = LW_TQ34-MST.       " 手动触发采样计算
-              LW_INSPECTIONCTRL-IND_SINGLE_UNITS_POSSIBLE = LW_TQ34-EIN.    " 可能的序列号管理
-              LW_INSPECTIONCTRL-CONTR_INSP_LOT_CREATE = LW_TQ34-CHG.        " 控制检验批创建（批次摘要）
-              LW_INSPECTIONCTRL-QUAL_SCORE_PROCEDURE = LW_TQ34-QKZVERF.     " 计算质量记分的程序
-              LW_INSPECTIONCTRL-ALLOWED_SCRAP_SHARE = LW_TQ34-QPMAT.        " 检验批中允许的废品份额（百分比）
-              LW_INSPECTIONCTRL-IND_HU_INSPECTION = LW_TQ34-AFR.            " 处理单位的检验
-              LW_INSPECTIONCTRL-MS_FLAG = LW_TQ34-MS_FLAG.                  " 标识：多个规范
-              APPEND LW_INSPECTIONCTRL TO LT_INSPECTIONCTRL.
-              CLEAR: LW_INSPECTIONCTRL.
+        IF us_input-mtart <> 'Z040'
+          AND us_input-mtart <> 'Z099'.
+          CLEAR: lt_qmat, ls_qmat, lt_inspectionctrl, lw_inspectionctrl.
+          lt_qmat = ls_werks-qmat.
+          LOOP AT lt_qmat INTO ls_qmat.
+            CLEAR: lw_tq34.
+            READ TABLE lt_tq34 INTO lw_tq34 WITH KEY art = ls_qmat-art.
+            IF sy-subrc = 0.
+              CLEAR: lv_matnr.
+              lv_matnr = uv_matnr.
+              lw_inspectionctrl-insptype = ls_qmat-art.                     " 检验类型
+              lw_inspectionctrl-material = lv_matnr.                        " 物料编号（18 个字符）
+              lw_inspectionctrl-plant = ls_werks-werks.                     " 工厂
+              lw_inspectionctrl-ave_insp_duration = ls_qmat-mpdau.          " 平均检验期
+              lw_inspectionctrl-preferred_insptype = ls_qmat-qapa.          " 首选检验类型
+              lw_inspectionctrl-ind_insptype_mat_active = 'X'.              " 检验类型 － 物料合并已激活
+              lw_inspectionctrl-ind_insp_with_tsk_list = lw_tq34-ppl.       " 有任务清单的检验
+              lw_inspectionctrl-ind_spec_matspec = lw_tq34-spezueber.       " 使用物料说明的检验
+              lw_inspectionctrl-ind_spec_config = lw_tq34-conf.             " 来自配置的检验规范
+              lw_inspectionctrl-ind_spec_batch = lw_tq34-tls.               " 批次确定的检验规范
+              lw_inspectionctrl-ind_auto_assign = lw_tq34-app.              " 自动规格分配
+              lw_inspectionctrl-ind_insp_by_charac = lw_tq34-mer.           " 按特征检验
+              lw_inspectionctrl-ind_post_to_insp_stock = lw_tq34-insmk.     " 过帐到检验库存
+              lw_inspectionctrl-ind_automatic_ud = lw_tq34-ave.             " 计划的自动用途决定
+              lw_inspectionctrl-sampling_procedure = lw_tq34-stichprver.    " 采样程序
+              lw_inspectionctrl-dyn_modif_rule = lw_tq34-dynregel.          " 动态修改规则
+              lw_inspectionctrl-insp_percentage = lw_tq34-sproz.            " 检验百分比
+              lw_inspectionctrl-ind_100_percent_inspection = lw_tq34-hpz.   " 100% 检验
+              lw_inspectionctrl-ind_skips_allowed = lw_tq34-dyn.            " 允许略过
+              lw_inspectionctrl-ind_manual_sample = lw_tq34-mpb.            " 手工输入采样
+              lw_inspectionctrl-ind_manual_sample_calc = lw_tq34-mst.       " 手动触发采样计算
+              lw_inspectionctrl-ind_single_units_possible = lw_tq34-ein.    " 可能的序列号管理
+              lw_inspectionctrl-contr_insp_lot_create = lw_tq34-chg.        " 控制检验批创建（批次摘要）
+              lw_inspectionctrl-qual_score_procedure = lw_tq34-qkzverf.     " 计算质量记分的程序
+              lw_inspectionctrl-allowed_scrap_share = lw_tq34-qpmat.        " 检验批中允许的废品份额（百分比）
+              lw_inspectionctrl-ind_hu_inspection = lw_tq34-afr.            " 处理单位的检验
+              lw_inspectionctrl-ms_flag = lw_tq34-ms_flag.                  " 标识：多个规范
+              APPEND lw_inspectionctrl TO lt_inspectionctrl.
+              CLEAR: lw_inspectionctrl.
             ENDIF.
           ENDLOOP.
-          CLEAR: LT_RETURN, LV_MESS1.
+          CLEAR: lt_return, lv_mess1.
           CALL FUNCTION 'BAPI_MATINSPCTRL_SAVEREPLICA'
             TABLES
-              RETURN         = LT_RETURN
-              INSPECTIONCTRL = LT_INSPECTIONCTRL.
-          LOOP AT LT_RETURN INTO LW_RETURN WHERE TYPE = 'E'.
-            IF LV_MESS1 IS INITIAL.
-              CONCATENATE LS_WERKS-WERKS '-' LW_RETURN-MESSAGE INTO LV_MESS1.
+              return         = lt_return
+              inspectionctrl = lt_inspectionctrl.
+          LOOP AT lt_return INTO lw_return WHERE type = 'E'.
+            IF lv_mess1 IS INITIAL.
+              CONCATENATE ls_werks-werks '-' lw_return-message INTO lv_mess1.
             ELSE.
-              CONCATENATE LV_MESS '/' LW_RETURN-MESSAGE INTO LV_MESS1.
+              CONCATENATE lv_mess '/' lw_return-message INTO lv_mess1.
             ENDIF.
           ENDLOOP.
-          IF SY-SUBRC = 0.
+          IF sy-subrc = 0.
             CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
-            IF LV_MESS IS INITIAL.
-              LV_MESS = LV_MESS1.
+            IF lv_mess IS INITIAL.
+              lv_mess = lv_mess1.
             ELSE.
-              CONCATENATE LV_MESS '|' LV_MESS1 INTO LV_MESS.
+              CONCATENATE lv_mess '|' lv_mess1 INTO lv_mess.
             ENDIF.
           ELSE.
             CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
               EXPORTING
-                WAIT = 'X'.
+                wait = 'X'.
           ENDIF.
         ENDIF.
         " 对于物料类型Z010、Z020、Z030、Z040、Z050的物料，在处理工厂8100时同时更新工厂8199，处理工厂8200时同时更新8299, 工厂8199和8299的利润中心都赋值为DUMMY
-        IF US_INPUT-MTART = 'Z010'
-          OR US_INPUT-MTART = 'Z020'
-          OR US_INPUT-MTART = 'Z030'
-          OR US_INPUT-MTART = 'Z040'
-          OR US_INPUT-MTART = 'Z050'.
-          CLEAR: LW_HEADDATA, LW_CLIENTDATA, LW_CLIENTDATA, LW_PLANTDATA, LW_PLANTDATAX.
-          LW_HEADDATA-MATERIAL = UV_MATNR.                                    " 物料号
-          LW_HEADDATA-MATL_TYPE = US_INPUT-MTART.                             " 物料类型
-          LW_HEADDATA-IND_SECTOR = 'P'.                                       " 行业领域
-          LW_HEADDATA-STORAGE_VIEW = 'X'.                                     " 库存视图
-          LW_CLIENTDATA-TEMP_CONDS = LS_WERKS-TEMPB.                          " 温度条件
-          LW_CLIENTDATA-STOR_CONDS = LS_WERKS-RAUBE.                          " 存储条件
-          LW_CLIENTDATA-MINREMLIFE = LS_WERKS-MHDRZ.                          " 最小剩余货架寿命
-          LW_CLIENTDATA-SHELF_LIFE = LS_WERKS-MHDHB.                          " 总货架寿命
-          LW_CLIENTDATA-PERIOD_IND_EXPIRATION_DATE = LS_WERKS-IPRKZ.          " 期间标识
-          LW_CLIENTDATA-ROUND_UP_RULE_EXPIRATION_DATE = LS_WERKS-RDMHD.       " 舍入规则
+        IF us_input-mtart = 'Z010'
+          OR us_input-mtart = 'Z020'
+          OR us_input-mtart = 'Z030'
+          OR us_input-mtart = 'Z040'
+          OR us_input-mtart = 'Z050'.
+          CLEAR: lw_headdata, lw_clientdata, lw_clientdata, lw_plantdata, lw_plantdatax.
+          lw_headdata-material = uv_matnr.                                    " 物料号
+          lw_headdata-matl_type = us_input-mtart.                             " 物料类型
+          lw_headdata-ind_sector = 'P'.                                       " 行业领域
+          lw_headdata-storage_view = 'X'.                                     " 库存视图
+          lw_clientdata-temp_conds = ls_werks-tempb.                          " 温度条件
+          lw_clientdata-stor_conds = ls_werks-raube.                          " 存储条件
+          lw_clientdata-minremlife = ls_werks-mhdrz.                          " 最小剩余货架寿命
+          lw_clientdata-shelf_life = ls_werks-mhdhb.                          " 总货架寿命
+          lw_clientdata-period_ind_expiration_date = ls_werks-iprkz.          " 期间标识
+          lw_clientdata-round_up_rule_expiration_date = ls_werks-rdmhd.       " 舍入规则
 *********************虚拟工厂添加批次管理标识和外部采购仓储地点   HK  2020.1.20.
-          LW_CLIENTDATA-BATCH_MGMT = LS_WERKS-XCHPF.                          " 批次管理标识
-          LW_PLANTDATA-SLOC_EXPRC = LS_WERKS-LGFSB.                " 外部采购仓储地点
-          LW_PLANTDATAX-SLOC_EXPRC = 'X'.
-          LW_CLIENTDATAX-BATCH_MGMT = 'X'.
+          lw_clientdata-batch_mgmt = ls_werks-xchpf.                          " 批次管理标识
+          lw_plantdata-sloc_exprc = ls_werks-lgfsb.                " 外部采购仓储地点
+          lw_plantdatax-sloc_exprc = 'X'.
+          lw_clientdatax-batch_mgmt = 'X'.
 *********************END***************************************
-          LW_CLIENTDATAX-TEMP_CONDS = 'X'.
-          LW_CLIENTDATAX-STOR_CONDS = 'X'.
-          LW_CLIENTDATAX-MINREMLIFE = 'X'.
-          LW_CLIENTDATAX-SHELF_LIFE = 'X'.
-          LW_CLIENTDATAX-PERIOD_IND_EXPIRATION_DATE = 'X'.
-          LW_CLIENTDATAX-ROUND_UP_RULE_EXPIRATION_DATE = 'X'.
-          IF US_INPUT-MTART = 'Z010'.
-            LW_CLIENTDATA-MANUF_PROF = US_INPUT-MPROF.
-            LW_CLIENTDATAX-MANUF_PROF = 'X'.
+          lw_clientdatax-temp_conds = 'X'.
+          lw_clientdatax-stor_conds = 'X'.
+          lw_clientdatax-minremlife = 'X'.
+          lw_clientdatax-shelf_life = 'X'.
+          lw_clientdatax-period_ind_expiration_date = 'X'.
+          lw_clientdatax-round_up_rule_expiration_date = 'X'.
+          IF us_input-mtart = 'Z010'.
+            lw_clientdata-manuf_prof = us_input-mprof.
+            lw_clientdatax-manuf_prof = 'X'.
           ENDIF.
-          LW_PLANTDATA-DEL_FLAG = LS_WERKS-LVOMA.                             " 删除标记
-          LW_PLANTDATAX-DEL_FLAG = 'X'.
+          lw_plantdata-del_flag = ls_werks-lvoma.                             " 删除标记
+          lw_plantdatax-del_flag = 'X'.
 
-          IF LS_WERKS-WERKS = '8100'.
-            LW_PLANTDATA-PLANT = '8199'.
-            LW_PLANTDATAX-PLANT = '8199'.
-            LW_PLANTDATA-PROFIT_CTR = 'DUMMY'.
-            LW_PLANTDATAX-PROFIT_CTR = 'X'.
-            LW_VALUATIONDATA-VAL_AREA = '8199'.
-            LW_VALUATIONDATAX-VAL_AREA = '8199'.
-          ELSEIF LS_WERKS-WERKS = '8200'.
-            LW_PLANTDATA-PLANT = '8299'.
-            LW_PLANTDATAX-PLANT = '8299'.
-            LW_PLANTDATA-PROFIT_CTR = 'DUMMY'.
-            LW_PLANTDATAX-PROFIT_CTR = 'X'.
-            LW_VALUATIONDATA-VAL_AREA = '8299'.
-            LW_VALUATIONDATAX-VAL_AREA = '8299'.
+          IF ls_werks-werks = '8100'.
+            lw_plantdata-plant = '8199'.
+            lw_plantdatax-plant = '8199'.
+            lw_plantdata-profit_ctr = 'DUMMY'.
+            lw_plantdatax-profit_ctr = 'X'.
+            lw_valuationdata-val_area = '8199'.
+            lw_valuationdatax-val_area = '8199'.
+          ELSEIF ls_werks-werks = '8200'.
+            lw_plantdata-plant = '8299'.
+            lw_plantdatax-plant = '8299'.
+            lw_plantdata-profit_ctr = 'DUMMY'.
+            lw_plantdatax-profit_ctr = 'X'.
+            lw_valuationdata-val_area = '8299'.
+            lw_valuationdatax-val_area = '8299'.
           ENDIF.
 
 **********************add by sujx 20191130***********************************************
@@ -1259,39 +1289,39 @@ FORM FRM_PLANT_VIEW  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 ********************** end add ************************************************
 
         ENDIF.
-        CLEAR: LW_RETURN.
+        CLEAR: lw_return.
         CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
           EXPORTING
-            HEADDATA    = LW_HEADDATA
-            CLIENTDATA  = LW_CLIENTDATA
-            CLIENTDATAX = LW_CLIENTDATAX
-            PLANTDATA   = LW_PLANTDATA
-            PLANTDATAX  = LW_PLANTDATAX
+            headdata    = lw_headdata
+            clientdata  = lw_clientdata
+            clientdatax = lw_clientdatax
+            plantdata   = lw_plantdata
+            plantdatax  = lw_plantdatax
           IMPORTING
-            RETURN      = LW_RETURN.
-        IF LW_RETURN-TYPE = 'E'.
+            return      = lw_return.
+        IF lw_return-type = 'E'.
           CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
 
-          IF LV_MESS IS INITIAL.
-            CONCATENATE LW_PLANTDATA-PLANT '-' LW_RETURN-MESSAGE INTO LV_MESS.
+          IF lv_mess IS INITIAL.
+            CONCATENATE lw_plantdata-plant '-' lw_return-message INTO lv_mess.
           ELSE.
-            CONCATENATE LV_MESS '|' LW_PLANTDATA-PLANT '-' LW_RETURN-MESSAGE INTO LV_MESS.
+            CONCATENATE lv_mess '|' lw_plantdata-plant '-' lw_return-message INTO lv_mess.
           ENDIF.
         ELSE.
           CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
             EXPORTING
-              WAIT = 'X'.
+              wait = 'X'.
         ENDIF.
       ENDIF.
     ELSE.
-      LV_MESS = '工厂不能为空'.
+      lv_mess = '工厂不能为空'.
     ENDIF.
-    CLEAR LS_MBEW.
+    CLEAR ls_mbew.
   ENDLOOP.
-  IF LV_MESS IS NOT INITIAL.
-    CS_RETURN-MSG_MATNR = UV_MATNR.
-    CS_RETURN-MSG_TYPE = 'E'.
-    CS_RETURN-MESSAGE = LV_MESS.
+  IF lv_mess IS NOT INITIAL.
+    cs_return-msg_matnr = uv_matnr.
+    cs_return-msg_type = 'E'.
+    cs_return-message = lv_mess.
   ENDIF.
 ENDFORM.
 *&---------------------------------------------------------------------*
@@ -1301,10 +1331,10 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 *&      --> US_INPUT
 *&---------------------------------------------------------------------*
-FORM FRM_SALESORG_VIEW  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
-                                 UV_MATNR  TYPE MATNR
-                        CHANGING CS_RETURN TYPE ZDT_OA2SAP_MDM_RET_ZMD001.
-  DEFINE MATN1_INPUT.
+FORM frm_salesorg_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
+                                 uv_matnr  TYPE matnr
+                        CHANGING cs_return TYPE zdt_oa2sap_mdm_ret_zmd001.
+  DEFINE matn1_input.
     CALL FUNCTION 'CONVERSION_EXIT_MATN1_INPUT'
       EXPORTING
         input         = &1
@@ -1317,7 +1347,7 @@ FORM FRM_SALESORG_VIEW  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 * Implement suitable error handling here
     ENDIF.
   END-OF-DEFINITION.
-  DEFINE CUNIT_INPUT.
+  DEFINE cunit_input.
     CALL FUNCTION 'CONVERSION_EXIT_CUNIT_INPUT'
       EXPORTING
         input                = &1
@@ -1331,87 +1361,87 @@ FORM FRM_SALESORG_VIEW  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 * Implement suitable error handling here
     ENDIF.
   END-OF-DEFINITION.
-  DATA: LT_VKORG TYPE ZDT_OA2SAP_MDM_MARA_VKORG_TAB,
-        LS_VKORG TYPE ZDT_OA2SAP_MDM_MARA_VKORG,
-        LV_PMATN TYPE MATNR,
-        LV_VRKME TYPE VRKME,
-        LS_MVKE  TYPE MVKE,
-        LS_MARC  TYPE MARC,
-        LS_MARA  TYPE MARA,
-        LV_MESS  TYPE C LENGTH 1000.
-  DATA: LW_HEADDATA           TYPE BAPIMATHEAD,
-        LW_CLIENTDATA         TYPE BAPI_MARA,
-        LW_CLIENTDATAX        TYPE BAPI_MARAX,
-        LW_SALESDATA          TYPE BAPI_MVKE,
-        LW_SALESDATAX         TYPE BAPI_MVKEX,
-        LW_PLANTDATA          TYPE BAPI_MARC,
-        LW_PLANTDATAX         TYPE BAPI_MARCX,
-        LT_TAXCLASSIFICATIONS TYPE STANDARD TABLE OF BAPI_MLAN,
-        LW_TAXCLASSIFICATIONS TYPE BAPI_MLAN,
-        LT_RETURN             TYPE STANDARD TABLE OF BAPIRET2,
-        LW_RETURN             TYPE BAPIRET2.
+  DATA: lt_vkorg TYPE zdt_oa2sap_mdm_mara_vkorg_tab,
+        ls_vkorg TYPE zdt_oa2sap_mdm_mara_vkorg,
+        lv_pmatn TYPE matnr,
+        lv_vrkme TYPE vrkme,
+        ls_mvke  TYPE mvke,
+        ls_marc  TYPE marc,
+        ls_mara  TYPE mara,
+        lv_mess  TYPE c LENGTH 1000.
+  DATA: lw_headdata           TYPE bapimathead,
+        lw_clientdata         TYPE bapi_mara,
+        lw_clientdatax        TYPE bapi_marax,
+        lw_salesdata          TYPE bapi_mvke,
+        lw_salesdatax         TYPE bapi_mvkex,
+        lw_plantdata          TYPE bapi_marc,
+        lw_plantdatax         TYPE bapi_marcx,
+        lt_taxclassifications TYPE STANDARD TABLE OF bapi_mlan,
+        lw_taxclassifications TYPE bapi_mlan,
+        lt_return             TYPE STANDARD TABLE OF bapiret2,
+        lw_return             TYPE bapiret2.
 
-  CLEAR: LT_VKORG, LS_VKORG, LV_MESS.
-  LT_VKORG = US_INPUT-VKORG.
-  LW_HEADDATA-MATERIAL = UV_MATNR.                                    " 物料号
-  LW_HEADDATA-MATL_TYPE = US_INPUT-MTART.                             " 物料类型
-  LW_HEADDATA-IND_SECTOR = 'P'.                                       " 行业领域
-  LW_HEADDATA-SALES_VIEW = 'X'.                                       " 销售视图
-  LW_HEADDATA-PURCHASE_VIEW = 'X'.                                    " 采购视图
+  CLEAR: lt_vkorg, ls_vkorg, lv_mess.
+  lt_vkorg = us_input-vkorg.
+  lw_headdata-material = uv_matnr.                                    " 物料号
+  lw_headdata-matl_type = us_input-mtart.                             " 物料类型
+  lw_headdata-ind_sector = 'P'.                                       " 行业领域
+  lw_headdata-sales_view = 'X'.                                       " 销售视图
+  lw_headdata-purchase_view = 'X'.                                    " 采购视图
 
-  LOOP AT LT_VKORG INTO LS_VKORG.
-    IF LS_VKORG-VKORG IS INITIAL OR LS_VKORG-VTWEG IS INITIAL.
+  LOOP AT lt_vkorg INTO ls_vkorg.
+    IF ls_vkorg-vkorg IS INITIAL OR ls_vkorg-vtweg IS INITIAL.
     ELSE.
-      CLEAR: LV_PMATN, LV_VRKME, LS_MARC, LS_MVKE, LS_MARA.
+      CLEAR: lv_pmatn, lv_vrkme, ls_marc, ls_mvke, ls_mara.
 
-      SELECT SINGLE * FROM MARA INTO LS_MARA
-        WHERE MATNR = UV_MATNR.
-      IF SY-SUBRC <> 0.
-        CLEAR: LS_MARA.
+      SELECT SINGLE * FROM mara INTO ls_mara
+        WHERE matnr = uv_matnr.
+      IF sy-subrc <> 0.
+        CLEAR: ls_mara.
       ENDIF.
 
-      SELECT SINGLE * FROM MARC INTO LS_MARC
-        WHERE MATNR = UV_MATNR AND WERKS = LS_VKORG-VKORG.
-      IF SY-SUBRC <> 0.
-        CLEAR: LS_MARC.
+      SELECT SINGLE * FROM marc INTO ls_marc
+        WHERE matnr = uv_matnr AND werks = ls_vkorg-vkorg.
+      IF sy-subrc <> 0.
+        CLEAR: ls_marc.
       ENDIF.
 
-      SELECT SINGLE * FROM MVKE INTO LS_MVKE
-        WHERE MATNR = UV_MATNR AND VKORG = LS_VKORG-VKORG AND VTWEG = LS_VKORG-VTWEG.
-      IF SY-SUBRC <> 0.
-        CLEAR: LS_MVKE.
+      SELECT SINGLE * FROM mvke INTO ls_mvke
+        WHERE matnr = uv_matnr AND vkorg = ls_vkorg-vkorg AND vtweg = ls_vkorg-vtweg.
+      IF sy-subrc <> 0.
+        CLEAR: ls_mvke.
       ENDIF.
 
 
-      LV_PMATN = LS_VKORG-PMATN.
-      MATN1_INPUT: LV_PMATN.
-      CUNIT_INPUT: LS_VKORG-VRKME LV_VRKME.
+      lv_pmatn = ls_vkorg-pmatn.
+      matn1_input: lv_pmatn.
+      cunit_input: ls_vkorg-vrkme lv_vrkme.
       " 产品组
-      IF LS_VKORG-SPART <> LS_MARA-SPART OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-DIVISION = LS_VKORG-SPART.
-        LW_CLIENTDATAX-DIVISION = 'X'.
+      IF ls_vkorg-spart <> ls_mara-spart OR ls_mara IS INITIAL.
+        lw_clientdata-division = ls_vkorg-spart.
+        lw_clientdatax-division = 'X'.
       ENDIF.
       " 运输组
-      IF LS_VKORG-TRAGR <> LS_MARA-TRAGR OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-TRANS_GRP = LS_VKORG-TRAGR.
-        LW_CLIENTDATAX-TRANS_GRP = 'X'.
+      IF ls_vkorg-tragr <> ls_mara-tragr OR ls_mara IS INITIAL.
+        lw_clientdata-trans_grp = ls_vkorg-tragr.
+        lw_clientdatax-trans_grp = 'X'.
       ENDIF.
 *      lw_clientdata-division = ls_vkorg-spart.                          " 产品组
 *      lw_clientdata-trans_grp = ls_vkorg-tragr.                         " 运输组
 *      lw_clientdatax-division = 'X'.
 *      lw_clientdatax-trans_grp = 'X'.
 
-      LW_PLANTDATA-PLANT = LS_VKORG-VKORG.                              " 工厂
-      LW_PLANTDATAX-PLANT = LS_VKORG-VKORG.
+      lw_plantdata-plant = ls_vkorg-vkorg.                              " 工厂
+      lw_plantdatax-plant = ls_vkorg-vkorg.
       " 可用性检查
-      IF LS_VKORG-MTVFP <> LS_MARC-MTVFP OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-AVAILCHECK = LS_VKORG-MTVFP.
-        LW_PLANTDATAX-AVAILCHECK = 'X'.
+      IF ls_vkorg-mtvfp <> ls_marc-mtvfp OR ls_marc IS INITIAL.
+        lw_plantdata-availcheck = ls_vkorg-mtvfp.
+        lw_plantdatax-availcheck = 'X'.
       ENDIF.
       " 装载组
-      IF LS_VKORG-LADGR <> LS_MARC-LADGR OR LS_MARC IS INITIAL.
-        LW_PLANTDATA-LOADINGGRP = LS_VKORG-LADGR.
-        LW_PLANTDATAX-LOADINGGRP = 'X'.
+      IF ls_vkorg-ladgr <> ls_marc-ladgr OR ls_marc IS INITIAL.
+        lw_plantdata-loadinggrp = ls_vkorg-ladgr.
+        lw_plantdatax-loadinggrp = 'X'.
       ENDIF.
 *      lw_plantdata-availcheck = ls_vkorg-mtvfp.                         " 可用性检查
 *      lw_plantdata-loadinggrp = ls_vkorg-ladgr.                         " 装载组
@@ -1422,55 +1452,55 @@ FORM FRM_SALESORG_VIEW  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 *        lw_plantdatax-loadinggrp = 'X'.
 *      ENDIF.
 
-      LW_SALESDATA-SALES_ORG = LS_VKORG-VKORG.                          " 销售组织
-      LW_SALESDATA-DISTR_CHAN = LS_VKORG-VTWEG.                         " 分销渠道
-      LW_SALESDATAX-SALES_ORG = LS_VKORG-VKORG.
-      LW_SALESDATAX-DISTR_CHAN = LS_VKORG-VTWEG.
+      lw_salesdata-sales_org = ls_vkorg-vkorg.                          " 销售组织
+      lw_salesdata-distr_chan = ls_vkorg-vtweg.                         " 分销渠道
+      lw_salesdatax-sales_org = ls_vkorg-vkorg.
+      lw_salesdatax-distr_chan = ls_vkorg-vtweg.
       " 交货工厂
-      IF LS_VKORG-DELYG_PLNT <> LS_MVKE-DWERK OR LS_MVKE IS INITIAL.
-        LW_SALESDATA-DELYG_PLNT = LS_VKORG-DELYG_PLNT.
-        LW_SALESDATAX-DELYG_PLNT = 'X'.
+      IF ls_vkorg-delyg_plnt <> ls_mvke-dwerk OR ls_mvke IS INITIAL.
+        lw_salesdata-delyg_plnt = ls_vkorg-delyg_plnt.
+        lw_salesdatax-delyg_plnt = 'X'.
       ENDIF.
       " 科目设置组
-      IF LS_VKORG-KTGRM <> LS_MVKE-KTGRM OR LS_MVKE IS INITIAL.
-        LW_SALESDATA-ACCT_ASSGT = LS_VKORG-KTGRM.
-        LW_SALESDATAX-ACCT_ASSGT = 'X'.
+      IF ls_vkorg-ktgrm <> ls_mvke-ktgrm OR ls_mvke IS INITIAL.
+        lw_salesdata-acct_assgt = ls_vkorg-ktgrm.
+        lw_salesdatax-acct_assgt = 'X'.
       ENDIF.
       " 项目类别组
-      IF LS_VKORG-MTPOS <> LS_MVKE-MTPOS OR LS_MVKE IS INITIAL.
-        LW_SALESDATA-ITEM_CAT = LS_VKORG-MTPOS.
-        LW_SALESDATAX-ITEM_CAT = 'X'.
+      IF ls_vkorg-mtpos <> ls_mvke-mtpos OR ls_mvke IS INITIAL.
+        lw_salesdata-item_cat = ls_vkorg-mtpos.
+        lw_salesdatax-item_cat = 'X'.
       ENDIF.
       " 物料组1
-      IF LS_VKORG-MVGR1 <> LS_MVKE-MVGR1 OR LS_MVKE IS INITIAL.
-        LW_SALESDATA-MATL_GRP_1 = LS_VKORG-MVGR1.
-        LW_SALESDATAX-MATL_GRP_1 = 'X'.
+      IF ls_vkorg-mvgr1 <> ls_mvke-mvgr1 OR ls_mvke IS INITIAL.
+        lw_salesdata-matl_grp_1 = ls_vkorg-mvgr1.
+        lw_salesdatax-matl_grp_1 = 'X'.
       ENDIF.
       " 物料组2
-      IF LS_VKORG-MVGR2 <> LS_MVKE-MVGR2 OR LS_MVKE IS INITIAL.
-        LW_SALESDATA-MATL_GRP_2 = LS_VKORG-MVGR2.
-        LW_SALESDATAX-MATL_GRP_2 = 'X'.
+      IF ls_vkorg-mvgr2 <> ls_mvke-mvgr2 OR ls_mvke IS INITIAL.
+        lw_salesdata-matl_grp_2 = ls_vkorg-mvgr2.
+        lw_salesdatax-matl_grp_2 = 'X'.
       ENDIF.
       " 定价参考物料
-      IF LV_PMATN <> LS_MVKE-PMATN OR LS_MVKE IS INITIAL.
-        LW_SALESDATA-PR_REF_MAT = LV_PMATN.
-        LW_SALESDATAX-PR_REF_MAT = 'X'.
+      IF lv_pmatn <> ls_mvke-pmatn OR ls_mvke IS INITIAL.
+        lw_salesdata-pr_ref_mat = lv_pmatn.
+        lw_salesdatax-pr_ref_mat = 'X'.
       ENDIF.
       " 销售单位
-      IF LV_VRKME <> LS_MVKE-VRKME OR LS_MVKE IS INITIAL.
-        LW_SALESDATA-SALES_UNIT = LV_VRKME.
-        LW_SALESDATAX-SALES_UNIT = 'X'.
+      IF lv_vrkme <> ls_mvke-vrkme OR ls_mvke IS INITIAL.
+        lw_salesdata-sales_unit = lv_vrkme.
+        lw_salesdatax-sales_unit = 'X'.
       ENDIF.
       " 指定分销链的物料状态
-      IF LS_VKORG-VMSTA <> LS_MVKE-VMSTA OR LS_MVKE IS INITIAL.
-        LW_SALESDATA-SAL_STATUS = LS_VKORG-VMSTA.
-        LW_SALESDATAX-SAL_STATUS = 'X'.
-        IF LS_VKORG-VMSTA IS NOT INITIAL.
-          LW_SALESDATA-VALID_FROM = SY-DATUM.                             " 来自指定分销链的物料状态是有效的日期
+      IF ls_vkorg-vmsta <> ls_mvke-vmsta OR ls_mvke IS INITIAL.
+        lw_salesdata-sal_status = ls_vkorg-vmsta.
+        lw_salesdatax-sal_status = 'X'.
+        IF ls_vkorg-vmsta IS NOT INITIAL.
+          lw_salesdata-valid_from = sy-datum.                             " 来自指定分销链的物料状态是有效的日期
         ELSE.
-          LW_SALESDATA-VALID_FROM = '00000000'.
+          lw_salesdata-valid_from = '00000000'.
         ENDIF.
-        LW_SALESDATAX-VALID_FROM = 'X'.
+        lw_salesdatax-valid_from = 'X'.
       ENDIF.
 *      lw_salesdata-delyg_plnt = ls_vkorg-delyg_plnt.                    " 交货工厂
 *      lw_salesdata-acct_assgt = ls_vkorg-ktgrm.                         " 科目设置组
@@ -1495,47 +1525,47 @@ FORM FRM_SALESORG_VIEW  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 *      lw_salesdatax-sal_status = 'X'.
 *      lw_salesdatax-valid_from = 'X'.
 
-      CLEAR: LT_TAXCLASSIFICATIONS, LW_TAXCLASSIFICATIONS.
-      LW_TAXCLASSIFICATIONS-DEPCOUNTRY = 'CN'.                          " 发货国(由该国家发货)
-      LW_TAXCLASSIFICATIONS-TAX_TYPE_1 = 'MWST'.                        " 税类别(营业税，联邦营业税，...)
-      LW_TAXCLASSIFICATIONS-TAXCLASS_1 = LS_VKORG-TAXM1.                " 物料的税分类
-      APPEND LW_TAXCLASSIFICATIONS TO LT_TAXCLASSIFICATIONS.
-      CLEAR: LW_RETURN, LW_TAXCLASSIFICATIONS.
+      CLEAR: lt_taxclassifications, lw_taxclassifications.
+      lw_taxclassifications-depcountry = 'CN'.                          " 发货国(由该国家发货)
+      lw_taxclassifications-tax_type_1 = 'MWST'.                        " 税类别(营业税，联邦营业税，...)
+      lw_taxclassifications-taxclass_1 = ls_vkorg-taxm1.                " 物料的税分类
+      APPEND lw_taxclassifications TO lt_taxclassifications.
+      CLEAR: lw_return, lw_taxclassifications.
       " CREATE SALESORG VIEW
       CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
         EXPORTING
-          HEADDATA           = LW_HEADDATA
-          CLIENTDATA         = LW_CLIENTDATA
-          CLIENTDATAX        = LW_CLIENTDATAX
-          PLANTDATA          = LW_PLANTDATA
-          PLANTDATAX         = LW_PLANTDATAX
-          SALESDATA          = LW_SALESDATA
-          SALESDATAX         = LW_SALESDATAX
+          headdata           = lw_headdata
+          clientdata         = lw_clientdata
+          clientdatax        = lw_clientdatax
+          plantdata          = lw_plantdata
+          plantdatax         = lw_plantdatax
+          salesdata          = lw_salesdata
+          salesdatax         = lw_salesdatax
         IMPORTING
-          RETURN             = LW_RETURN
+          return             = lw_return
         TABLES
-          TAXCLASSIFICATIONS = LT_TAXCLASSIFICATIONS.
-      IF LW_RETURN-TYPE = 'E'.
+          taxclassifications = lt_taxclassifications.
+      IF lw_return-type = 'E'.
         CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
-        IF LV_MESS IS INITIAL.
-          CONCATENATE LS_VKORG-VKORG '-' LW_RETURN-MESSAGE INTO LV_MESS.
+        IF lv_mess IS INITIAL.
+          CONCATENATE ls_vkorg-vkorg '-' lw_return-message INTO lv_mess.
         ELSE.
-          CONCATENATE LV_MESS '|' LS_VKORG-VKORG '-' LW_RETURN-MESSAGE INTO LV_MESS.
+          CONCATENATE lv_mess '|' ls_vkorg-vkorg '-' lw_return-message INTO lv_mess.
         ENDIF.
       ELSE.
         CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
           EXPORTING
-            WAIT = 'X'.
+            wait = 'X'.
       ENDIF.
     ENDIF.
   ENDLOOP.
-  IF LV_MESS IS NOT INITIAL.
-    CS_RETURN-MSG_MATNR = UV_MATNR.
-    CS_RETURN-MSG_TYPE = 'E'.
-    IF CS_RETURN-MESSAGE IS NOT INITIAL.
-      CONCATENATE CS_RETURN-MESSAGE LV_MESS INTO CS_RETURN-MESSAGE.
+  IF lv_mess IS NOT INITIAL.
+    cs_return-msg_matnr = uv_matnr.
+    cs_return-msg_type = 'E'.
+    IF cs_return-message IS NOT INITIAL.
+      CONCATENATE cs_return-message lv_mess INTO cs_return-message.
     ELSE.
-      CS_RETURN-MESSAGE = LV_MESS.
+      cs_return-message = lv_mess.
     ENDIF.
   ENDIF.
 ENDFORM.
@@ -1547,59 +1577,59 @@ ENDFORM.
 *&      --> US_INPUT
 *&      --> LV_MATNR
 *&---------------------------------------------------------------------*
-FORM FRM_CLASS_VIEW  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
-                              UV_MATNR  TYPE MATNR
-                              UV_FLAG   TYPE C
-                     CHANGING CS_RETURN TYPE ZDT_OA2SAP_MDM_RET_ZMD001.
-  DATA: LT_CLASS    TYPE ZDT_OA2SAP_MDM_MARA_CLASS_TAB,
-        LS_CLASS    TYPE ZDT_OA2SAP_MDM_MARA_CLASS,
-        LT_WERKS    TYPE ZDT_OA2SAP_MDM_MARA_WERKS_TAB,
-        LS_WERKS    TYPE ZDT_OA2SAP_MDM_MARA_WERKS,
-        LV_CLASSNUM TYPE KLASSE_D,
-        LV_MESS     TYPE C LENGTH 1000.
-  DATA: LW_ALLOCLIST TYPE BAPI1003_ALLOC_LIST.
-  CLEAR: LT_CLASS, LS_CLASS, LV_MESS, LV_CLASSNUM, LT_WERKS, LS_WERKS.
-  LT_CLASS = US_INPUT-CLASS.
-  LT_WERKS = US_INPUT-WERKS.
-  LOOP AT LT_CLASS INTO LS_CLASS.
-    IF LS_CLASS-CLASSTYPE = '001'.
-      IF LS_CLASS-CLASSNAME = US_INPUT-MATKL.
+FORM frm_class_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
+                              uv_matnr  TYPE matnr
+                              uv_flag   TYPE c
+                     CHANGING cs_return TYPE zdt_oa2sap_mdm_ret_zmd001.
+  DATA: lt_class    TYPE zdt_oa2sap_mdm_mara_class_tab,
+        ls_class    TYPE zdt_oa2sap_mdm_mara_class,
+        lt_werks    TYPE zdt_oa2sap_mdm_mara_werks_tab,
+        ls_werks    TYPE zdt_oa2sap_mdm_mara_werks,
+        lv_classnum TYPE klasse_d,
+        lv_mess     TYPE c LENGTH 1000.
+  DATA: lw_alloclist TYPE bapi1003_alloc_list.
+  CLEAR: lt_class, ls_class, lv_mess, lv_classnum, lt_werks, ls_werks.
+  lt_class = us_input-class.
+  lt_werks = us_input-werks.
+  LOOP AT lt_class INTO ls_class.
+    IF ls_class-classtype = '001'.
+      IF ls_class-classname = us_input-matkl.
         " CHECK IF CLASS 001 EXIST
-        CLEAR: LW_ALLOCLIST.
-        PERFORM FRM_GET_CLASS USING UV_MATNR '001' CHANGING LW_ALLOCLIST.
-        IF LW_ALLOCLIST IS INITIAL.
-          LV_CLASSNUM = LS_CLASS-CLASSNAME.
-          PERFORM FRM_CLASS_CREATE USING UV_MATNR '001' LV_CLASSNUM LS_CLASS CHANGING CS_RETURN.
+        CLEAR: lw_alloclist.
+        PERFORM frm_get_class USING uv_matnr '001' CHANGING lw_alloclist.
+        IF lw_alloclist IS INITIAL.
+          lv_classnum = ls_class-classname.
+          PERFORM frm_class_create USING uv_matnr '001' lv_classnum ls_class CHANGING cs_return.
         ELSE.
-          PERFORM FRM_CLASS_CHANGE USING UV_MATNR LW_ALLOCLIST LS_CLASS CHANGING CS_RETURN.
+          PERFORM frm_class_change USING uv_matnr lw_alloclist ls_class CHANGING cs_return.
         ENDIF.
       ELSE.
-        IF LV_MESS IS INITIAL.
-          CONCATENATE LS_CLASS-CLASSNAME '物料分类名称与物料组字段值不一致' INTO LV_MESS.
+        IF lv_mess IS INITIAL.
+          CONCATENATE ls_class-classname '物料分类名称与物料组字段值不一致' INTO lv_mess.
         ELSE.
-          CONCATENATE LV_MESS '|' LS_CLASS-CLASSNAME '物料分类名称与物料组字段值不一致' INTO LV_MESS.
+          CONCATENATE lv_mess '|' ls_class-classname '物料分类名称与物料组字段值不一致' INTO lv_mess.
         ENDIF.
       ENDIF.
     ELSE.
       " CHECK IF CLASS 022 EXIST
-      CLEAR: LW_ALLOCLIST.
-      PERFORM FRM_GET_CLASS USING UV_MATNR '022' CHANGING LW_ALLOCLIST.
-      IF LW_ALLOCLIST IS INITIAL.
+      CLEAR: lw_alloclist.
+      PERFORM frm_get_class USING uv_matnr '022' CHANGING lw_alloclist.
+      IF lw_alloclist IS INITIAL.
         " CHECK IF BATCH_MGMT IS TICKED
-        LOOP AT LT_WERKS INTO LS_WERKS WHERE XCHPF = 'X'.
+        LOOP AT lt_werks INTO ls_werks WHERE xchpf = 'X'.
         ENDLOOP.
-        IF SY-SUBRC = 0.
-          IF US_INPUT-MTART = 'Z010'
-            OR US_INPUT-MTART = 'Z020'
-            OR US_INPUT-MTART = 'Z030'
-            OR US_INPUT-MTART = 'Z040'
-            OR US_INPUT-MTART = 'Z090'.
-            LV_CLASSNUM = 'ZBATCH_SIRIO'.
-          ELSEIF US_INPUT-MTART = 'Z050'
-            OR US_INPUT-MTART = 'Z080'.
-            LV_CLASSNUM = 'BATCH_CP'.
+        IF sy-subrc = 0.
+          IF us_input-mtart = 'Z010'
+            OR us_input-mtart = 'Z020'
+            OR us_input-mtart = 'Z030'
+            OR us_input-mtart = 'Z040'
+            OR us_input-mtart = 'Z090'.
+            lv_classnum = 'ZBATCH_SIRIO'.
+          ELSEIF us_input-mtart = 'Z050'
+            OR us_input-mtart = 'Z080'.
+            lv_classnum = 'BATCH_CP'.
           ENDIF.
-          PERFORM FRM_CLASS_CREATE USING UV_MATNR '022' LV_CLASSNUM LS_CLASS CHANGING CS_RETURN.
+          PERFORM frm_class_create USING uv_matnr '022' lv_classnum ls_class CHANGING cs_return.
         ENDIF.
       ENDIF.
     ENDIF.
@@ -1614,112 +1644,112 @@ ENDFORM.
 *&      --> LV_MATNR
 *&      <-- CS_RETURN
 *&---------------------------------------------------------------------*
-FORM FRM_MRP_AERA_CREATE  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
-                                   UV_MATNR  TYPE MATNR
-                          CHANGING CS_RETURN TYPE ZDT_OA2SAP_MDM_RET_ZMD001.
-  DATA: LT_MRP    TYPE ZDT_OA2SAP_MDM_MARA_MRP_A_TAB1,
-        LS_MRP    TYPE ZDT_OA2SAP_MDM_MARA_MRP_AREA,
-        LT_DETAIL TYPE ZDT_OA2SAP_MDM_MARA_MRP_AR_TAB,
-        LS_DETAIL TYPE ZDT_OA2SAP_MDM_MARA_MRP_AREA_M,
-        LV_BERTY  TYPE BERTY,
-        LV_SUBRC  TYPE C,
-        LV_FLAG   TYPE C,
-        LV_MESS   TYPE C LENGTH 1000.
-  DATA: LV_MATNR  TYPE MATNR,
-        LV_WERKS  TYPE WERKDP,
-        LV_BERID  TYPE BERID,
-        LW_MDMA   TYPE MDMA,
-        LW_DPOP   TYPE DPOP,
-        LW_FIELDS TYPE SDIBE_MASSFIELDS,
-        LW_RETURN TYPE BAPIRETURN1.
+FORM frm_mrp_aera_create  USING    us_input  TYPE zdt_oa2sap_mdm_mara
+                                   uv_matnr  TYPE matnr
+                          CHANGING cs_return TYPE zdt_oa2sap_mdm_ret_zmd001.
+  DATA: lt_mrp    TYPE zdt_oa2sap_mdm_mara_mrp_a_tab1,
+        ls_mrp    TYPE zdt_oa2sap_mdm_mara_mrp_area,
+        lt_detail TYPE zdt_oa2sap_mdm_mara_mrp_ar_tab,
+        ls_detail TYPE zdt_oa2sap_mdm_mara_mrp_area_m,
+        lv_berty  TYPE berty,
+        lv_subrc  TYPE c,
+        lv_flag   TYPE c,
+        lv_mess   TYPE c LENGTH 1000.
+  DATA: lv_matnr  TYPE matnr,
+        lv_werks  TYPE werkdp,
+        lv_berid  TYPE berid,
+        lw_mdma   TYPE mdma,
+        lw_dpop   TYPE dpop,
+        lw_fields TYPE sdibe_massfields,
+        lw_return TYPE bapireturn1.
 
-  CLEAR: LT_MRP, LS_MRP, LV_MESS.
-  LT_MRP = US_INPUT-MRP_AERA.
+  CLEAR: lt_mrp, ls_mrp, lv_mess.
+  lt_mrp = us_input-mrp_aera.
 
-  LOOP AT LT_MRP INTO LS_MRP.
-    CLEAR: LV_MATNR, LV_WERKS, LV_BERID, LT_DETAIL, LS_DETAIL.
-    LT_DETAIL = LS_MRP-MRPAREA_DETAIL.
-    LV_MATNR = UV_MATNR.
-    LV_BERID = LS_MRP-BERID.
-    LV_WERKS = LV_BERID+0(4).
-    PERFORM FRM_CHECK_EXIST USING LV_MATNR LV_WERKS CHANGING LV_SUBRC.
-    IF LV_SUBRC IS INITIAL.
-      LOOP AT LT_DETAIL INTO LS_DETAIL.
-        CLEAR: LW_MDMA, LW_FIELDS, LW_DPOP, LV_FLAG, LV_BERTY.
-        LV_BERTY = LS_DETAIL-ZDISMM.
-        LW_MDMA-MANDT = SY-MANDT.                     " 集团
-        LW_MDMA-MATNR = LV_MATNR.                     " 物料编号
-        LW_MDMA-BERID = LV_BERID.                     " MRP 范围
-        LW_MDMA-WERKS = LV_WERKS.                     " MRP 范围：工厂
-        LW_MDMA-DISMM = LS_DETAIL-ZDISMM.             " MRP类型
-        LW_MDMA-DISGR = LS_DETAIL-ZDISGR.             " MRP组
-        LW_MDMA-DISPO = LS_DETAIL-ZDISPO.             " MRP控制者/物料需求计划控制员
-        LW_MDMA-DISLS = LS_DETAIL-ZDISLS.             " 批量大小
-        LW_MDMA-SOBSL = LS_DETAIL-ZSOBSL.             " 特殊采购类
-        LW_MDMA-BSTMA = LS_DETAIL-ZBSTMA.             " 最大批量大小
-        LW_MDMA-BSTMI = LS_DETAIL-ZBSTMI.             " 最小批量大小
-        LW_MDMA-BSTRF = LS_DETAIL-ZBSTRF.             " 舍入值
-        LW_MDMA-BSTFE = LS_DETAIL-ZBSTFE.             " 固定批量
-        LW_MDMA-LGFSB = LS_DETAIL-ZLGFSB.             " 外部采购仓储地点
+  LOOP AT lt_mrp INTO ls_mrp.
+    CLEAR: lv_matnr, lv_werks, lv_berid, lt_detail, ls_detail.
+    lt_detail = ls_mrp-mrparea_detail.
+    lv_matnr = uv_matnr.
+    lv_berid = ls_mrp-berid.
+    lv_werks = lv_berid+0(4).
+    PERFORM frm_check_exist USING lv_matnr lv_werks CHANGING lv_subrc.
+    IF lv_subrc IS INITIAL.
+      LOOP AT lt_detail INTO ls_detail.
+        CLEAR: lw_mdma, lw_fields, lw_dpop, lv_flag, lv_berty.
+        lv_berty = ls_detail-zdismm.
+        lw_mdma-mandt = sy-mandt.                     " 集团
+        lw_mdma-matnr = lv_matnr.                     " 物料编号
+        lw_mdma-berid = lv_berid.                     " MRP 范围
+        lw_mdma-werks = lv_werks.                     " MRP 范围：工厂
+        lw_mdma-dismm = ls_detail-zdismm.             " MRP类型
+        lw_mdma-disgr = ls_detail-zdisgr.             " MRP组
+        lw_mdma-dispo = ls_detail-zdispo.             " MRP控制者/物料需求计划控制员
+        lw_mdma-disls = ls_detail-zdisls.             " 批量大小
+        lw_mdma-sobsl = ls_detail-zsobsl.             " 特殊采购类
+        lw_mdma-bstma = ls_detail-zbstma.             " 最大批量大小
+        lw_mdma-bstmi = ls_detail-zbstmi.             " 最小批量大小
+        lw_mdma-bstrf = ls_detail-zbstrf.             " 舍入值
+        lw_mdma-bstfe = ls_detail-zbstfe.             " 固定批量
+        lw_mdma-lgfsb = ls_detail-zlgfsb.             " 外部采购仓储地点
 
-        LW_FIELDS-XDISMM = LS_DETAIL-ZDISMM.          " MRP类型
-        LW_FIELDS-XDISGR = LS_DETAIL-ZDISGR.          " MRP组
-        LW_FIELDS-XDISPO = LS_DETAIL-ZDISPO.          " MRP控制者/物料需求计划控制员
-        LW_FIELDS-XDISLS = LS_DETAIL-ZDISLS.          " 批量大小
-        LW_FIELDS-XSOBSL = LS_DETAIL-ZSOBSL.          " 特殊采购类
-        LW_FIELDS-XBSTMA = LS_DETAIL-ZBSTMA.          " 最大批量大小
-        LW_FIELDS-XBSTMI = LS_DETAIL-ZBSTMI.          " 最小批量大小
-        LW_FIELDS-XBSTRF = LS_DETAIL-ZBSTRF.          " 舍入值
-        LW_FIELDS-XBSTFE = LS_DETAIL-ZBSTFE.          " 固定批量
-        LW_FIELDS-XLGFSB = LS_DETAIL-ZLGFSB.          " 外部采购仓储地点
-        PERFORM FRM_GET_MRPAREA USING LV_MATNR LV_WERKS LV_BERID CHANGING LV_FLAG.
-        IF LV_FLAG IS NOT INITIAL.
+        lw_fields-xdismm = ls_detail-zdismm.          " MRP类型
+        lw_fields-xdisgr = ls_detail-zdisgr.          " MRP组
+        lw_fields-xdispo = ls_detail-zdispo.          " MRP控制者/物料需求计划控制员
+        lw_fields-xdisls = ls_detail-zdisls.          " 批量大小
+        lw_fields-xsobsl = ls_detail-zsobsl.          " 特殊采购类
+        lw_fields-xbstma = ls_detail-zbstma.          " 最大批量大小
+        lw_fields-xbstmi = ls_detail-zbstmi.          " 最小批量大小
+        lw_fields-xbstrf = ls_detail-zbstrf.          " 舍入值
+        lw_fields-xbstfe = ls_detail-zbstfe.          " 固定批量
+        lw_fields-xlgfsb = ls_detail-zlgfsb.          " 外部采购仓储地点
+        PERFORM frm_get_mrparea USING lv_matnr lv_werks lv_berid CHANGING lv_flag.
+        IF lv_flag IS NOT INITIAL.
           CALL FUNCTION 'MD_MRP_LEVEL_CHANGE_DATA'
             EXPORTING
-              I_MATNR        = LV_MATNR
-              I_WERK         = LV_WERKS
-              I_MRP_AREA     = LV_BERID
-              I_BERTY        = LV_BERTY
-              I_SELFIELDS    = LW_FIELDS
-              I_MDMA         = LW_MDMA
-              I_DPOP         = LW_DPOP
+              i_matnr        = lv_matnr
+              i_werk         = lv_werks
+              i_mrp_area     = lv_berid
+              i_berty        = lv_berty
+              i_selfields    = lw_fields
+              i_mdma         = lw_mdma
+              i_dpop         = lw_dpop
             IMPORTING
-              E_ERROR_RETURN = LW_RETURN.
+              e_error_return = lw_return.
         ELSE.
-          CLEAR: LW_RETURN.
+          CLEAR: lw_return.
           CALL FUNCTION 'MD_MRP_LEVEL_CREATE_DATA'
             EXPORTING
-              I_MATNR        = LV_MATNR
-              I_WERK         = LV_WERKS
-              I_MRP_AREA     = LV_BERID
-              I_SELFIELDS    = LW_FIELDS
-              I_MDMA         = LW_MDMA
-              I_DPOP         = LW_DPOP
+              i_matnr        = lv_matnr
+              i_werk         = lv_werks
+              i_mrp_area     = lv_berid
+              i_selfields    = lw_fields
+              i_mdma         = lw_mdma
+              i_dpop         = lw_dpop
             IMPORTING
-              E_ERROR_RETURN = LW_RETURN.
+              e_error_return = lw_return.
         ENDIF.
-        IF LW_RETURN-TYPE = 'E'.
+        IF lw_return-type = 'E'.
           CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
-          IF LV_MESS IS INITIAL.
-            CONCATENATE LV_BERID '-' LW_RETURN-MESSAGE INTO LV_MESS.
+          IF lv_mess IS INITIAL.
+            CONCATENATE lv_berid '-' lw_return-message INTO lv_mess.
           ELSE.
-            CONCATENATE LV_MESS '|' LV_BERID '-' LW_RETURN-MESSAGE INTO LV_MESS.
+            CONCATENATE lv_mess '|' lv_berid '-' lw_return-message INTO lv_mess.
           ENDIF.
         ELSE.
           CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
             EXPORTING
-              WAIT = 'X'.
+              wait = 'X'.
         ENDIF.
       ENDLOOP.
     ENDIF.
   ENDLOOP.
-  IF LV_MESS IS NOT INITIAL.
-    CS_RETURN-MSG_MATNR = UV_MATNR.
-    CS_RETURN-MSG_TYPE = 'E'.
-    IF CS_RETURN-MESSAGE IS NOT INITIAL.
-      CONCATENATE CS_RETURN-MESSAGE LV_MESS INTO CS_RETURN-MESSAGE.
+  IF lv_mess IS NOT INITIAL.
+    cs_return-msg_matnr = uv_matnr.
+    cs_return-msg_type = 'E'.
+    IF cs_return-message IS NOT INITIAL.
+      CONCATENATE cs_return-message lv_mess INTO cs_return-message.
     ELSE.
-      CS_RETURN-MESSAGE = LV_MESS.
+      cs_return-message = lv_mess.
     ENDIF.
   ENDIF.
 ENDFORM.
@@ -1732,30 +1762,30 @@ ENDFORM.
 *&      --> P_
 *&      <-- LW_ALLOCLIST
 *&---------------------------------------------------------------------*
-FORM FRM_GET_CLASS  USING    UV_MATNR     TYPE MATNR
-                             UV_CLASSTYPE TYPE KLASSENART
-                    CHANGING CS_ALLOCLIST TYPE BAPI1003_ALLOC_LIST.
-  DATA: LT_ALLOCLIST TYPE STANDARD TABLE OF BAPI1003_ALLOC_LIST,
-        LT_RETURN    TYPE STANDARD TABLE OF BAPIRET2,
-        LV_OBJECTKEY TYPE OBJNUM.
+FORM frm_get_class  USING    uv_matnr     TYPE matnr
+                             uv_classtype TYPE klassenart
+                    CHANGING cs_alloclist TYPE bapi1003_alloc_list.
+  DATA: lt_alloclist TYPE STANDARD TABLE OF bapi1003_alloc_list,
+        lt_return    TYPE STANDARD TABLE OF bapiret2,
+        lv_objectkey TYPE objnum.
 
-  CLEAR: LV_OBJECTKEY, LT_ALLOCLIST, LT_RETURN.
-  LV_OBJECTKEY = UV_MATNR.
+  CLEAR: lv_objectkey, lt_alloclist, lt_return.
+  lv_objectkey = uv_matnr.
 
   CALL FUNCTION 'BAPI_OBJCL_GETCLASSES'
     EXPORTING
-      OBJECTKEY_IMP   = LV_OBJECTKEY
-      OBJECTTABLE_IMP = 'MARA'
-      CLASSTYPE_IMP   = UV_CLASSTYPE
+      objectkey_imp   = lv_objectkey
+      objecttable_imp = 'MARA'
+      classtype_imp   = uv_classtype
     TABLES
-      ALLOCLIST       = LT_ALLOCLIST
-      RETURN          = LT_RETURN.
-  LOOP AT LT_RETURN INTO DATA(LS_RETURN) WHERE TYPE = 'E'.
+      alloclist       = lt_alloclist
+      return          = lt_return.
+  LOOP AT lt_return INTO DATA(ls_return) WHERE type = 'E'.
   ENDLOOP.
-  IF SY-SUBRC <> 0.
-    READ TABLE LT_ALLOCLIST INTO DATA(LS_ALLOCLIST) INDEX 1.
-    IF SY-SUBRC = 0.
-      CS_ALLOCLIST = LS_ALLOCLIST.
+  IF sy-subrc <> 0.
+    READ TABLE lt_alloclist INTO DATA(ls_alloclist) INDEX 1.
+    IF sy-subrc = 0.
+      cs_alloclist = ls_alloclist.
     ENDIF.
   ENDIF.
 ENDFORM.
@@ -1770,89 +1800,89 @@ ENDFORM.
 *&      --> LS_CLASS
 *&      <-- CS_RETURN
 *&---------------------------------------------------------------------*
-FORM FRM_CLASS_CREATE  USING    UV_MATNR     TYPE MATNR
-                                UV_CLASSTYPE TYPE KLASSENART
-                                UV_CLASSNUM  TYPE KLASSE_D
-                                US_CLASS     TYPE ZDT_OA2SAP_MDM_MARA_CLASS
-                       CHANGING CS_RETURN    TYPE ZDT_OA2SAP_MDM_RET_ZMD001.
-  DATA: LV_OBJECTKEYNEW    TYPE OBJNUM,
-        LT_ALLOCVALUESNUM  TYPE STANDARD TABLE OF BAPI1003_ALLOC_VALUES_NUM,
-        LS_ALLOCVALUESNUM  TYPE BAPI1003_ALLOC_VALUES_NUM,
-        LT_ALLOCVALUESCHAR TYPE STANDARD TABLE OF BAPI1003_ALLOC_VALUES_CHAR,
-        LS_ALLOCVALUESCHAR TYPE BAPI1003_ALLOC_VALUES_CHAR,
-        LT_ALLOCVALUESCURR TYPE STANDARD TABLE OF BAPI1003_ALLOC_VALUES_CURR,
-        LS_ALLOCVALUESCURR TYPE BAPI1003_ALLOC_VALUES_CURR,
-        LT_RETURN          TYPE STANDARD TABLE OF BAPIRET2,
-        LS_RETURN          TYPE BAPIRET2.
-  DATA: LT_CLASSIFY TYPE ZDT_OA2SAP_MDM_MARA_CLASS__TAB,
-        LS_CLASSIFY LIKE LINE OF LT_CLASSIFY,
-        LV_MESS     TYPE C LENGTH 1000.
+FORM frm_class_create  USING    uv_matnr     TYPE matnr
+                                uv_classtype TYPE klassenart
+                                uv_classnum  TYPE klasse_d
+                                us_class     TYPE zdt_oa2sap_mdm_mara_class
+                       CHANGING cs_return    TYPE zdt_oa2sap_mdm_ret_zmd001.
+  DATA: lv_objectkeynew    TYPE objnum,
+        lt_allocvaluesnum  TYPE STANDARD TABLE OF bapi1003_alloc_values_num,
+        ls_allocvaluesnum  TYPE bapi1003_alloc_values_num,
+        lt_allocvalueschar TYPE STANDARD TABLE OF bapi1003_alloc_values_char,
+        ls_allocvalueschar TYPE bapi1003_alloc_values_char,
+        lt_allocvaluescurr TYPE STANDARD TABLE OF bapi1003_alloc_values_curr,
+        ls_allocvaluescurr TYPE bapi1003_alloc_values_curr,
+        lt_return          TYPE STANDARD TABLE OF bapiret2,
+        ls_return          TYPE bapiret2.
+  DATA: lt_classify TYPE zdt_oa2sap_mdm_mara_class__tab,
+        ls_classify LIKE LINE OF lt_classify,
+        lv_mess     TYPE c LENGTH 1000.
 
-  CLEAR: LT_CLASSIFY, LS_CLASSIFY, LV_OBJECTKEYNEW, LT_RETURN, LS_RETURN, LV_MESS.
-  LT_CLASSIFY = US_CLASS-CLASSIFY.
-  LV_OBJECTKEYNEW = UV_MATNR.
-  IF UV_CLASSTYPE = '001'.
-    CLEAR: LT_ALLOCVALUESNUM, LS_ALLOCVALUESNUM, LT_ALLOCVALUESCHAR, LS_ALLOCVALUESCHAR, LT_ALLOCVALUESCURR, LS_ALLOCVALUESCURR.
-    LOOP AT LT_CLASSIFY INTO LS_CLASSIFY.
-      LS_ALLOCVALUESCHAR-CHARACT = LS_CLASSIFY-ATTRNAME.
-      LS_ALLOCVALUESCHAR-CHARACT_DESCR = LS_CLASSIFY-ATTRNAME.
+  CLEAR: lt_classify, ls_classify, lv_objectkeynew, lt_return, ls_return, lv_mess.
+  lt_classify = us_class-classify.
+  lv_objectkeynew = uv_matnr.
+  IF uv_classtype = '001'.
+    CLEAR: lt_allocvaluesnum, ls_allocvaluesnum, lt_allocvalueschar, ls_allocvalueschar, lt_allocvaluescurr, ls_allocvaluescurr.
+    LOOP AT lt_classify INTO ls_classify.
+      ls_allocvalueschar-charact = ls_classify-attrname.
+      ls_allocvalueschar-charact_descr = ls_classify-attrname.
 *      LS_ALLOCVALUESCHAR-VALUE_CHAR = LS_CLASSIFY-ATTRVALUE.
 *      LS_ALLOCVALUESCHAR-VALUE_NEUTRAL = LS_CLASSIFY-ATTRVALUE.
-      LS_ALLOCVALUESCHAR-VALUE_CHAR_LONG = LS_CLASSIFY-ATTRVALUE.
-      LS_ALLOCVALUESCHAR-VALUE_NEUTRAL_LONG = LS_CLASSIFY-ATTRVALUE.
-      APPEND LS_ALLOCVALUESCHAR TO LT_ALLOCVALUESCHAR.
-      CLEAR: LS_ALLOCVALUESCHAR.
+      ls_allocvalueschar-value_char_long = ls_classify-attrvalue.
+      ls_allocvalueschar-value_neutral_long = ls_classify-attrvalue.
+      APPEND ls_allocvalueschar TO lt_allocvalueschar.
+      CLEAR: ls_allocvalueschar.
     ENDLOOP.
     CALL FUNCTION 'BAPI_OBJCL_CREATE'
       EXPORTING
-        OBJECTKEYNEW    = LV_OBJECTKEYNEW
-        OBJECTTABLENEW  = 'MARA'
-        CLASSNUMNEW     = UV_CLASSNUM
-        CLASSTYPENEW    = '001'
+        objectkeynew    = lv_objectkeynew
+        objecttablenew  = 'MARA'
+        classnumnew     = uv_classnum
+        classtypenew    = '001'
       TABLES
 *       ALLOCVALUESNUM  =
-        ALLOCVALUESCHAR = LT_ALLOCVALUESCHAR
+        allocvalueschar = lt_allocvalueschar
 *       ALLOCVALUESCURR =
-        RETURN          = LT_RETURN.
-    LOOP AT LT_RETURN INTO LS_RETURN WHERE TYPE = 'E'.
-      IF LV_MESS IS INITIAL.
-        CONCATENATE US_CLASS-CLASSTYPE US_CLASS-CLASSNAME '-' LS_RETURN-MESSAGE INTO LV_MESS.
+        return          = lt_return.
+    LOOP AT lt_return INTO ls_return WHERE type = 'E'.
+      IF lv_mess IS INITIAL.
+        CONCATENATE us_class-classtype us_class-classname '-' ls_return-message INTO lv_mess.
       ELSE.
-        CONCATENATE LV_MESS '|' US_CLASS-CLASSTYPE US_CLASS-CLASSNAME '-' LS_RETURN-MESSAGE INTO LV_MESS.
+        CONCATENATE lv_mess '|' us_class-classtype us_class-classname '-' ls_return-message INTO lv_mess.
       ENDIF.
     ENDLOOP.
   ELSE.
     CALL FUNCTION 'BAPI_OBJCL_CREATE'
       EXPORTING
-        OBJECTKEYNEW   = LV_OBJECTKEYNEW
-        OBJECTTABLENEW = 'MARA'
-        CLASSNUMNEW    = UV_CLASSNUM
-        CLASSTYPENEW   = '022'
-        STANDARDCLASS  = 'X'
+        objectkeynew   = lv_objectkeynew
+        objecttablenew = 'MARA'
+        classnumnew    = uv_classnum
+        classtypenew   = '022'
+        standardclass  = 'X'
       TABLES
-        RETURN         = LT_RETURN.
-    LOOP AT LT_RETURN INTO LS_RETURN WHERE TYPE = 'E'.
-      IF LV_MESS IS INITIAL.
-        CONCATENATE US_CLASS-CLASSTYPE US_CLASS-CLASSNAME '-' LS_RETURN-MESSAGE INTO LV_MESS.
+        return         = lt_return.
+    LOOP AT lt_return INTO ls_return WHERE type = 'E'.
+      IF lv_mess IS INITIAL.
+        CONCATENATE us_class-classtype us_class-classname '-' ls_return-message INTO lv_mess.
       ELSE.
-        CONCATENATE LV_MESS '|' US_CLASS-CLASSTYPE US_CLASS-CLASSNAME '-' LS_RETURN-MESSAGE INTO LV_MESS.
+        CONCATENATE lv_mess '|' us_class-classtype us_class-classname '-' ls_return-message INTO lv_mess.
       ENDIF.
     ENDLOOP.
   ENDIF.
-  IF LV_MESS IS NOT INITIAL.
+  IF lv_mess IS NOT INITIAL.
     CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
 
-    CS_RETURN-MSG_MATNR = UV_MATNR.
-    CS_RETURN-MSG_TYPE = 'E'.
-    IF CS_RETURN-MESSAGE IS NOT INITIAL.
-      CONCATENATE CS_RETURN-MESSAGE LV_MESS INTO CS_RETURN-MESSAGE.
+    cs_return-msg_matnr = uv_matnr.
+    cs_return-msg_type = 'E'.
+    IF cs_return-message IS NOT INITIAL.
+      CONCATENATE cs_return-message lv_mess INTO cs_return-message.
     ELSE.
-      CS_RETURN-MESSAGE = LV_MESS.
+      cs_return-message = lv_mess.
     ENDIF.
   ELSE.
     CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
       EXPORTING
-        WAIT = 'X'.
+        wait = 'X'.
   ENDIF.
 ENDFORM.
 *&---------------------------------------------------------------------*
@@ -1865,73 +1895,73 @@ ENDFORM.
 *&      --> LS_CLASS
 *&      <-- CS_RETURN
 *&---------------------------------------------------------------------*
-FORM FRM_CLASS_CHANGE  USING    UV_MATNR     TYPE MATNR
-                                US_ALLOCLIST TYPE BAPI1003_ALLOC_LIST
-                                US_CLASS     TYPE ZDT_OA2SAP_MDM_MARA_CLASS
-                       CHANGING CS_RETURN    TYPE ZDT_OA2SAP_MDM_RET_ZMD001.
-  DATA: LV_OBJECTKEYNEW    TYPE OBJNUM,
-        LV_CLASSNUMNEW     TYPE KLASSE_D,
-        LT_ALLOCVALUESNUM  TYPE STANDARD TABLE OF BAPI1003_ALLOC_VALUES_NUM,
-        LS_ALLOCVALUESNUM  TYPE BAPI1003_ALLOC_VALUES_NUM,
-        LT_ALLOCVALUESCHAR TYPE STANDARD TABLE OF BAPI1003_ALLOC_VALUES_CHAR,
-        LS_ALLOCVALUESCHAR TYPE BAPI1003_ALLOC_VALUES_CHAR,
-        LT_ALLOCVALUESCURR TYPE STANDARD TABLE OF BAPI1003_ALLOC_VALUES_CURR,
-        LS_ALLOCVALUESCURR TYPE BAPI1003_ALLOC_VALUES_CURR,
-        LS_VALUESCHAR      TYPE BAPI1003_ALLOC_VALUES_CHAR,
-        LT_RETURN          TYPE STANDARD TABLE OF BAPIRET2,
-        LS_RETURN          TYPE BAPIRET2.
-  DATA: LT_CLASSIFY TYPE ZDT_OA2SAP_MDM_MARA_CLASS__TAB,
-        LS_CLASSIFY LIKE LINE OF LT_CLASSIFY,
-        LV_MESS     TYPE C LENGTH 1000.
+FORM frm_class_change  USING    uv_matnr     TYPE matnr
+                                us_alloclist TYPE bapi1003_alloc_list
+                                us_class     TYPE zdt_oa2sap_mdm_mara_class
+                       CHANGING cs_return    TYPE zdt_oa2sap_mdm_ret_zmd001.
+  DATA: lv_objectkeynew    TYPE objnum,
+        lv_classnumnew     TYPE klasse_d,
+        lt_allocvaluesnum  TYPE STANDARD TABLE OF bapi1003_alloc_values_num,
+        ls_allocvaluesnum  TYPE bapi1003_alloc_values_num,
+        lt_allocvalueschar TYPE STANDARD TABLE OF bapi1003_alloc_values_char,
+        ls_allocvalueschar TYPE bapi1003_alloc_values_char,
+        lt_allocvaluescurr TYPE STANDARD TABLE OF bapi1003_alloc_values_curr,
+        ls_allocvaluescurr TYPE bapi1003_alloc_values_curr,
+        ls_valueschar      TYPE bapi1003_alloc_values_char,
+        lt_return          TYPE STANDARD TABLE OF bapiret2,
+        ls_return          TYPE bapiret2.
+  DATA: lt_classify TYPE zdt_oa2sap_mdm_mara_class__tab,
+        ls_classify LIKE LINE OF lt_classify,
+        lv_mess     TYPE c LENGTH 1000.
 
-  CLEAR: LT_CLASSIFY, LS_CLASSIFY, LT_RETURN, LS_RETURN, LV_OBJECTKEYNEW, LV_CLASSNUMNEW, LV_MESS.
-  LT_CLASSIFY = US_CLASS-CLASSIFY.
-  LV_OBJECTKEYNEW = UV_MATNR.
-  LV_CLASSNUMNEW = US_ALLOCLIST-CLASSNUM.
-  CLEAR: LT_ALLOCVALUESNUM, LS_ALLOCVALUESNUM, LT_ALLOCVALUESCHAR, LS_ALLOCVALUESCHAR, LT_ALLOCVALUESCURR, LS_ALLOCVALUESCURR.
+  CLEAR: lt_classify, ls_classify, lt_return, ls_return, lv_objectkeynew, lv_classnumnew, lv_mess.
+  lt_classify = us_class-classify.
+  lv_objectkeynew = uv_matnr.
+  lv_classnumnew = us_alloclist-classnum.
+  CLEAR: lt_allocvaluesnum, ls_allocvaluesnum, lt_allocvalueschar, ls_allocvalueschar, lt_allocvaluescurr, ls_allocvaluescurr.
   CALL FUNCTION 'BAPI_OBJCL_GETDETAIL'
     EXPORTING
-      OBJECTKEY       = LV_OBJECTKEYNEW
-      OBJECTTABLE     = 'MARA'
-      CLASSNUM        = LV_CLASSNUMNEW
-      CLASSTYPE       = '001'
+      objectkey       = lv_objectkeynew
+      objecttable     = 'MARA'
+      classnum        = lv_classnumnew
+      classtype       = '001'
     TABLES
-      ALLOCVALUESNUM  = LT_ALLOCVALUESNUM
-      ALLOCVALUESCHAR = LT_ALLOCVALUESCHAR
-      ALLOCVALUESCURR = LT_ALLOCVALUESCURR
-      RETURN          = LT_RETURN.
-  LOOP AT LT_RETURN INTO LS_RETURN WHERE TYPE = 'E'.
-    IF LV_MESS IS INITIAL.
-      CONCATENATE US_CLASS-CLASSTYPE US_CLASS-CLASSNAME '-' LS_RETURN-MESSAGE INTO LV_MESS.
+      allocvaluesnum  = lt_allocvaluesnum
+      allocvalueschar = lt_allocvalueschar
+      allocvaluescurr = lt_allocvaluescurr
+      return          = lt_return.
+  LOOP AT lt_return INTO ls_return WHERE type = 'E'.
+    IF lv_mess IS INITIAL.
+      CONCATENATE us_class-classtype us_class-classname '-' ls_return-message INTO lv_mess.
     ELSE.
-      CONCATENATE LV_MESS '|' US_CLASS-CLASSTYPE US_CLASS-CLASSNAME '-' LS_RETURN-MESSAGE INTO LV_MESS.
+      CONCATENATE lv_mess '|' us_class-classtype us_class-classname '-' ls_return-message INTO lv_mess.
     ENDIF.
   ENDLOOP.
-  IF SY-SUBRC <> 0.
-    LOOP AT LT_ALLOCVALUESCHAR ASSIGNING FIELD-SYMBOL(<FS_CHAR>).
-      <FS_CHAR>-VALUE_CHAR = ''.
-      <FS_CHAR>-VALUE_NEUTRAL = ''.
-      <FS_CHAR>-VALUE_CHAR_LONG = ''.
-      <FS_CHAR>-VALUE_NEUTRAL_LONG = ''.
+  IF sy-subrc <> 0.
+    LOOP AT lt_allocvalueschar ASSIGNING FIELD-SYMBOL(<fs_char>).
+      <fs_char>-value_char = ''.
+      <fs_char>-value_neutral = ''.
+      <fs_char>-value_char_long = ''.
+      <fs_char>-value_neutral_long = ''.
     ENDLOOP.
 *    CLEAR: LS_VALUESCHAR.
-    LOOP AT LT_CLASSIFY INTO LS_CLASSIFY.
-      READ TABLE LT_ALLOCVALUESCHAR ASSIGNING <FS_CHAR>
-        WITH KEY CHARACT = LS_CLASSIFY-ATTRNAME.
-      IF SY-SUBRC = 0.
-        <FS_CHAR>-VALUE_CHAR = ''.
-        <FS_CHAR>-VALUE_NEUTRAL = ''.
-        <FS_CHAR>-VALUE_CHAR_LONG = LS_CLASSIFY-ATTRVALUE.
-        <FS_CHAR>-VALUE_NEUTRAL_LONG = LS_CLASSIFY-ATTRVALUE.
+    LOOP AT lt_classify INTO ls_classify.
+      READ TABLE lt_allocvalueschar ASSIGNING <fs_char>
+        WITH KEY charact = ls_classify-attrname.
+      IF sy-subrc = 0.
+        <fs_char>-value_char = ''.
+        <fs_char>-value_neutral = ''.
+        <fs_char>-value_char_long = ls_classify-attrvalue.
+        <fs_char>-value_neutral_long = ls_classify-attrvalue.
       ELSE.
-        LS_ALLOCVALUESCHAR-CHARACT = LS_CLASSIFY-ATTRNAME.
-        LS_ALLOCVALUESCHAR-CHARACT_DESCR = LS_CLASSIFY-ATTRNAME.
+        ls_allocvalueschar-charact = ls_classify-attrname.
+        ls_allocvalueschar-charact_descr = ls_classify-attrname.
 *        LS_ALLOCVALUESCHAR-VALUE_CHAR = LS_CLASSIFY-ATTRVALUE.
 *        LS_ALLOCVALUESCHAR-VALUE_NEUTRAL = LS_CLASSIFY-ATTRVALUE.
-        LS_ALLOCVALUESCHAR-VALUE_CHAR_LONG = LS_CLASSIFY-ATTRVALUE.
-        LS_ALLOCVALUESCHAR-VALUE_NEUTRAL_LONG = LS_CLASSIFY-ATTRVALUE.
-        APPEND LS_ALLOCVALUESCHAR TO LT_ALLOCVALUESCHAR.
-        CLEAR: LS_ALLOCVALUESCHAR.
+        ls_allocvalueschar-value_char_long = ls_classify-attrvalue.
+        ls_allocvalueschar-value_neutral_long = ls_classify-attrvalue.
+        APPEND ls_allocvalueschar TO lt_allocvalueschar.
+        CLEAR: ls_allocvalueschar.
       ENDIF.
 *      LS_VALUESCHAR-CHARACT = LS_CLASSIFY-ATTRNAME.
 *      LS_VALUESCHAR-CHARACT_DESCR = LS_CLASSIFY-ATTRNAME.
@@ -1942,42 +1972,42 @@ FORM FRM_CLASS_CHANGE  USING    UV_MATNR     TYPE MATNR
 *      MODIFY LT_ALLOCVALUESCHAR FROM LS_VALUESCHAR.
 *      CLEAR: LS_VALUESCHAR.
     ENDLOOP.
-    IF LT_ALLOCVALUESCHAR IS NOT INITIAL.
-      CLEAR: LT_RETURN, LS_RETURN.
+    IF lt_allocvalueschar IS NOT INITIAL.
+      CLEAR: lt_return, ls_return.
       CALL FUNCTION 'BAPI_OBJCL_CHANGE'
         EXPORTING
-          OBJECTKEY          = LV_OBJECTKEYNEW
-          OBJECTTABLE        = 'MARA'
-          CLASSNUM           = LV_CLASSNUMNEW
-          CLASSTYPE          = '001'
+          objectkey          = lv_objectkeynew
+          objecttable        = 'MARA'
+          classnum           = lv_classnumnew
+          classtype          = '001'
         TABLES
-          ALLOCVALUESNUMNEW  = LT_ALLOCVALUESNUM
-          ALLOCVALUESCHARNEW = LT_ALLOCVALUESCHAR
-          ALLOCVALUESCURRNEW = LT_ALLOCVALUESCURR
-          RETURN             = LT_RETURN.
-      LOOP AT LT_RETURN INTO LS_RETURN WHERE TYPE = 'E'.
-        IF LV_MESS IS INITIAL.
-          CONCATENATE US_CLASS-CLASSTYPE US_CLASS-CLASSNAME '-' LS_RETURN-MESSAGE INTO LV_MESS.
+          allocvaluesnumnew  = lt_allocvaluesnum
+          allocvaluescharnew = lt_allocvalueschar
+          allocvaluescurrnew = lt_allocvaluescurr
+          return             = lt_return.
+      LOOP AT lt_return INTO ls_return WHERE type = 'E'.
+        IF lv_mess IS INITIAL.
+          CONCATENATE us_class-classtype us_class-classname '-' ls_return-message INTO lv_mess.
         ELSE.
-          CONCATENATE LV_MESS '|' US_CLASS-CLASSTYPE US_CLASS-CLASSNAME '-' LS_RETURN-MESSAGE INTO LV_MESS.
+          CONCATENATE lv_mess '|' us_class-classtype us_class-classname '-' ls_return-message INTO lv_mess.
         ENDIF.
       ENDLOOP.
-      IF LV_MESS IS NOT INITIAL.
+      IF lv_mess IS NOT INITIAL.
         CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
       ELSE.
         CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
           EXPORTING
-            WAIT = 'X'.
+            wait = 'X'.
       ENDIF.
     ENDIF.
   ENDIF.
-  IF LV_MESS IS NOT INITIAL.
-    CS_RETURN-MSG_MATNR = UV_MATNR.
-    CS_RETURN-MSG_TYPE = 'E'.
-    IF CS_RETURN-MESSAGE IS NOT INITIAL.
-      CONCATENATE CS_RETURN-MESSAGE LV_MESS INTO CS_RETURN-MESSAGE.
+  IF lv_mess IS NOT INITIAL.
+    cs_return-msg_matnr = uv_matnr.
+    cs_return-msg_type = 'E'.
+    IF cs_return-message IS NOT INITIAL.
+      CONCATENATE cs_return-message lv_mess INTO cs_return-message.
     ELSE.
-      CS_RETURN-MESSAGE = LV_MESS.
+      cs_return-message = lv_mess.
     ENDIF.
   ENDIF.
 ENDFORM.
@@ -1989,9 +2019,9 @@ ENDFORM.
 *&      --> LW_MRAR
 *&      <-- LW_RETURN
 *&---------------------------------------------------------------------*
-FORM FRM_CHANGE_MATNR  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
-                       CHANGING CS_RETURN TYPE ZDT_OA2SAP_MDM_RET_ZMD001.
-  DEFINE MATN1_INPUT.
+FORM frm_change_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
+                       CHANGING cs_return TYPE zdt_oa2sap_mdm_ret_zmd001.
+  DEFINE matn1_input.
     CALL FUNCTION 'CONVERSION_EXIT_MATN1_INPUT'
       EXPORTING
         input         = &1
@@ -2004,21 +2034,21 @@ FORM FRM_CHANGE_MATNR  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 * Implement suitable error handling here
     ENDIF.
   END-OF-DEFINITION.
-  DEFINE ALPHA_OUTPUT.
+  DEFINE alpha_output.
     CALL FUNCTION 'CONVERSION_EXIT_ALPHA_OUTPUT'
       EXPORTING
         input         = &1
       IMPORTING
         output        = &1.
   END-OF-DEFINITION.
-  DEFINE ALPHA_INPUT.
+  DEFINE alpha_input.
     CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
       EXPORTING
         input         = &1
       IMPORTING
         output        = &1.
   END-OF-DEFINITION.
-  DEFINE CUNIT_INPUT.
+  DEFINE cunit_input.
     CALL FUNCTION 'CONVERSION_EXIT_CUNIT_INPUT'
       EXPORTING
         input                = &1
@@ -2032,61 +2062,79 @@ FORM FRM_CHANGE_MATNR  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 * Implement suitable error handling here
     ENDIF.
   END-OF-DEFINITION.
-  DATA: LW_HEADDATA            TYPE BAPIMATHEAD,
-        LW_CLIENTDATA          TYPE BAPI_MARA,
-        LW_CLIENTDATAX         TYPE BAPI_MARAX,
-        LW_RETURN              TYPE BAPIRET2,
-        LT_MATERIALLONGTEXT    TYPE STANDARD TABLE OF BAPI_MLTX,
-        LW_MATERIALLONGTEXT    TYPE BAPI_MLTX,
-        LT_UNITSOFMEASURE      TYPE STANDARD TABLE OF BAPI_MARM,
-        LW_UNITSOFMEASURE      TYPE BAPI_MARM,
-        LT_UNITSOFMEASUREX     TYPE STANDARD TABLE OF BAPI_MARMX,
-        LW_UNITSOFMEASUREX     TYPE BAPI_MARMX,
-        LT_MATERIALDESCRIPTION TYPE STANDARD TABLE OF BAPI_MAKT,
-        LW_MATERIALDESCRIPTION TYPE BAPI_MAKT.
+  DATA: lw_headdata            TYPE bapimathead,
+        lw_clientdata          TYPE bapi_mara,
+        lw_clientdatax         TYPE bapi_marax,
+        lw_return              TYPE bapiret2,
+        lt_materiallongtext    TYPE STANDARD TABLE OF bapi_mltx,
+        lw_materiallongtext    TYPE bapi_mltx,
+        lt_unitsofmeasure      TYPE STANDARD TABLE OF bapi_marm,
+        lw_unitsofmeasure      TYPE bapi_marm,
+        lt_unitsofmeasurex     TYPE STANDARD TABLE OF bapi_marmx,
+        lw_unitsofmeasurex     TYPE bapi_marmx,
+        lt_materialdescription TYPE STANDARD TABLE OF bapi_makt,
+        lw_materialdescription TYPE bapi_makt.
 
-  DATA: LT_SMEINH    TYPE ZDT_OA2SAP_MDM_MARA_SMEINH_TAB,
-        LS_SMEINH    TYPE ZDT_OA2SAP_MDM_MARA_SMEINH,
-        LV_MATNR     TYPE MATNR,
-        LV_MATNR_T   TYPE MATNR,
-        LV_MATNR_MPN TYPE BMATN,
-        LV_MFRNR     TYPE MFRNR,
-        LV_OLD_NO    TYPE BISMT,
-        LV_BISMT     TYPE C LENGTH 500,
-        LV_MAKTXL    TYPE C LENGTH 500,
-        LV_LENGTH    TYPE I,
-        LV_MEINS     TYPE MEINS,
-        LV_MEINH     TYPE MEINS,
-        LV_FLAG      TYPE C.
+  DATA: lt_smeinh    TYPE zdt_oa2sap_mdm_mara_smeinh_tab,
+        ls_smeinh    TYPE zdt_oa2sap_mdm_mara_smeinh,
+        lt_describe  TYPE zdt_oa2sap_mdm_mara_descri_tab,
+        ls_describe  TYPE zdt_oa2sap_mdm_mara_describe,
+        lv_matnr     TYPE matnr,
+        lv_matnr_t   TYPE matnr,
+        lv_matnr_mpn TYPE bmatn,
+        lv_mfrnr     TYPE mfrnr,
+        lv_old_no    TYPE bismt,
+        lv_bismt     TYPE c LENGTH 500,
+        lv_maktxl    TYPE c LENGTH 500,
+        lv_length    TYPE i,
+        lv_meins     TYPE meins,
+        lv_meinh     TYPE meins,
+        lv_flag      TYPE c.
 
-  DATA : LV_MPROF TYPE MARA-MPROF .
+  DATA : lv_mprof TYPE mara-mprof .
 
-  CLEAR: LV_MATNR, LV_FLAG, LV_MAKTXL, LV_LENGTH, LV_MFRNR, LV_MEINS, LV_BISMT, LV_OLD_NO.
-  LV_MATNR = US_INPUT-MATNR.
-  MATN1_INPUT: LV_MATNR.
-  LV_MFRNR = US_INPUT-MFRNR.
-  ALPHA_INPUT: LV_MFRNR.
-  LV_MAKTXL = US_INPUT-MAKTX.
-  LV_LENGTH = STRLEN( LV_MAKTXL ).
-  CUNIT_INPUT: US_INPUT-MEINS LV_MEINS.
-  LV_BISMT = US_INPUT-BISMT.
-  CONDENSE LV_BISMT NO-GAPS.
-  IF LV_LENGTH > 40.
-    CS_RETURN-MSG_MATNR = LV_MATNR.
-    CS_RETURN-MSG_TYPE = 'E'.
-    CONCATENATE LV_MAKTXL '物料描述过长' INTO CS_RETURN-MESSAGE.
+  CLEAR: lv_matnr, lv_flag, lv_maktxl, lv_length, lv_mfrnr, lv_meins, lv_bismt, lv_old_no.
+  lv_matnr = us_input-matnr.
+  matn1_input: lv_matnr.
+  lv_mfrnr = us_input-mfrnr.
+  alpha_input: lv_mfrnr.
+*  lv_maktxl = us_input-maktx.
+*  lv_length = strlen( lv_maktxl ).
+  cunit_input: us_input-meins lv_meins.
+  lv_bismt = us_input-bismt.
+  CONDENSE lv_bismt NO-GAPS.
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：05.11.2020 11:25:41
+*&---------------------------------------------------------------------*
+*&修改记录：祛除物料描述长度的判断，判断交给函数
+*&---------------------------------------------------------------------*
+  CLEAR:lt_describe,ls_describe.
+  lt_describe = us_input-describe.
+  LOOP AT lt_describe INTO ls_describe.
+    lv_maktxl = ls_describe-maktx.
+    lv_length = strlen( lv_maktxl ).
+    IF lv_length > 40.
+      DATA(lv_flag2) = 'A'.
+    ENDIF.
+  ENDLOOP.
+  IF lv_flag2 = 'A'.
+    CLEAR lv_flag2.
+    cs_return-msg_matnr = lv_matnr.
+    cs_return-msg_type = 'E'.
+    CONCATENATE lv_maktxl '物料描述过长' INTO cs_return-message.
   ELSE.
 
-    SELECT MATNR, MEINH, UMREZ, UMREN
-      FROM MARM
-      INTO TABLE @DATA(LT_MARM)
-      WHERE MATNR = @LV_MATNR.
+    SELECT matnr, meinh, umrez, umren
+      FROM marm
+      INTO TABLE @DATA(lt_marm)
+      WHERE matnr = @lv_matnr.
 
-    IF US_INPUT-MTART <> 'HERS'.
-      CLEAR: LV_LENGTH.
-      LV_LENGTH = STRLEN( LV_BISMT ).
-      IF LV_LENGTH > 40.
-        LV_OLD_NO = LV_BISMT+0(39) && '*'.
+    IF us_input-mtart <> 'HERS'.
+      CLEAR: lv_length.
+      lv_length = strlen( lv_bismt ).
+      IF lv_length > 40.
+        lv_old_no = lv_bismt+0(39) && '*'.
 *        CLEAR: lt_materiallongtext, lw_materiallongtext.
 *        lw_materiallongtext-applobject = 'MATERIAL'.
 *        lw_materiallongtext-text_name = lv_matnr.
@@ -2096,53 +2144,53 @@ FORM FRM_CHANGE_MATNR  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 *        lw_materiallongtext-text_line = lv_bismt+0(132).
 *        APPEND lw_materiallongtext TO lt_materiallongtext.
       ELSE.
-        LV_OLD_NO = LV_BISMT.
+        lv_old_no = lv_bismt.
       ENDIF.
-      CLEAR: LT_MATERIALLONGTEXT, LW_MATERIALLONGTEXT.
-      LW_MATERIALLONGTEXT-APPLOBJECT = 'MATERIAL'.
-      LW_MATERIALLONGTEXT-TEXT_NAME = LV_MATNR.
-      LW_MATERIALLONGTEXT-TEXT_ID = 'IVER'.
-      LW_MATERIALLONGTEXT-LANGU = '1'.
-      LW_MATERIALLONGTEXT-FORMAT_COL = 1.
-      LW_MATERIALLONGTEXT-TEXT_LINE = LV_BISMT+0(132).
-      APPEND LW_MATERIALLONGTEXT TO LT_MATERIALLONGTEXT.
+      CLEAR: lt_materiallongtext, lw_materiallongtext.
+      lw_materiallongtext-applobject = 'MATERIAL'.
+      lw_materiallongtext-text_name = lv_matnr.
+      lw_materiallongtext-text_id = 'IVER'.
+      lw_materiallongtext-langu = '1'.
+      lw_materiallongtext-format_col = 1.
+      lw_materiallongtext-text_line = lv_bismt+0(132).
+      APPEND lw_materiallongtext TO lt_materiallongtext.
       " 创建物料基本视图
-      SELECT SINGLE * INTO @DATA(LS_MARA)
-        FROM MARA
-        WHERE MATNR = @LV_MATNR.
-      CLEAR: LW_HEADDATA, LW_CLIENTDATA, LW_CLIENTDATAX.
-      LW_HEADDATA-MATERIAL = LV_MATNR.                        " 物料号
-      LW_HEADDATA-MATL_TYPE = US_INPUT-MTART.                 " 物料类型
-      LW_HEADDATA-IND_SECTOR = 'P'.                           " 行业领域
-      LW_HEADDATA-BASIC_VIEW = 'X'.                           " 基本数据视图
-      LW_HEADDATA-PURCHASE_VIEW = 'X'.                        " 采购视图
-      IF US_INPUT-MATKL <> LS_MARA-MATKL OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-MATL_GROUP = US_INPUT-MATKL.              " 物料组
-        LW_CLIENTDATAX-MATL_GROUP = 'X'.
+      SELECT SINGLE * INTO @DATA(ls_mara)
+        FROM mara
+        WHERE matnr = @lv_matnr.
+      CLEAR: lw_headdata, lw_clientdata, lw_clientdatax.
+      lw_headdata-material = lv_matnr.                        " 物料号
+      lw_headdata-matl_type = us_input-mtart.                 " 物料类型
+      lw_headdata-ind_sector = 'P'.                           " 行业领域
+      lw_headdata-basic_view = 'X'.                           " 基本数据视图
+      lw_headdata-purchase_view = 'X'.                        " 采购视图
+      IF us_input-matkl <> ls_mara-matkl OR ls_mara IS INITIAL.
+        lw_clientdata-matl_group = us_input-matkl.              " 物料组
+        lw_clientdatax-matl_group = 'X'.
       ENDIF.
-      IF LV_OLD_NO <> LS_MARA-BISMT OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-OLD_MAT_NO_LONG = LV_OLD_NO.              " 旧物料号
-        LW_CLIENTDATAX-OLD_MAT_NO_LONG = 'X'.
+      IF lv_old_no <> ls_mara-bismt OR ls_mara IS INITIAL.
+        lw_clientdata-old_mat_no_long = lv_old_no.              " 旧物料号
+        lw_clientdatax-old_mat_no_long = 'X'.
       ENDIF.
-      IF LS_MARA IS INITIAL.
-        LW_CLIENTDATA-BASE_UOM = LV_MEINS.                      " 基本计量单位
-        LW_CLIENTDATAX-BASE_UOM = 'X'.
+      IF ls_mara IS INITIAL.
+        lw_clientdata-base_uom = lv_meins.                      " 基本计量单位
+        lw_clientdatax-base_uom = 'X'.
       ELSE.
-        LW_CLIENTDATA-BASE_UOM = ''.
-        LW_CLIENTDATAX-BASE_UOM = ''.
+        lw_clientdata-base_uom = ''.
+        lw_clientdatax-base_uom = ''.
       ENDIF.
-      IF US_INPUT-GROES <> LS_MARA-GROES OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-SIZE_DIM = US_INPUT-GROES.                " 规格型号（大小/量纲）
-        LW_CLIENTDATAX-SIZE_DIM = 'X'.
+      IF us_input-groes <> ls_mara-groes OR ls_mara IS INITIAL.
+        lw_clientdata-size_dim = us_input-groes.                " 规格型号（大小/量纲）
+        lw_clientdatax-size_dim = 'X'.
       ENDIF.
-      IF LV_MFRNR <> LS_MARA-MFRNR OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-MFR_NO = LV_MFRNR.                        " 制造商
-        LW_CLIENTDATAX-MFR_NO = 'X'.
+      IF lv_mfrnr <> ls_mara-mfrnr OR ls_mara IS INITIAL.
+        lw_clientdata-mfr_no = lv_mfrnr.                        " 制造商
+        lw_clientdatax-mfr_no = 'X'.
       ENDIF.
 
-      IF US_INPUT-EKWSL <> LS_MARA-EKWSL OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-PUR_VALKEY = US_INPUT-EKWSL.              " 采购价值代码
-        LW_CLIENTDATAX-PUR_VALKEY = 'X'.
+      IF us_input-ekwsl <> ls_mara-ekwsl OR ls_mara IS INITIAL.
+        lw_clientdata-pur_valkey = us_input-ekwsl.              " 采购价值代码
+        lw_clientdatax-pur_valkey = 'X'.
       ENDIF.
 
 *      SELECT SINGLE * INTO @DATA(ls_mara)
@@ -2153,9 +2201,9 @@ FORM FRM_CHANGE_MATNR  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 *      lw_clientdata-base_uom = ''.                      " 基本计量单位
 *     ENDIF.
 
-      IF US_INPUT-MPROF <> LS_MARA-MPROF OR LS_MARA IS INITIAL.
-        LW_CLIENTDATA-MANUF_PROF = US_INPUT-MPROF.            " 制造商参数文件
-        LW_CLIENTDATAX-MANUF_PROF = 'X'.
+      IF us_input-mprof <> ls_mara-mprof OR ls_mara IS INITIAL.
+        lw_clientdata-manuf_prof = us_input-mprof.            " 制造商参数文件
+        lw_clientdatax-manuf_prof = 'X'.
       ENDIF.
 
 *      IF lv_mfrnr IS INITIAL AND us_input-mtart = 'Z010'.
@@ -2163,107 +2211,213 @@ FORM FRM_CHANGE_MATNR  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 *        lw_clientdatax-manuf_prof = 'X'.
 *      ENDIF.
 
-      IF US_INPUT-LVOMA IS NOT INITIAL.
-        LW_CLIENTDATA-DEL_FLAG = 'X'.                         " 在客户级标记要删除的物料
-        LW_CLIENTDATAX-DEL_FLAG = 'X'.
+      IF us_input-lvoma IS NOT INITIAL.
+        lw_clientdata-del_flag = 'X'.                         " 在客户级标记要删除的物料
+        lw_clientdatax-del_flag = 'X'.
       ELSE.
-        LW_CLIENTDATA-DEL_FLAG = ''.                          " 在客户级标记要删除的物料
-        LW_CLIENTDATAX-DEL_FLAG = 'X'.
+        lw_clientdata-del_flag = ''.                          " 在客户级标记要删除的物料
+        lw_clientdatax-del_flag = 'X'.
       ENDIF.
       " 物料描述
-      CLEAR: LT_MATERIALDESCRIPTION, LW_MATERIALDESCRIPTION.
-      LW_MATERIALDESCRIPTION-LANGU = '1'.
-      LW_MATERIALDESCRIPTION-MATL_DESC = US_INPUT-MAKTX.      " 物料描述
-      APPEND LW_MATERIALDESCRIPTION TO LT_MATERIALDESCRIPTION.
+*      CLEAR: LT_MATERIALDESCRIPTION, LW_MATERIALDESCRIPTION.
+*      LW_MATERIALDESCRIPTION-LANGU = '1'.
+*      LW_MATERIALDESCRIPTION-MATL_DESC = US_INPUT-MAKTX.      " 物料描述
+*      APPEND LW_MATERIALDESCRIPTION TO LT_MATERIALDESCRIPTION.
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：05.11.2020 10:50:53
+*&---------------------------------------------------------------------*
+*&修改记录：修改物料描述为子表
+*&
+*&---------------------------------------------------------------------*
+      CLEAR: lt_materialdescription, lw_materialdescription,ls_describe.
+      lt_describe = us_input-describe.
+      LOOP AT lt_describe INTO ls_describe.
+        CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
+          EXPORTING
+            input            = ls_describe-lag
+          IMPORTING
+            output           = lw_materialdescription-langu
+          EXCEPTIONS
+            unknown_language = 1
+            OTHERS           = 2.
+        IF sy-subrc <> 0.
+* Implement suitable error handling here
+        ENDIF.
+
+*        lw_materialdescription-langu = ls_describe-lag.
+        lw_materialdescription-matl_desc = ls_describe-maktx.
+        APPEND lw_materialdescription TO lt_materialdescription.
+        CLEAR:ls_describe,lw_materialdescription.
+      ENDLOOP.
+**********************END***************
       " 物料描述长文本
-      IF US_INPUT-MAKTXL IS NOT INITIAL.
-        CLEAR: LW_MATERIALLONGTEXT, LV_MAKTXL.
-        LV_MAKTXL = US_INPUT-MAKTXL.
-        LW_MATERIALLONGTEXT-APPLOBJECT = 'MATERIAL'.
-        LW_MATERIALLONGTEXT-TEXT_NAME = LV_MATNR.
-        LW_MATERIALLONGTEXT-TEXT_ID = 'GRUN'.
-        LW_MATERIALLONGTEXT-LANGU = '1'.
-        LW_MATERIALLONGTEXT-FORMAT_COL = 1.
-        LW_MATERIALLONGTEXT-TEXT_LINE = LV_MAKTXL+0(132).
-        APPEND LW_MATERIALLONGTEXT TO LT_MATERIALLONGTEXT.
-        CLEAR: LW_MATERIALLONGTEXT.
-        LW_MATERIALLONGTEXT-APPLOBJECT = 'MATERIAL'.
-        LW_MATERIALLONGTEXT-TEXT_NAME = LV_MATNR.
-        LW_MATERIALLONGTEXT-TEXT_ID = 'GRUN'.
-        LW_MATERIALLONGTEXT-LANGU = '1'.
-        LW_MATERIALLONGTEXT-FORMAT_COL = 2.
-        LW_MATERIALLONGTEXT-TEXT_LINE = LV_MAKTXL+132(132).
-        APPEND LW_MATERIALLONGTEXT TO LT_MATERIALLONGTEXT.
+*      IF US_INPUT-MAKTXL IS NOT INITIAL.
+*        CLEAR: LW_MATERIALLONGTEXT, LV_MAKTXL.
+*        LV_MAKTXL = US_INPUT-MAKTXL.
+*        LW_MATERIALLONGTEXT-APPLOBJECT = 'MATERIAL'.
+*        LW_MATERIALLONGTEXT-TEXT_NAME = LV_MATNR.
+*        LW_MATERIALLONGTEXT-TEXT_ID = 'GRUN'.
+*        LW_MATERIALLONGTEXT-LANGU = '1'.
+*        LW_MATERIALLONGTEXT-FORMAT_COL = 1.
+*        LW_MATERIALLONGTEXT-TEXT_LINE = LV_MAKTXL+0(132).
+*        APPEND LW_MATERIALLONGTEXT TO LT_MATERIALLONGTEXT.
+*        CLEAR: LW_MATERIALLONGTEXT.
+*        LW_MATERIALLONGTEXT-APPLOBJECT = 'MATERIAL'.
+*        LW_MATERIALLONGTEXT-TEXT_NAME = LV_MATNR.
+*        LW_MATERIALLONGTEXT-TEXT_ID = 'GRUN'.
+*        LW_MATERIALLONGTEXT-LANGU = '1'.
+*        LW_MATERIALLONGTEXT-FORMAT_COL = 2.
+*        LW_MATERIALLONGTEXT-TEXT_LINE = LV_MAKTXL+132(132).
+*        APPEND LW_MATERIALLONGTEXT TO LT_MATERIALLONGTEXT.
+*      ENDIF.
+*&---------------------------------------------------------------------*
+*    &作者：Seashell Huang
+*    &修改日期：05.11.2020 11:00:34
+*    &---------------------------------------------------------------------*
+*    &修改记录：修改物料描述长文本
+*    &
+*    &---------------------------------------------------------------------*
+      IF us_input-describe IS NOT INITIAL.
+        CLEAR: lw_materiallongtext, lv_maktxl,lt_describe,ls_describe.
+        lt_describe = us_input-describe.
+        LOOP AT lt_describe INTO ls_describe.
+          CLEAR: lw_materiallongtext, lv_maktxl.
+          lv_maktxl = ls_describe-maktxl.
+          lw_materiallongtext-applobject = 'MATERIAL'.
+          lw_materiallongtext-text_name = lv_matnr.
+          lw_materiallongtext-text_id = 'GRUN'.
+          CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
+            EXPORTING
+              input            = ls_describe-lag
+            IMPORTING
+              output           = lw_materiallongtext-langu
+            EXCEPTIONS
+              unknown_language = 1
+              OTHERS           = 2.
+          IF sy-subrc <> 0.
+* Implement suitable error handling here
+          ENDIF.
+
+*          lw_materiallongtext-langu = ls_describe-lag.
+          lw_materiallongtext-format_col = 1.
+          lw_materiallongtext-text_line = lv_maktxl+0(132).
+          APPEND lw_materiallongtext TO lt_materiallongtext.
+          CLEAR: lw_materiallongtext.
+          lw_materiallongtext-applobject = 'MATERIAL'.
+          lw_materiallongtext-text_name = lv_matnr.
+          lw_materiallongtext-text_id = 'GRUN'.
+          CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
+            EXPORTING
+              input            = ls_describe-lag
+            IMPORTING
+              output           = lw_materiallongtext-langu
+            EXCEPTIONS
+              unknown_language = 1
+              OTHERS           = 2.
+          IF sy-subrc <> 0.
+* Implement suitable error handling here
+          ENDIF.
+
+*          lw_materiallongtext-langu = ls_describe-lag.
+          lw_materiallongtext-format_col = 2.
+          lw_materiallongtext-text_line = lv_maktxl+132(132).
+          APPEND lw_materiallongtext TO lt_materiallongtext.
+          CLEAR: lw_materiallongtext.
+          lw_materiallongtext-applobject = 'MATERIAL'.
+          lw_materiallongtext-text_name = lv_matnr.
+          lw_materiallongtext-text_id = 'GRUN'.
+          CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
+            EXPORTING
+              input            = ls_describe-lag
+            IMPORTING
+              output           = lw_materiallongtext-langu
+            EXCEPTIONS
+              unknown_language = 1
+              OTHERS           = 2.
+          IF sy-subrc <> 0.
+* Implement suitable error handling here
+          ENDIF.
+
+*          lw_materiallongtext-langu = ls_describe-lag.
+          lw_materiallongtext-format_col = 3.
+          lw_materiallongtext-text_line = lv_maktxl+265(132).
+          APPEND lw_materiallongtext TO lt_materiallongtext.
+          CLEAR ls_describe.
+        ENDLOOP.
       ENDIF.
+
+
+************END**************8
       " 换算单位
-      CLEAR: LT_UNITSOFMEASURE, LW_UNITSOFMEASURE, LT_UNITSOFMEASUREX, LW_UNITSOFMEASUREX, LT_SMEINH, LS_SMEINH.
+      CLEAR: lt_unitsofmeasure, lw_unitsofmeasure, lt_unitsofmeasurex, lw_unitsofmeasurex, lt_smeinh, ls_smeinh.
 
 *      IF ls_mara IS INITIAL .
-      LT_SMEINH = US_INPUT-SMEINH.
-      LOOP AT LT_SMEINH INTO LS_SMEINH.
-        CLEAR: LV_MEINH.
-        CUNIT_INPUT: LS_SMEINH-MEINH LV_MEINH.
+      lt_smeinh = us_input-smeinh.
+      LOOP AT lt_smeinh INTO ls_smeinh.
+        CLEAR: lv_meinh.
+        cunit_input: ls_smeinh-meinh lv_meinh.
 ********************2019.12.23  Seashell Huang*******************
-        LW_UNITSOFMEASURE-GROSS_WT = US_INPUT-BRGEW.          " 毛重
-        LW_UNITSOFMEASUREX-GROSS_WT = 'X'.
-        LW_UNITSOFMEASURE-VOLUME = US_INPUT-VOLUM.            " 体积
-        LW_UNITSOFMEASUREX-VOLUME = 'X'.
-        IF US_INPUT-GEWEI IS NOT INITIAL.
-          LW_UNITSOFMEASURE-UNIT_OF_WT = US_INPUT-GEWEI.      " 重量单位
+        lw_unitsofmeasure-gross_wt = us_input-brgew.          " 毛重
+        lw_unitsofmeasurex-gross_wt = 'X'.
+        lw_unitsofmeasure-volume = us_input-volum.            " 体积
+        lw_unitsofmeasurex-volume = 'X'.
+        IF us_input-gewei IS NOT INITIAL.
+          lw_unitsofmeasure-unit_of_wt = us_input-gewei.      " 重量单位
         ELSE.
-          LW_UNITSOFMEASURE-UNIT_OF_WT = 'KG'.
+          lw_unitsofmeasure-unit_of_wt = 'KG'.
         ENDIF.
-        LW_UNITSOFMEASUREX-UNIT_OF_WT = 'X'.
-        LW_UNITSOFMEASURE-VOLUMEUNIT = US_INPUT-VOLEH.        " 体积单位
-        LW_UNITSOFMEASUREX-VOLUMEUNIT = 'X'.
+        lw_unitsofmeasurex-unit_of_wt = 'X'.
+        lw_unitsofmeasure-volumeunit = us_input-voleh.        " 体积单位
+        lw_unitsofmeasurex-volumeunit = 'X'.
 ********************END******************************************
 *        IF lv_meinh <> ls_mara-meins."旧版通过判断单位是否相等，不相等的话正常，但是相等的话会报错，所以去掉
-        LW_UNITSOFMEASURE-DENOMINATR = LS_SMEINH-UMREN.       " 转换为基本计量单位的分母
-        LW_UNITSOFMEASUREX-DENOMINATR = 'X'.
-        LW_UNITSOFMEASURE-ALT_UNIT = LV_MEINH.                " 用于显示的计量单位
-        LW_UNITSOFMEASUREX-ALT_UNIT = LV_MEINH.
-        LW_UNITSOFMEASURE-NUMERATOR = LS_SMEINH-UMREZ.        " 基本计量单位转换分子
-        LW_UNITSOFMEASUREX-NUMERATOR = 'X'.
+        lw_unitsofmeasure-denominatr = ls_smeinh-umren.       " 转换为基本计量单位的分母
+        lw_unitsofmeasurex-denominatr = 'X'.
+        lw_unitsofmeasure-alt_unit = lv_meinh.                " 用于显示的计量单位
+        lw_unitsofmeasurex-alt_unit = lv_meinh.
+        lw_unitsofmeasure-numerator = ls_smeinh-umrez.        " 基本计量单位转换分子
+        lw_unitsofmeasurex-numerator = 'X'.
 *        ENDIF.
-        APPEND LW_UNITSOFMEASURE TO LT_UNITSOFMEASURE.
-        APPEND LW_UNITSOFMEASUREX TO LT_UNITSOFMEASUREX.
-        CLEAR: LW_UNITSOFMEASURE, LW_UNITSOFMEASUREX.
+        APPEND lw_unitsofmeasure TO lt_unitsofmeasure.
+        APPEND lw_unitsofmeasurex TO lt_unitsofmeasurex.
+        CLEAR: lw_unitsofmeasure, lw_unitsofmeasurex.
       ENDLOOP.
-      LOOP AT LT_MARM INTO DATA(LS_MARM).
-        READ TABLE LT_UNITSOFMEASURE TRANSPORTING NO FIELDS WITH KEY ALT_UNIT = LS_MARM-MEINH.
-        IF SY-SUBRC <> 0.
-          IF LS_MARM-MEINH <> LS_MARA-MEINS.
-            LW_UNITSOFMEASURE-DENOMINATR = LS_SMEINH-UMREN.       " 转换为基本计量单位的分母
-            LW_UNITSOFMEASUREX-DENOMINATR = 'X'.
-            LW_UNITSOFMEASURE-ALT_UNIT = LS_MARM-MEINH.           " 用于显示的计量单位
-            LW_UNITSOFMEASUREX-ALT_UNIT = LS_MARM-MEINH.
-            LW_UNITSOFMEASURE-NUMERATOR = LS_SMEINH-UMREZ.        " 基本计量单位转换分子
-            LW_UNITSOFMEASUREX-NUMERATOR = 'X'.
-            LW_UNITSOFMEASURE-DEL_FLAG = 'X'.                     " 删除标记
-            APPEND LW_UNITSOFMEASURE TO LT_UNITSOFMEASURE.
-            APPEND LW_UNITSOFMEASUREX TO LT_UNITSOFMEASUREX.
-            CLEAR: LW_UNITSOFMEASURE, LW_UNITSOFMEASUREX.
+      LOOP AT lt_marm INTO DATA(ls_marm).
+        READ TABLE lt_unitsofmeasure TRANSPORTING NO FIELDS WITH KEY alt_unit = ls_marm-meinh.
+        IF sy-subrc <> 0.
+          IF ls_marm-meinh <> ls_mara-meins.
+            lw_unitsofmeasure-denominatr = ls_smeinh-umren.       " 转换为基本计量单位的分母
+            lw_unitsofmeasurex-denominatr = 'X'.
+            lw_unitsofmeasure-alt_unit = ls_marm-meinh.           " 用于显示的计量单位
+            lw_unitsofmeasurex-alt_unit = ls_marm-meinh.
+            lw_unitsofmeasure-numerator = ls_smeinh-umrez.        " 基本计量单位转换分子
+            lw_unitsofmeasurex-numerator = 'X'.
+            lw_unitsofmeasure-del_flag = 'X'.                     " 删除标记
+            APPEND lw_unitsofmeasure TO lt_unitsofmeasure.
+            APPEND lw_unitsofmeasurex TO lt_unitsofmeasurex.
+            CLEAR: lw_unitsofmeasure, lw_unitsofmeasurex.
           ENDIF.
         ENDIF.
       ENDLOOP.
 *      ENDIF.
-      CLEAR: LW_RETURN.
+      CLEAR: lw_return.
       CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
         EXPORTING
-          HEADDATA            = LW_HEADDATA
-          CLIENTDATA          = LW_CLIENTDATA
-          CLIENTDATAX         = LW_CLIENTDATAX
+          headdata            = lw_headdata
+          clientdata          = lw_clientdata
+          clientdatax         = lw_clientdatax
         IMPORTING
-          RETURN              = LW_RETURN
+          return              = lw_return
         TABLES
-          MATERIALDESCRIPTION = LT_MATERIALDESCRIPTION
-          MATERIALLONGTEXT    = LT_MATERIALLONGTEXT
-          UNITSOFMEASURE      = LT_UNITSOFMEASURE
-          UNITSOFMEASUREX     = LT_UNITSOFMEASUREX.
-      IF LW_RETURN-TYPE <> 'E'.
+          materialdescription = lt_materialdescription
+          materiallongtext    = lt_materiallongtext
+          unitsofmeasure      = lt_unitsofmeasure
+          unitsofmeasurex     = lt_unitsofmeasurex.
+      IF lw_return-type <> 'E'.
         CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
           EXPORTING
-            WAIT = 'X'.
+            wait = 'X'.
 *        CLEAR: LV_LENGTH.
 *        LV_LENGTH = STRLEN( LV_BISMT ).
 *        IF LV_LENGTH > 40.
@@ -2298,125 +2452,229 @@ FORM FRM_CHANGE_MATNR  USING    US_INPUT  TYPE ZDT_OA2SAP_MDM_MARA
 *          ENDIF.
 *        ENDIF.
         " 扩张工厂视图
-        IF US_INPUT-WERKS IS NOT INITIAL.
-          PERFORM FRM_PLANT_VIEW USING US_INPUT LV_MATNR CHANGING CS_RETURN.
+        IF us_input-werks IS NOT INITIAL.
+          PERFORM frm_plant_view USING us_input lv_matnr CHANGING cs_return.
         ENDIF.
         " 扩张MRP AREA
-        IF US_INPUT-MRP_AERA IS NOT INITIAL.
-          PERFORM FRM_MRP_AERA_CREATE USING US_INPUT LV_MATNR CHANGING CS_RETURN.
+        IF us_input-mrp_aera IS NOT INITIAL.
+          PERFORM frm_mrp_aera_create USING us_input lv_matnr CHANGING cs_return.
         ENDIF.
         " 扩张销售组织视图
-        IF US_INPUT-VKORG IS NOT INITIAL.
-          PERFORM FRM_SALESORG_VIEW USING US_INPUT LV_MATNR CHANGING CS_RETURN.
+        IF us_input-vkorg IS NOT INITIAL.
+          PERFORM frm_salesorg_view USING us_input lv_matnr CHANGING cs_return.
         ENDIF.
         " 维护分类视图
-        IF US_INPUT-CLASS IS NOT INITIAL.
-          PERFORM FRM_CLASS_VIEW USING US_INPUT LV_MATNR LV_FLAG CHANGING CS_RETURN.
+        IF us_input-class IS NOT INITIAL.
+          PERFORM frm_class_view USING us_input lv_matnr lv_flag CHANGING cs_return.
         ENDIF.
-        IF CS_RETURN IS INITIAL.
-          CS_RETURN-MSG_MATNR = LV_MATNR.
-          CS_RETURN-MSG_TYPE = 'S'.
-          CS_RETURN-MESSAGE = '成功'.
+        IF cs_return IS INITIAL.
+          cs_return-msg_matnr = lv_matnr.
+          cs_return-msg_type = 'S'.
+          cs_return-message = '成功'.
         ENDIF.
       ELSE.
         CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
-        CS_RETURN-MSG_MATNR = LV_MATNR.
-        CS_RETURN-MSG_TYPE = 'E'.
-        CS_RETURN-MESSAGE = LW_RETURN-MESSAGE.
+        cs_return-msg_matnr = lv_matnr.
+        cs_return-msg_type = 'E'.
+        cs_return-message = lw_return-message.
       ENDIF.
     ELSE.
-      CLEAR: LV_MATNR_MPN, LV_MATNR_T.
-      LV_MATNR_MPN = LV_MATNR+0(16).
-      MATN1_INPUT: LV_MATNR_MPN.
-      SELECT SINGLE MATNR FROM MARA INTO LV_MATNR_T
-        WHERE MATNR = LV_MATNR_MPN AND MPROF = 'IMPN'.
-      IF SY-SUBRC = 0.
+      CLEAR: lv_matnr_mpn, lv_matnr_t.
+      lv_matnr_mpn = lv_matnr+0(16).
+      matn1_input: lv_matnr_mpn.
+      SELECT SINGLE matnr FROM mara INTO lv_matnr_t
+        WHERE matnr = lv_matnr_mpn AND mprof = 'IMPN'.
+      IF sy-subrc = 0.
         " 创建物料基本视图
-        CLEAR: LW_HEADDATA, LW_CLIENTDATA, LW_CLIENTDATAX.
-        LW_HEADDATA-MATERIAL = LV_MATNR.                        " 物料号
-        LW_HEADDATA-MATL_TYPE = US_INPUT-MTART.                 " 物料类型
-        LW_HEADDATA-IND_SECTOR = 'P'.                           " 行业领域
-        LW_HEADDATA-BASIC_VIEW = 'X'.                           " 基本数据视图
-        LW_HEADDATA-PURCHASE_VIEW = 'X'.                        " 采购视图
-        LW_CLIENTDATA-MATL_GROUP = US_INPUT-MATKL.              " 物料组
-        LW_CLIENTDATAX-MATL_GROUP = 'X'.
-        LW_CLIENTDATA-BASE_UOM = LV_MEINS.                      " 基本计量单位
-        LW_CLIENTDATAX-BASE_UOM = 'X'.
-        LW_CLIENTDATA-MFR_NO = LV_MFRNR.                        " 制造商
-        LW_CLIENTDATAX-MFR_NO = 'X'.
-        LW_CLIENTDATA-INV_MAT_NO = LV_MATNR_MPN.                " 公司自有（内部）库存管理的物料编号
-        LW_CLIENTDATAX-INV_MAT_NO = 'X'.
-        LW_CLIENTDATA-MANU_MAT = LV_MATNR.                      " 制造商零件编号
-        LW_CLIENTDATAX-MANU_MAT = 'X'.
+        CLEAR: lw_headdata, lw_clientdata, lw_clientdatax.
+        lw_headdata-material = lv_matnr.                        " 物料号
+        lw_headdata-matl_type = us_input-mtart.                 " 物料类型
+        lw_headdata-ind_sector = 'P'.                           " 行业领域
+        lw_headdata-basic_view = 'X'.                           " 基本数据视图
+        lw_headdata-purchase_view = 'X'.                        " 采购视图
+        lw_clientdata-matl_group = us_input-matkl.              " 物料组
+        lw_clientdatax-matl_group = 'X'.
+        lw_clientdata-base_uom = lv_meins.                      " 基本计量单位
+        lw_clientdatax-base_uom = 'X'.
+        lw_clientdata-mfr_no = lv_mfrnr.                        " 制造商
+        lw_clientdatax-mfr_no = 'X'.
+        lw_clientdata-inv_mat_no = lv_matnr_mpn.                " 公司自有（内部）库存管理的物料编号
+        lw_clientdatax-inv_mat_no = 'X'.
+        lw_clientdata-manu_mat = lv_matnr.                      " 制造商零件编号
+        lw_clientdatax-manu_mat = 'X'.
 
-        LV_MPROF = US_INPUT-ZRSV01 .
-        IF LV_MPROF <> '' .
-          LW_CLIENTDATA-MANUF_PROF = LV_MPROF.                      " 基本计量单位
-          LW_CLIENTDATAX-MANUF_PROF = 'X'.
+        lv_mprof = us_input-zrsv01 .
+        IF lv_mprof <> '' .
+          lw_clientdata-manuf_prof = lv_mprof.                      " 基本计量单位
+          lw_clientdatax-manuf_prof = 'X'.
         ENDIF .
 
-        IF US_INPUT-LVOMA IS NOT INITIAL.
-          LW_CLIENTDATA-DEL_FLAG = 'X'.                         " 在客户级标记要删除的物料
-          LW_CLIENTDATAX-DEL_FLAG = 'X'.
+        IF us_input-lvoma IS NOT INITIAL.
+          lw_clientdata-del_flag = 'X'.                         " 在客户级标记要删除的物料
+          lw_clientdatax-del_flag = 'X'.
         ELSE.
-          LW_CLIENTDATA-DEL_FLAG = ''.                          " 在客户级标记要删除的物料
-          LW_CLIENTDATAX-DEL_FLAG = 'X'.
+          lw_clientdata-del_flag = ''.                          " 在客户级标记要删除的物料
+          lw_clientdatax-del_flag = 'X'.
         ENDIF.
 
         " 物料描述
-        CLEAR: LT_MATERIALDESCRIPTION, LW_MATERIALDESCRIPTION.
-        LW_MATERIALDESCRIPTION-LANGU = '1'.
-        LW_MATERIALDESCRIPTION-MATL_DESC = US_INPUT-MAKTX.      " 物料描述
-        APPEND LW_MATERIALDESCRIPTION TO LT_MATERIALDESCRIPTION.
+*        CLEAR: LT_MATERIALDESCRIPTION, LW_MATERIALDESCRIPTION.
+*        LW_MATERIALDESCRIPTION-LANGU = '1'.
+*        LW_MATERIALDESCRIPTION-MATL_DESC = US_INPUT-MAKTX.      " 物料描述
+*        APPEND LW_MATERIALDESCRIPTION TO LT_MATERIALDESCRIPTION.
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：05.11.2020 11:21:14
+*&---------------------------------------------------------------------*
+*&修改记录：修改物料描述为子表
+*&
+*&---------------------------------------------------------------------*
+        CLEAR: lt_materialdescription, lw_materialdescription,ls_describe.
+        lt_describe = us_input-describe.
+        LOOP AT lt_describe INTO ls_describe.
+          CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
+            EXPORTING
+              input            = ls_describe-lag
+            IMPORTING
+              output           = lw_materialdescription-langu
+            EXCEPTIONS
+              unknown_language = 1
+              OTHERS           = 2.
+          IF sy-subrc <> 0.
+* Implement suitable error handling here
+          ENDIF.
 
+*          lw_materialdescription-langu = ls_describe-lag.
+          lw_materialdescription-matl_desc = ls_describe-maktx.
+          APPEND lw_materialdescription TO lt_materialdescription.
+          CLEAR:ls_describe,lw_materialdescription.
+        ENDLOOP.
+**********END**************
         " 物料描述长文本
-        IF US_INPUT-MAKTXL IS NOT INITIAL.
-          CLEAR: LT_MATERIALLONGTEXT, LW_MATERIALLONGTEXT, LV_MAKTXL.
-          LV_MAKTXL = US_INPUT-MAKTXL.
-          LW_MATERIALLONGTEXT-APPLOBJECT = 'MATERIAL'.
-          LW_MATERIALLONGTEXT-TEXT_NAME = LV_MATNR.
-          LW_MATERIALLONGTEXT-TEXT_ID = 'GRUN'.
-          LW_MATERIALLONGTEXT-LANGU = '1'.
-          LW_MATERIALLONGTEXT-FORMAT_COL = 1.
-          LW_MATERIALLONGTEXT-TEXT_LINE = LV_MAKTXL+0(132).
-          APPEND LW_MATERIALLONGTEXT TO LT_MATERIALLONGTEXT.
-          CLEAR: LW_MATERIALLONGTEXT.
-          LW_MATERIALLONGTEXT-APPLOBJECT = 'MATERIAL'.
-          LW_MATERIALLONGTEXT-TEXT_NAME = LV_MATNR.
-          LW_MATERIALLONGTEXT-TEXT_ID = 'GRUN'.
-          LW_MATERIALLONGTEXT-LANGU = '1'.
-          LW_MATERIALLONGTEXT-FORMAT_COL = 2.
-          LW_MATERIALLONGTEXT-TEXT_LINE = LV_MAKTXL+132(132).
-          APPEND LW_MATERIALLONGTEXT TO LT_MATERIALLONGTEXT.
+*        IF US_INPUT-MAKTXL IS NOT INITIAL.
+*          CLEAR: LT_MATERIALLONGTEXT, LW_MATERIALLONGTEXT, LV_MAKTXL.
+*          LV_MAKTXL = US_INPUT-MAKTXL.
+*          LW_MATERIALLONGTEXT-APPLOBJECT = 'MATERIAL'.
+*          LW_MATERIALLONGTEXT-TEXT_NAME = LV_MATNR.
+*          LW_MATERIALLONGTEXT-TEXT_ID = 'GRUN'.
+*          LW_MATERIALLONGTEXT-LANGU = '1'.
+*          LW_MATERIALLONGTEXT-FORMAT_COL = 1.
+*          LW_MATERIALLONGTEXT-TEXT_LINE = LV_MAKTXL+0(132).
+*          APPEND LW_MATERIALLONGTEXT TO LT_MATERIALLONGTEXT.
+*          CLEAR: LW_MATERIALLONGTEXT.
+*          LW_MATERIALLONGTEXT-APPLOBJECT = 'MATERIAL'.
+*          LW_MATERIALLONGTEXT-TEXT_NAME = LV_MATNR.
+*          LW_MATERIALLONGTEXT-TEXT_ID = 'GRUN'.
+*          LW_MATERIALLONGTEXT-LANGU = '1'.
+*          LW_MATERIALLONGTEXT-FORMAT_COL = 2.
+*          LW_MATERIALLONGTEXT-TEXT_LINE = LV_MAKTXL+132(132).
+*          APPEND LW_MATERIALLONGTEXT TO LT_MATERIALLONGTEXT.
+*        ENDIF.
+*&---------------------------------------------------------------------*
+*&作者：Seashell Huang
+*&修改日期：05.11.2020 11:22:12
+*&---------------------------------------------------------------------*
+*&修改记录：物料描述长文本修改为子表
+*&
+*&---------------------------------------------------------------------*
+
+        IF us_input-describe IS NOT INITIAL.
+          CLEAR: lw_materiallongtext, lv_maktxl,lt_describe,ls_describe.
+          lt_describe = us_input-describe.
+          LOOP AT lt_describe INTO ls_describe.
+            CLEAR: lw_materiallongtext, lv_maktxl.
+            lv_maktxl = ls_describe-maktxl.
+            lw_materiallongtext-applobject = 'MATERIAL'.
+            lw_materiallongtext-text_name = lv_matnr.
+            lw_materiallongtext-text_id = 'GRUN'.
+            CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
+              EXPORTING
+                input            = ls_describe-lag
+              IMPORTING
+                output           = lw_materiallongtext-langu
+              EXCEPTIONS
+                unknown_language = 1
+                OTHERS           = 2.
+            IF sy-subrc <> 0.
+* Implement suitable error handling here
+            ENDIF.
+
+*            lw_materiallongtext-langu = ls_describe-lag.
+            lw_materiallongtext-format_col = 1.
+            lw_materiallongtext-text_line = lv_maktxl+0(132).
+            APPEND lw_materiallongtext TO lt_materiallongtext.
+            CLEAR: lw_materiallongtext.
+            lw_materiallongtext-applobject = 'MATERIAL'.
+            lw_materiallongtext-text_name = lv_matnr.
+            lw_materiallongtext-text_id = 'GRUN'.
+            CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
+              EXPORTING
+                input            = ls_describe-lag
+              IMPORTING
+                output           = lw_materiallongtext-langu
+              EXCEPTIONS
+                unknown_language = 1
+                OTHERS           = 2.
+            IF sy-subrc <> 0.
+* Implement suitable error handling here
+            ENDIF.
+
+*            lw_materiallongtext-langu = ls_describe-lag.
+            lw_materiallongtext-format_col = 2.
+            lw_materiallongtext-text_line = lv_maktxl+132(132).
+            APPEND lw_materiallongtext TO lt_materiallongtext.
+            CLEAR: lw_materiallongtext.
+            lw_materiallongtext-applobject = 'MATERIAL'.
+            lw_materiallongtext-text_name = lv_matnr.
+            lw_materiallongtext-text_id = 'GRUN'.
+            CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
+              EXPORTING
+                input            = ls_describe-lag
+              IMPORTING
+                output           = lw_materiallongtext-langu
+              EXCEPTIONS
+                unknown_language = 1
+                OTHERS           = 2.
+            IF sy-subrc <> 0.
+* Implement suitable error handling here
+            ENDIF.
+
+*            lw_materiallongtext-langu = ls_describe-lag.
+            lw_materiallongtext-format_col = 3.
+            lw_materiallongtext-text_line = lv_maktxl+265(132).
+            APPEND lw_materiallongtext TO lt_materiallongtext.
+            CLEAR ls_describe.
+          ENDLOOP.
         ENDIF.
-        CLEAR: LW_RETURN.
+*********END*********
+        CLEAR: lw_return.
         CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
           EXPORTING
-            HEADDATA            = LW_HEADDATA
-            CLIENTDATA          = LW_CLIENTDATA
-            CLIENTDATAX         = LW_CLIENTDATAX
+            headdata            = lw_headdata
+            clientdata          = lw_clientdata
+            clientdatax         = lw_clientdatax
           IMPORTING
-            RETURN              = LW_RETURN
+            return              = lw_return
           TABLES
-            MATERIALDESCRIPTION = LT_MATERIALDESCRIPTION
-            MATERIALLONGTEXT    = LT_MATERIALLONGTEXT.
-        IF LW_RETURN-TYPE <> 'E'.
+            materialdescription = lt_materialdescription
+            materiallongtext    = lt_materiallongtext.
+        IF lw_return-type <> 'E'.
           CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
             EXPORTING
-              WAIT = 'X'.
-          CS_RETURN-MSG_MATNR = LV_MATNR.
-          CS_RETURN-MSG_TYPE = 'S'.
-          CS_RETURN-MESSAGE = '成功'.
+              wait = 'X'.
+          cs_return-msg_matnr = lv_matnr.
+          cs_return-msg_type = 'S'.
+          cs_return-message = '成功'.
         ELSE.
           CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
-          CS_RETURN-MSG_MATNR = LV_MATNR.
-          CS_RETURN-MSG_TYPE = 'E'.
-          CS_RETURN-MESSAGE = LW_RETURN-MESSAGE.
+          cs_return-msg_matnr = lv_matnr.
+          cs_return-msg_type = 'E'.
+          cs_return-message = lw_return-message.
         ENDIF.
       ELSE.
-        CS_RETURN-MSG_MATNR = LV_MATNR.
-        CS_RETURN-MSG_TYPE = 'E'.
-        CONCATENATE '未找到MPN物料' LV_MATNR_MPN INTO CS_RETURN-MESSAGE.
+        cs_return-msg_matnr = lv_matnr.
+        cs_return-msg_type = 'E'.
+        CONCATENATE '未找到MPN物料' lv_matnr_mpn INTO cs_return-message.
       ENDIF.
     ENDIF.
   ENDIF.
@@ -2431,39 +2689,39 @@ ENDFORM.
 *&      --> LV_BERID
 *&      <-- LV_FLAG
 *&---------------------------------------------------------------------*
-FORM FRM_GET_MRPAREA  USING    UV_MATNR TYPE MATNR
-                               UV_WERKS TYPE WERKDP
-                               UV_BERID TYPE BERID
-                      CHANGING CV_FLAG  TYPE C.
-  DATA: LW_MT61D TYPE MT61D,
-        LW_MDKP  TYPE MDKP,
-        LW_CM61M TYPE CM61M,
-        LW_MDSTA TYPE MDSTA,
-        LW_ERGBZ TYPE SFILT-ERGBZ,
-        LT_MDPSX TYPE STANDARD TABLE OF MDPS,
-        LT_MDEZX TYPE STANDARD TABLE OF MDEZ,
-        LT_MDSUX TYPE STANDARD TABLE OF MDSU.
+FORM frm_get_mrparea  USING    uv_matnr TYPE matnr
+                               uv_werks TYPE werkdp
+                               uv_berid TYPE berid
+                      CHANGING cv_flag  TYPE c.
+  DATA: lw_mt61d TYPE mt61d,
+        lw_mdkp  TYPE mdkp,
+        lw_cm61m TYPE cm61m,
+        lw_mdsta TYPE mdsta,
+        lw_ergbz TYPE sfilt-ergbz,
+        lt_mdpsx TYPE STANDARD TABLE OF mdps,
+        lt_mdezx TYPE STANDARD TABLE OF mdez,
+        lt_mdsux TYPE STANDARD TABLE OF mdsu.
   CALL FUNCTION 'MD_STOCK_REQUIREMENTS_LIST_API'
     EXPORTING
-      MATNR                    = UV_MATNR
-      WERKS                    = UV_WERKS
-      BERID                    = UV_BERID
+      matnr                    = uv_matnr
+      werks                    = uv_werks
+      berid                    = uv_berid
     IMPORTING
-      E_MT61D                  = LW_MT61D
-      E_MDKP                   = LW_MDKP
-      E_CM61M                  = LW_CM61M
-      E_MDSTA                  = LW_MDSTA
-      E_ERGBZ                  = LW_ERGBZ
+      e_mt61d                  = lw_mt61d
+      e_mdkp                   = lw_mdkp
+      e_cm61m                  = lw_cm61m
+      e_mdsta                  = lw_mdsta
+      e_ergbz                  = lw_ergbz
     TABLES
-      MDPSX                    = LT_MDPSX
-      MDEZX                    = LT_MDEZX
-      MDSUX                    = LT_MDSUX
+      mdpsx                    = lt_mdpsx
+      mdezx                    = lt_mdezx
+      mdsux                    = lt_mdsux
     EXCEPTIONS
-      MATERIAL_PLANT_NOT_FOUND = 1
-      PLANT_NOT_FOUND          = 2
+      material_plant_not_found = 1
+      plant_not_found          = 2
       OTHERS                   = 3.
-  IF SY-SUBRC = 0 AND LW_MT61D IS NOT INITIAL.
-    CV_FLAG = 'X'.
+  IF sy-subrc = 0 AND lw_mt61d IS NOT INITIAL.
+    cv_flag = 'X'.
   ENDIF.
 
 ENDFORM.

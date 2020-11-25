@@ -432,12 +432,12 @@ FORM frm_user_command USING r_ucomm LIKE sy-ucomm rs_selfield TYPE slis_selfield
       IF rs_selfield-fieldname EQ 'VBELN'.
         CLEAR gt_alv_it[].
         READ TABLE gt_alv_hd INTO DATA(ls_alv) INDEX rs_selfield-tabindex.
-        "如果订单类型是NLCC类型的话，对应的前置订单号为空 HK 20201015
-        IF ls_alv-lfart = 'NLCC'.
-          
-        ENDIF.
         "END
         LOOP AT gt_item INTO DATA(ls_item) WHERE vbeln EQ ls_alv-vbeln.
+          "如果订单类型是NLCC类型的话，对应的前置订单号为空 HK 20201015
+          IF ls_alv-lfart <> 'NLCC'.
+            ls_item-vgbel = ''.
+          ENDIF.
           APPEND ls_item TO gt_alv_it.
         ENDLOOP.
         SORT gt_alv_it BY vgpos posnr.

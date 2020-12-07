@@ -69,13 +69,11 @@ FORM frm_create_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
         lt_materialdescription TYPE STANDARD TABLE OF bapi_makt,
         lw_materialdescription TYPE bapi_makt.
 
-  DATA: lt_smeinh   TYPE zdt_oa2sap_mdm_mara_smeinh_tab,
-        ls_smeinh   TYPE zdt_oa2sap_mdm_mara_smeinh,
-        lt_describe TYPE zdt_oa2sap_mdm_mara_descri_tab,
-        ls_describe TYPE zdt_oa2sap_mdm_mara_describe,
-        lv_mtart    TYPE mtart,
-        lv_matnr    TYPE matnr,
-        lv_flag     TYPE c.
+  DATA: lt_smeinh TYPE zdt_oa2sap_mdm_mara_smeinh_tab,
+        ls_smeinh TYPE zdt_oa2sap_mdm_mara_smeinh,
+        lv_mtart  TYPE mtart,
+        lv_matnr  TYPE matnr,
+        lv_flag   TYPE c.
   " 取物料码段
   CLEAR: lv_matnr, lv_mtart, lv_flag.
   lv_mtart = us_input-mtart.
@@ -98,37 +96,9 @@ FORM frm_create_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
   lw_clientdatax-mfr_no = 'X'.
   lw_clientdata-pur_valkey = us_input-ekwsl.              " 采购价值代码
   lw_clientdatax-pur_valkey = 'X'.
-*  CLEAR: LT_MATERIALDESCRIPTION, LW_MATERIALDESCRIPTION.
-*  LW_MATERIALDESCRIPTION-LANGU = '1'.
-*  LW_MATERIALDESCRIPTION-MATL_DESC = US_INPUT-MAKTX.      " 物料描述
-*&---------------------------------------------------------------------*
-*&作者：Seashell Huang
-*&修改日期：05.11.2020 10:50:53
-*&---------------------------------------------------------------------*
-*&修改记录：修改物料描述为子表
-*&
-*&---------------------------------------------------------------------*
-  CLEAR: lt_materialdescription, lw_materialdescription,ls_describe.
-  lt_describe = us_input-describe.
-  LOOP AT lt_describe INTO ls_describe.
-    CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
-      EXPORTING
-        input            = ls_describe-lag
-      IMPORTING
-        output           = lw_materialdescription-langu
-      EXCEPTIONS
-        unknown_language = 1
-        OTHERS           = 2.
-    IF sy-subrc <> 0.
-* Implement suitable error handling here
-    ENDIF.
-
-*    lw_materialdescription-langu = ls_describe-lag.
-    lw_materialdescription-matl_desc = ls_describe-maktx.
-    APPEND lw_materialdescription TO lt_materialdescription.
-    CLEAR:ls_describe,lw_materialdescription.
-  ENDLOOP.
-**********************END***************
+  CLEAR: lt_materialdescription, lw_materialdescription.
+  lw_materialdescription-langu = '1'.
+  lw_materialdescription-matl_desc = us_input-maktx.      " 物料描述
   APPEND lw_materialdescription TO lt_materialdescription.
   CLEAR: lt_unitsofmeasure, lw_unitsofmeasure, lt_unitsofmeasurex, lw_unitsofmeasurex, lt_smeinh, ls_smeinh.
   lt_smeinh = us_input-smeinh.
@@ -809,11 +779,6 @@ FORM frm_plant_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
         lw_plantdatax-crit_part = 'X'.
       ENDIF.
       "ADD BY LANGJINGCUN 20200409 增加字段 end
-      "针对80物料，8300工厂质量视图默认勾选“过账到检验库存”字段
-      IF us_input-mtart = 'Z080' AND ls_werks-werks = '8300'.
-        lw_plantdata-ind_post_to_insp_stock = 'X'.                                  " 质量管理视图
-        lw_plantdatax-ind_post_to_insp_stock = 'X'.
-      ENDIF.
 
 
 
@@ -1219,59 +1184,56 @@ FORM frm_plant_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
           ENDIF.
         ENDIF.
         " 对于物料类型Z010、Z020、Z030、Z040、Z050的物料，在处理工厂8100时同时更新工厂8199，处理工厂8200时同时更新8299, 工厂8199和8299的利润中心都赋值为DUMMY
-        "但是其他工厂不需要虚拟工厂
-        IF ls_werks-werks = '8100' OR ls_werks-werks = '8200'.
-
-          IF us_input-mtart = 'Z010'
-            OR us_input-mtart = 'Z020'
-            OR us_input-mtart = 'Z030'
-            OR us_input-mtart = 'Z040'
-            OR us_input-mtart = 'Z050'.
-            CLEAR: lw_headdata, lw_clientdata, lw_clientdata, lw_plantdata, lw_plantdatax.
-            lw_headdata-material = uv_matnr.                                    " 物料号
-            lw_headdata-matl_type = us_input-mtart.                             " 物料类型
-            lw_headdata-ind_sector = 'P'.                                       " 行业领域
-            lw_headdata-storage_view = 'X'.                                     " 库存视图
-            lw_clientdata-temp_conds = ls_werks-tempb.                          " 温度条件
-            lw_clientdata-stor_conds = ls_werks-raube.                          " 存储条件
-            lw_clientdata-minremlife = ls_werks-mhdrz.                          " 最小剩余货架寿命
-            lw_clientdata-shelf_life = ls_werks-mhdhb.                          " 总货架寿命
-            lw_clientdata-period_ind_expiration_date = ls_werks-iprkz.          " 期间标识
-            lw_clientdata-round_up_rule_expiration_date = ls_werks-rdmhd.       " 舍入规则
+        IF us_input-mtart = 'Z010'
+          OR us_input-mtart = 'Z020'
+          OR us_input-mtart = 'Z030'
+          OR us_input-mtart = 'Z040'
+          OR us_input-mtart = 'Z050'.
+          CLEAR: lw_headdata, lw_clientdata, lw_clientdata, lw_plantdata, lw_plantdatax.
+          lw_headdata-material = uv_matnr.                                    " 物料号
+          lw_headdata-matl_type = us_input-mtart.                             " 物料类型
+          lw_headdata-ind_sector = 'P'.                                       " 行业领域
+          lw_headdata-storage_view = 'X'.                                     " 库存视图
+          lw_clientdata-temp_conds = ls_werks-tempb.                          " 温度条件
+          lw_clientdata-stor_conds = ls_werks-raube.                          " 存储条件
+          lw_clientdata-minremlife = ls_werks-mhdrz.                          " 最小剩余货架寿命
+          lw_clientdata-shelf_life = ls_werks-mhdhb.                          " 总货架寿命
+          lw_clientdata-period_ind_expiration_date = ls_werks-iprkz.          " 期间标识
+          lw_clientdata-round_up_rule_expiration_date = ls_werks-rdmhd.       " 舍入规则
 *********************虚拟工厂添加批次管理标识和外部采购仓储地点   HK  2020.1.20.
-            lw_clientdata-batch_mgmt = ls_werks-xchpf.                          " 批次管理标识
-            lw_plantdata-sloc_exprc = ls_werks-lgfsb.                " 外部采购仓储地点
-            lw_plantdatax-sloc_exprc = 'X'.
-            lw_clientdatax-batch_mgmt = 'X'.
+          lw_clientdata-batch_mgmt = ls_werks-xchpf.                          " 批次管理标识
+          lw_plantdata-sloc_exprc = ls_werks-lgfsb.                " 外部采购仓储地点
+          lw_plantdatax-sloc_exprc = 'X'.
+          lw_clientdatax-batch_mgmt = 'X'.
 *********************END***************************************
-            lw_clientdatax-temp_conds = 'X'.
-            lw_clientdatax-stor_conds = 'X'.
-            lw_clientdatax-minremlife = 'X'.
-            lw_clientdatax-shelf_life = 'X'.
-            lw_clientdatax-period_ind_expiration_date = 'X'.
-            lw_clientdatax-round_up_rule_expiration_date = 'X'.
-            IF us_input-mtart = 'Z010'.
-              lw_clientdata-manuf_prof = us_input-mprof.
-              lw_clientdatax-manuf_prof = 'X'.
-            ENDIF.
-            lw_plantdata-del_flag = ls_werks-lvoma.                             " 删除标记
-            lw_plantdatax-del_flag = 'X'.
+          lw_clientdatax-temp_conds = 'X'.
+          lw_clientdatax-stor_conds = 'X'.
+          lw_clientdatax-minremlife = 'X'.
+          lw_clientdatax-shelf_life = 'X'.
+          lw_clientdatax-period_ind_expiration_date = 'X'.
+          lw_clientdatax-round_up_rule_expiration_date = 'X'.
+          IF us_input-mtart = 'Z010'.
+            lw_clientdata-manuf_prof = us_input-mprof.
+            lw_clientdatax-manuf_prof = 'X'.
+          ENDIF.
+          lw_plantdata-del_flag = ls_werks-lvoma.                             " 删除标记
+          lw_plantdatax-del_flag = 'X'.
 
-            IF ls_werks-werks = '8100'.
-              lw_plantdata-plant = '8199'."工厂
-              lw_plantdatax-plant = '8199'.
-              lw_plantdata-profit_ctr = 'DUMMY'."利润中心
-              lw_plantdatax-profit_ctr = 'X'.
-              lw_valuationdata-val_area = '8199'." 估价范围
-              lw_valuationdatax-val_area = '8199'.
-            ELSEIF ls_werks-werks = '8200'.
-              lw_plantdata-plant = '8299'.
-              lw_plantdatax-plant = '8299'.
-              lw_plantdata-profit_ctr = 'DUMMY'.
-              lw_plantdatax-profit_ctr = 'X'.
-              lw_valuationdata-val_area = '8299'.
-              lw_valuationdatax-val_area = '8299'.
-            ENDIF.
+          IF ls_werks-werks = '8100'.
+            lw_plantdata-plant = '8199'.
+            lw_plantdatax-plant = '8199'.
+            lw_plantdata-profit_ctr = 'DUMMY'.
+            lw_plantdatax-profit_ctr = 'X'.
+            lw_valuationdata-val_area = '8199'.
+            lw_valuationdatax-val_area = '8199'.
+          ELSEIF ls_werks-werks = '8200'.
+            lw_plantdata-plant = '8299'.
+            lw_plantdatax-plant = '8299'.
+            lw_plantdata-profit_ctr = 'DUMMY'.
+            lw_plantdatax-profit_ctr = 'X'.
+            lw_valuationdata-val_area = '8299'.
+            lw_valuationdatax-val_area = '8299'.
+          ENDIF.
 
 **********************add by sujx 20191130***********************************************
 *          SELECT SINGLE * INTO ls_mbew
@@ -1295,7 +1257,7 @@ FORM frm_plant_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
 *          ENDIF.
 *          CLEAR: ls_marc,ls_mbew.
 ********************** end add ************************************************
-          ENDIF.
+
         ENDIF.
         CLEAR: lw_return.
         CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
@@ -1534,16 +1496,7 @@ FORM frm_salesorg_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
 *      lw_salesdatax-valid_from = 'X'.
 
       CLEAR: lt_taxclassifications, lw_taxclassifications.
-*      lw_taxclassifications-depcountry = 'CN'.                          " 发货国(由该国家发货)
-      SELECT SINGLE
-        land1
-      INTO lw_taxclassifications-depcountry
-      FROM t001
-      INNER JOIN tvko
-      ON tvko~bukrs = t001~bukrs
-      WHERE tvko~vkorg = ls_vkorg-vkorg.
-
-
+      lw_taxclassifications-depcountry = 'CN'.                          " 发货国(由该国家发货)
       lw_taxclassifications-tax_type_1 = 'MWST'.                        " 税类别(营业税，联邦营业税，...)
       lw_taxclassifications-taxclass_1 = ls_vkorg-taxm1.                " 物料的税分类
       APPEND lw_taxclassifications TO lt_taxclassifications.
@@ -1640,10 +1593,10 @@ FORM frm_class_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
             OR us_input-mtart = 'Z020'
             OR us_input-mtart = 'Z030'
             OR us_input-mtart = 'Z040'
-            OR us_input-mtart = 'Z090'.
-            lv_classnum = 'ZBATCH_SIRIO'.
-          ELSEIF us_input-mtart = 'Z050'
+            OR us_input-mtart = 'Z090'
             OR us_input-mtart = 'Z080'.
+            lv_classnum = 'ZBATCH_SIRIO'.
+          ELSEIF us_input-mtart = 'Z050'.
             lv_classnum = 'BATCH_CP'.
           ENDIF.
           PERFORM frm_class_create USING uv_matnr '022' lv_classnum ls_class CHANGING cs_return.
@@ -2094,8 +2047,6 @@ FORM frm_change_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
 
   DATA: lt_smeinh    TYPE zdt_oa2sap_mdm_mara_smeinh_tab,
         ls_smeinh    TYPE zdt_oa2sap_mdm_mara_smeinh,
-        lt_describe  TYPE zdt_oa2sap_mdm_mara_descri_tab,
-        ls_describe  TYPE zdt_oa2sap_mdm_mara_describe,
         lv_matnr     TYPE matnr,
         lv_matnr_t   TYPE matnr,
         lv_matnr_mpn TYPE bmatn,
@@ -2106,7 +2057,6 @@ FORM frm_change_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
         lv_length    TYPE i,
         lv_meins     TYPE meins,
         lv_meinh     TYPE meins,
-        lv_bstme     TYPE mara-bstme,
         lv_flag      TYPE c.
 
   DATA : lv_mprof TYPE mara-mprof .
@@ -2116,28 +2066,12 @@ FORM frm_change_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
   matn1_input: lv_matnr.
   lv_mfrnr = us_input-mfrnr.
   alpha_input: lv_mfrnr.
-*  lv_maktxl = us_input-maktx.
-*  lv_length = strlen( lv_maktxl ).
+  lv_maktxl = us_input-maktx.
+  lv_length = strlen( lv_maktxl ).
   cunit_input: us_input-meins lv_meins.
   lv_bismt = us_input-bismt.
   CONDENSE lv_bismt NO-GAPS.
-*&---------------------------------------------------------------------*
-*&作者：Seashell Huang
-*&修改日期：05.11.2020 11:25:41
-*&---------------------------------------------------------------------*
-*&修改记录：祛除物料描述长度的判断，判断交给函数
-*&---------------------------------------------------------------------*
-  CLEAR:lt_describe,ls_describe.
-  lt_describe = us_input-describe.
-  LOOP AT lt_describe INTO ls_describe.
-    lv_maktxl = ls_describe-maktx.
-    lv_length = strlen( lv_maktxl ).
-    IF lv_length > 40.
-      DATA(lv_flag2) = 'A'.
-    ENDIF.
-  ENDLOOP.
-  IF lv_flag2 = 'A'.
-    CLEAR lv_flag2.
+  IF lv_length > 40.
     cs_return-msg_matnr = lv_matnr.
     cs_return-msg_type = 'E'.
     CONCATENATE lv_maktxl '物料描述过长' INTO cs_return-message.
@@ -2223,27 +2157,6 @@ FORM frm_change_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
         lw_clientdata-manuf_prof = us_input-mprof.            " 制造商参数文件
         lw_clientdatax-manuf_prof = 'X'.
       ENDIF.
-      "HK 2020.11.15新增订单单位、可变单位2个字段
-      "可变单位为空的情况下，不允许修改订单单位；可变单位为1时，订单单位默认=销售单位，而且以上只适用于50物料有扩充采购视图的情况下
-      IF lw_headdata-purchase_view = 'X'.
-        IF us_input-bstme IS NOT INITIAL."可变单位
-          lw_clientdata-var_ord_un = '1'.
-          lw_clientdatax-var_ord_un ='X'.
-          IF us_input-bstme <> ls_mara-bstme OR ls_mara IS INITIAL."订单单位
-            cunit_input: us_input-bstme lw_clientdata-po_unit.
-
-*            SELECT SINGLE
-*              MSEHI
-*            INTO lw_clientdata-po_unit
-*            FROM T006A
-*            WHERE T006A~spras = '1'
-*              AND T006A~MSEHL = us_input-bstme.
-*            lw_clientdata-po_unit = us_input-bstme.
-            lw_clientdatax-po_unit = 'X'.
-          ENDIF.
-        ENDIF.
-      ENDIF.
-
 
 *      IF lv_mfrnr IS INITIAL AND us_input-mtart = 'Z010'.
 *        lw_clientdata-manuf_prof = 'IMPN'.                    " 制造商参数文件
@@ -2258,136 +2171,30 @@ FORM frm_change_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
         lw_clientdatax-del_flag = 'X'.
       ENDIF.
       " 物料描述
-*      CLEAR: LT_MATERIALDESCRIPTION, LW_MATERIALDESCRIPTION.
-*      LW_MATERIALDESCRIPTION-LANGU = '1'.
-*      LW_MATERIALDESCRIPTION-MATL_DESC = US_INPUT-MAKTX.      " 物料描述
-*      APPEND LW_MATERIALDESCRIPTION TO LT_MATERIALDESCRIPTION.
-*&---------------------------------------------------------------------*
-*&作者：Seashell Huang
-*&修改日期：05.11.2020 10:50:53
-*&---------------------------------------------------------------------*
-*&修改记录：修改物料描述为子表
-*&
-*&---------------------------------------------------------------------*
-      CLEAR: lt_materialdescription, lw_materialdescription,ls_describe.
-      lt_describe = us_input-describe.
-      LOOP AT lt_describe INTO ls_describe.
-        CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
-          EXPORTING
-            input            = ls_describe-lag
-          IMPORTING
-            output           = lw_materialdescription-langu
-          EXCEPTIONS
-            unknown_language = 1
-            OTHERS           = 2.
-        IF sy-subrc <> 0.
-* Implement suitable error handling here
-        ENDIF.
-
-*        lw_materialdescription-langu = ls_describe-lag.
-        lw_materialdescription-matl_desc = ls_describe-maktx.
-        APPEND lw_materialdescription TO lt_materialdescription.
-        CLEAR:ls_describe,lw_materialdescription.
-      ENDLOOP.
-**********************END***************
+      CLEAR: lt_materialdescription, lw_materialdescription.
+      lw_materialdescription-langu = '1'.
+      lw_materialdescription-matl_desc = us_input-maktx.      " 物料描述
+      APPEND lw_materialdescription TO lt_materialdescription.
       " 物料描述长文本
-*      IF US_INPUT-MAKTXL IS NOT INITIAL.
-*        CLEAR: LW_MATERIALLONGTEXT, LV_MAKTXL.
-*        LV_MAKTXL = US_INPUT-MAKTXL.
-*        LW_MATERIALLONGTEXT-APPLOBJECT = 'MATERIAL'.
-*        LW_MATERIALLONGTEXT-TEXT_NAME = LV_MATNR.
-*        LW_MATERIALLONGTEXT-TEXT_ID = 'GRUN'.
-*        LW_MATERIALLONGTEXT-LANGU = '1'.
-*        LW_MATERIALLONGTEXT-FORMAT_COL = 1.
-*        LW_MATERIALLONGTEXT-TEXT_LINE = LV_MAKTXL+0(132).
-*        APPEND LW_MATERIALLONGTEXT TO LT_MATERIALLONGTEXT.
-*        CLEAR: LW_MATERIALLONGTEXT.
-*        LW_MATERIALLONGTEXT-APPLOBJECT = 'MATERIAL'.
-*        LW_MATERIALLONGTEXT-TEXT_NAME = LV_MATNR.
-*        LW_MATERIALLONGTEXT-TEXT_ID = 'GRUN'.
-*        LW_MATERIALLONGTEXT-LANGU = '1'.
-*        LW_MATERIALLONGTEXT-FORMAT_COL = 2.
-*        LW_MATERIALLONGTEXT-TEXT_LINE = LV_MAKTXL+132(132).
-*        APPEND LW_MATERIALLONGTEXT TO LT_MATERIALLONGTEXT.
-*      ENDIF.
-*&---------------------------------------------------------------------*
-*    &作者：Seashell Huang
-*    &修改日期：05.11.2020 11:00:34
-*    &---------------------------------------------------------------------*
-*    &修改记录：修改物料描述长文本
-*    &
-*    &---------------------------------------------------------------------*
-      IF us_input-describe IS NOT INITIAL.
-        CLEAR: lw_materiallongtext, lv_maktxl,lt_describe,ls_describe.
-        lt_describe = us_input-describe.
-        LOOP AT lt_describe INTO ls_describe.
-          CLEAR: lw_materiallongtext, lv_maktxl.
-          lv_maktxl = ls_describe-maktxl.
-          lw_materiallongtext-applobject = 'MATERIAL'.
-          lw_materiallongtext-text_name = lv_matnr.
-          lw_materiallongtext-text_id = 'GRUN'.
-          CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
-            EXPORTING
-              input            = ls_describe-lag
-            IMPORTING
-              output           = lw_materiallongtext-langu
-            EXCEPTIONS
-              unknown_language = 1
-              OTHERS           = 2.
-          IF sy-subrc <> 0.
-* Implement suitable error handling here
-          ENDIF.
-
-*          lw_materiallongtext-langu = ls_describe-lag.
-          lw_materiallongtext-format_col = 1.
-          lw_materiallongtext-text_line = lv_maktxl+0(132).
-          APPEND lw_materiallongtext TO lt_materiallongtext.
-          CLEAR: lw_materiallongtext.
-          lw_materiallongtext-applobject = 'MATERIAL'.
-          lw_materiallongtext-text_name = lv_matnr.
-          lw_materiallongtext-text_id = 'GRUN'.
-          CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
-            EXPORTING
-              input            = ls_describe-lag
-            IMPORTING
-              output           = lw_materiallongtext-langu
-            EXCEPTIONS
-              unknown_language = 1
-              OTHERS           = 2.
-          IF sy-subrc <> 0.
-* Implement suitable error handling here
-          ENDIF.
-
-*          lw_materiallongtext-langu = ls_describe-lag.
-          lw_materiallongtext-format_col = 2.
-          lw_materiallongtext-text_line = lv_maktxl+132(132).
-          APPEND lw_materiallongtext TO lt_materiallongtext.
-          CLEAR: lw_materiallongtext.
-          lw_materiallongtext-applobject = 'MATERIAL'.
-          lw_materiallongtext-text_name = lv_matnr.
-          lw_materiallongtext-text_id = 'GRUN'.
-          CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
-            EXPORTING
-              input            = ls_describe-lag
-            IMPORTING
-              output           = lw_materiallongtext-langu
-            EXCEPTIONS
-              unknown_language = 1
-              OTHERS           = 2.
-          IF sy-subrc <> 0.
-* Implement suitable error handling here
-          ENDIF.
-
-*          lw_materiallongtext-langu = ls_describe-lag.
-          lw_materiallongtext-format_col = 3.
-          lw_materiallongtext-text_line = lv_maktxl+265(132).
-          APPEND lw_materiallongtext TO lt_materiallongtext.
-          CLEAR ls_describe.
-        ENDLOOP.
+      IF us_input-maktxl IS NOT INITIAL.
+        CLEAR: lw_materiallongtext, lv_maktxl.
+        lv_maktxl = us_input-maktxl.
+        lw_materiallongtext-applobject = 'MATERIAL'.
+        lw_materiallongtext-text_name = lv_matnr.
+        lw_materiallongtext-text_id = 'GRUN'.
+        lw_materiallongtext-langu = '1'.
+        lw_materiallongtext-format_col = 1.
+        lw_materiallongtext-text_line = lv_maktxl+0(132).
+        APPEND lw_materiallongtext TO lt_materiallongtext.
+        CLEAR: lw_materiallongtext.
+        lw_materiallongtext-applobject = 'MATERIAL'.
+        lw_materiallongtext-text_name = lv_matnr.
+        lw_materiallongtext-text_id = 'GRUN'.
+        lw_materiallongtext-langu = '1'.
+        lw_materiallongtext-format_col = 2.
+        lw_materiallongtext-text_line = lv_maktxl+132(132).
+        APPEND lw_materiallongtext TO lt_materiallongtext.
       ENDIF.
-
-
-************END**************8
       " 换算单位
       CLEAR: lt_unitsofmeasure, lw_unitsofmeasure, lt_unitsofmeasurex, lw_unitsofmeasurex, lt_smeinh, ls_smeinh.
 
@@ -2557,135 +2364,31 @@ FORM frm_change_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
         ENDIF.
 
         " 物料描述
-*        CLEAR: LT_MATERIALDESCRIPTION, LW_MATERIALDESCRIPTION.
-*        LW_MATERIALDESCRIPTION-LANGU = '1'.
-*        LW_MATERIALDESCRIPTION-MATL_DESC = US_INPUT-MAKTX.      " 物料描述
-*        APPEND LW_MATERIALDESCRIPTION TO LT_MATERIALDESCRIPTION.
-*&---------------------------------------------------------------------*
-*&作者：Seashell Huang
-*&修改日期：05.11.2020 11:21:14
-*&---------------------------------------------------------------------*
-*&修改记录：修改物料描述为子表
-*&
-*&---------------------------------------------------------------------*
-        CLEAR: lt_materialdescription, lw_materialdescription,ls_describe.
-        lt_describe = us_input-describe.
-        LOOP AT lt_describe INTO ls_describe.
-          CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
-            EXPORTING
-              input            = ls_describe-lag
-            IMPORTING
-              output           = lw_materialdescription-langu
-            EXCEPTIONS
-              unknown_language = 1
-              OTHERS           = 2.
-          IF sy-subrc <> 0.
-* Implement suitable error handling here
-          ENDIF.
+        CLEAR: lt_materialdescription, lw_materialdescription.
+        lw_materialdescription-langu = '1'.
+        lw_materialdescription-matl_desc = us_input-maktx.      " 物料描述
+        APPEND lw_materialdescription TO lt_materialdescription.
 
-*          lw_materialdescription-langu = ls_describe-lag.
-          lw_materialdescription-matl_desc = ls_describe-maktx.
-          APPEND lw_materialdescription TO lt_materialdescription.
-          CLEAR:ls_describe,lw_materialdescription.
-        ENDLOOP.
-**********END**************
         " 物料描述长文本
-*        IF US_INPUT-MAKTXL IS NOT INITIAL.
-*          CLEAR: LT_MATERIALLONGTEXT, LW_MATERIALLONGTEXT, LV_MAKTXL.
-*          LV_MAKTXL = US_INPUT-MAKTXL.
-*          LW_MATERIALLONGTEXT-APPLOBJECT = 'MATERIAL'.
-*          LW_MATERIALLONGTEXT-TEXT_NAME = LV_MATNR.
-*          LW_MATERIALLONGTEXT-TEXT_ID = 'GRUN'.
-*          LW_MATERIALLONGTEXT-LANGU = '1'.
-*          LW_MATERIALLONGTEXT-FORMAT_COL = 1.
-*          LW_MATERIALLONGTEXT-TEXT_LINE = LV_MAKTXL+0(132).
-*          APPEND LW_MATERIALLONGTEXT TO LT_MATERIALLONGTEXT.
-*          CLEAR: LW_MATERIALLONGTEXT.
-*          LW_MATERIALLONGTEXT-APPLOBJECT = 'MATERIAL'.
-*          LW_MATERIALLONGTEXT-TEXT_NAME = LV_MATNR.
-*          LW_MATERIALLONGTEXT-TEXT_ID = 'GRUN'.
-*          LW_MATERIALLONGTEXT-LANGU = '1'.
-*          LW_MATERIALLONGTEXT-FORMAT_COL = 2.
-*          LW_MATERIALLONGTEXT-TEXT_LINE = LV_MAKTXL+132(132).
-*          APPEND LW_MATERIALLONGTEXT TO LT_MATERIALLONGTEXT.
-*        ENDIF.
-*&---------------------------------------------------------------------*
-*&作者：Seashell Huang
-*&修改日期：05.11.2020 11:22:12
-*&---------------------------------------------------------------------*
-*&修改记录：物料描述长文本修改为子表
-*&
-*&---------------------------------------------------------------------*
-
-        IF us_input-describe IS NOT INITIAL.
-          CLEAR: lw_materiallongtext, lv_maktxl,lt_describe,ls_describe.
-          lt_describe = us_input-describe.
-          LOOP AT lt_describe INTO ls_describe.
-            CLEAR: lw_materiallongtext, lv_maktxl.
-            lv_maktxl = ls_describe-maktxl.
-            lw_materiallongtext-applobject = 'MATERIAL'.
-            lw_materiallongtext-text_name = lv_matnr.
-            lw_materiallongtext-text_id = 'GRUN'.
-            CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
-              EXPORTING
-                input            = ls_describe-lag
-              IMPORTING
-                output           = lw_materiallongtext-langu
-              EXCEPTIONS
-                unknown_language = 1
-                OTHERS           = 2.
-            IF sy-subrc <> 0.
-* Implement suitable error handling here
-            ENDIF.
-
-*            lw_materiallongtext-langu = ls_describe-lag.
-            lw_materiallongtext-format_col = 1.
-            lw_materiallongtext-text_line = lv_maktxl+0(132).
-            APPEND lw_materiallongtext TO lt_materiallongtext.
-            CLEAR: lw_materiallongtext.
-            lw_materiallongtext-applobject = 'MATERIAL'.
-            lw_materiallongtext-text_name = lv_matnr.
-            lw_materiallongtext-text_id = 'GRUN'.
-            CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
-              EXPORTING
-                input            = ls_describe-lag
-              IMPORTING
-                output           = lw_materiallongtext-langu
-              EXCEPTIONS
-                unknown_language = 1
-                OTHERS           = 2.
-            IF sy-subrc <> 0.
-* Implement suitable error handling here
-            ENDIF.
-
-*            lw_materiallongtext-langu = ls_describe-lag.
-            lw_materiallongtext-format_col = 2.
-            lw_materiallongtext-text_line = lv_maktxl+132(132).
-            APPEND lw_materiallongtext TO lt_materiallongtext.
-            CLEAR: lw_materiallongtext.
-            lw_materiallongtext-applobject = 'MATERIAL'.
-            lw_materiallongtext-text_name = lv_matnr.
-            lw_materiallongtext-text_id = 'GRUN'.
-            CALL FUNCTION 'CONVERSION_EXIT_ISOLA_INPUT'
-              EXPORTING
-                input            = ls_describe-lag
-              IMPORTING
-                output           = lw_materiallongtext-langu
-              EXCEPTIONS
-                unknown_language = 1
-                OTHERS           = 2.
-            IF sy-subrc <> 0.
-* Implement suitable error handling here
-            ENDIF.
-
-*            lw_materiallongtext-langu = ls_describe-lag.
-            lw_materiallongtext-format_col = 3.
-            lw_materiallongtext-text_line = lv_maktxl+265(132).
-            APPEND lw_materiallongtext TO lt_materiallongtext.
-            CLEAR ls_describe.
-          ENDLOOP.
+        IF us_input-maktxl IS NOT INITIAL.
+          CLEAR: lt_materiallongtext, lw_materiallongtext, lv_maktxl.
+          lv_maktxl = us_input-maktxl.
+          lw_materiallongtext-applobject = 'MATERIAL'.
+          lw_materiallongtext-text_name = lv_matnr.
+          lw_materiallongtext-text_id = 'GRUN'.
+          lw_materiallongtext-langu = '1'.
+          lw_materiallongtext-format_col = 1.
+          lw_materiallongtext-text_line = lv_maktxl+0(132).
+          APPEND lw_materiallongtext TO lt_materiallongtext.
+          CLEAR: lw_materiallongtext.
+          lw_materiallongtext-applobject = 'MATERIAL'.
+          lw_materiallongtext-text_name = lv_matnr.
+          lw_materiallongtext-text_id = 'GRUN'.
+          lw_materiallongtext-langu = '1'.
+          lw_materiallongtext-format_col = 2.
+          lw_materiallongtext-text_line = lv_maktxl+132(132).
+          APPEND lw_materiallongtext TO lt_materiallongtext.
         ENDIF.
-*********END*********
         CLEAR: lw_return.
         CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
           EXPORTING

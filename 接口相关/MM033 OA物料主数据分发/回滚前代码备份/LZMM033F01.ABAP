@@ -2225,24 +2225,44 @@ FORM frm_change_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
       ENDIF.
       "HK 2020.11.15新增订单单位、可变单位2个字段
       "可变单位为空的情况下，不允许修改订单单位；可变单位为1时，订单单位默认=销售单位，而且以上只适用于50物料有扩充采购视图的情况下
+*      IF lw_headdata-purchase_view = 'X'.
+*        IF us_input-bstme IS NOT INITIAL."可变单位
+*          lw_clientdata-var_ord_un = '1'.
+*          lw_clientdatax-var_ord_un ='X'.
+*          IF us_input-bstme <> ls_mara-bstme OR ls_mara IS INITIAL."订单单位
+*            cunit_input: us_input-bstme lw_clientdata-po_unit.
+*
+**            SELECT SINGLE
+**              MSEHI
+**            INTO lw_clientdata-po_unit
+**            FROM T006A
+**            WHERE T006A~spras = '1'
+**              AND T006A~MSEHL = us_input-bstme.
+**            lw_clientdata-po_unit = us_input-bstme.
+*            lw_clientdatax-po_unit = 'X'.
+*          ENDIF.
+*        ENDIF.
+*      ENDIF.
       IF lw_headdata-purchase_view = 'X'.
-        IF us_input-bstme IS NOT INITIAL."可变单位
-          lw_clientdata-var_ord_un = '1'.
-          lw_clientdatax-var_ord_un ='X'.
-          IF us_input-bstme <> ls_mara-bstme OR ls_mara IS INITIAL."订单单位
-            cunit_input: us_input-bstme lw_clientdata-po_unit.
-
-*            SELECT SINGLE
-*              MSEHI
-*            INTO lw_clientdata-po_unit
-*            FROM T006A
-*            WHERE T006A~spras = '1'
-*              AND T006A~MSEHL = us_input-bstme.
-*            lw_clientdata-po_unit = us_input-bstme.
-            lw_clientdatax-po_unit = 'X'.
-          ENDIF.
+        IF us_input-vabme IS NOT INITIAL."可变单位.
+          lw_clientdata-var_ord_un = us_input-vabme.
+          lw_clientdatax-var_ord_un = 'X'.
+        ELSE.
+          lw_clientdata-var_ord_un = ''.
+          lw_clientdatax-var_ord_un = 'X'.
+        ENDIF.
+        IF us_input-bstme IS NOT INITIAL."订单单位
+          cunit_input: us_input-bstme lw_clientdata-po_unit.
+          lw_clientdatax-po_unit = 'X'.
+        ELSE.
+          lw_clientdata-po_unit = ''.
+          lw_clientdatax-po_unit = 'X'.
         ENDIF.
       ENDIF.
+
+
+
+      "修改结束
 
 
 *      IF lv_mfrnr IS INITIAL AND us_input-mtart = 'Z010'.

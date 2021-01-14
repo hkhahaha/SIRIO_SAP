@@ -473,12 +473,27 @@ FORM frm_plant_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
         lw_headdata-storage_view = 'X'.                                   " 库存视图
         lw_headdata-cost_view = 'X'.                                      " 成本视图
       ENDIF.
-      IF us_input-mtart <> 'Z040'
+*      IF us_input-mtart <> 'Z040'
+*        AND us_input-mtart <> 'Z099'.
+*        lw_headdata-quality_view = 'X'.                                   " 质量管理视图
+*      ENDIF.
+*      CLEAR: lw_clientdata, lw_clientdatax.
+**************Seashell Huang 20201229 注释上面原先的代码，现在质量视图8100、8200的物料才需要扩充还有8300工厂下的80物料
+      IF ls_werks-werks = 8100 OR ls_werks-werks = 8200.
+        IF us_input-mtart <> 'Z040'
         AND us_input-mtart <> 'Z099'.
-        lw_headdata-quality_view = 'X'.                                   " 质量管理视图
+          lw_headdata-quality_view = 'X'.                                   " 质量管理视图
+        ENDIF.
+*        CLEAR: lw_clientdata, lw_clientdatax.
+      ELSEIF ls_werks-werks = 8300 AND us_input-mtart = 'Z080'.
+        lw_headdata-quality_view = 'X'.
       ENDIF.
-      CLEAR: lw_clientdata, lw_clientdatax.
+*******************************END*****************8
 
+
+
+
+      CLEAR: lw_clientdata, lw_clientdatax.
       " 温度条件
       IF ls_werks-tempb <> ls_mara-tempb OR ls_mara IS INITIAL.
         lw_clientdata-temp_conds = ls_werks-tempb.
@@ -809,13 +824,23 @@ FORM frm_plant_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
         lw_plantdatax-crit_part = 'X'.
       ENDIF.
       "ADD BY LANGJINGCUN 20200409 增加字段 end
+      "针对80物料，8300工厂质量视图默认勾选“过账到检验库存”字段
+      IF us_input-mtart = 'Z080' AND ls_werks-werks = '8300'.
+        lw_plantdata-ind_post_to_insp_stock = 'X'.                                  " 质量管理视图
+        lw_plantdatax-ind_post_to_insp_stock = 'X'.
+      ENDIF.
 
 
 
 
 *********************************Seashell Huang 20191219  质量管理视图添加“QM物料授权"
-      lw_plantdata-qm_authgrp = 'ZQM001'.
-      lw_plantdatax-qm_authgrp = 'X'.
+*      lw_plantdata-qm_authgrp = 'ZQM001'.
+*      lw_plantdatax-qm_authgrp = 'X'.
+      "8100、8200工厂下的物料才需要质量视图添加“QM物料授权”
+      IF ls_werks-werks = 8100 OR ls_werks-werks = 8200.
+        lw_plantdata-qm_authgrp = 'ZQM001'.
+        lw_plantdatax-qm_authgrp = 'X'.
+      ENDIF.
 ******************************END*****************************************************
 *      lw_plantdata-pur_group = ls_werks-ekgrp.                          " 采购组
 *      lw_plantdata-sourcelist = ls_werks-kordb.                         " 源清单
@@ -1214,56 +1239,59 @@ FORM frm_plant_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
           ENDIF.
         ENDIF.
         " 对于物料类型Z010、Z020、Z030、Z040、Z050的物料，在处理工厂8100时同时更新工厂8199，处理工厂8200时同时更新8299, 工厂8199和8299的利润中心都赋值为DUMMY
-        IF us_input-mtart = 'Z010'
-          OR us_input-mtart = 'Z020'
-          OR us_input-mtart = 'Z030'
-          OR us_input-mtart = 'Z040'
-          OR us_input-mtart = 'Z050'.
-          CLEAR: lw_headdata, lw_clientdata, lw_clientdata, lw_plantdata, lw_plantdatax.
-          lw_headdata-material = uv_matnr.                                    " 物料号
-          lw_headdata-matl_type = us_input-mtart.                             " 物料类型
-          lw_headdata-ind_sector = 'P'.                                       " 行业领域
-          lw_headdata-storage_view = 'X'.                                     " 库存视图
-          lw_clientdata-temp_conds = ls_werks-tempb.                          " 温度条件
-          lw_clientdata-stor_conds = ls_werks-raube.                          " 存储条件
-          lw_clientdata-minremlife = ls_werks-mhdrz.                          " 最小剩余货架寿命
-          lw_clientdata-shelf_life = ls_werks-mhdhb.                          " 总货架寿命
-          lw_clientdata-period_ind_expiration_date = ls_werks-iprkz.          " 期间标识
-          lw_clientdata-round_up_rule_expiration_date = ls_werks-rdmhd.       " 舍入规则
-*********************虚拟工厂添加批次管理标识和外部采购仓储地点   HK  2020.1.20.
-          lw_clientdata-batch_mgmt = ls_werks-xchpf.                          " 批次管理标识
-          lw_plantdata-sloc_exprc = ls_werks-lgfsb.                " 外部采购仓储地点
-          lw_plantdatax-sloc_exprc = 'X'.
-          lw_clientdatax-batch_mgmt = 'X'.
-*********************END***************************************
-          lw_clientdatax-temp_conds = 'X'.
-          lw_clientdatax-stor_conds = 'X'.
-          lw_clientdatax-minremlife = 'X'.
-          lw_clientdatax-shelf_life = 'X'.
-          lw_clientdatax-period_ind_expiration_date = 'X'.
-          lw_clientdatax-round_up_rule_expiration_date = 'X'.
-          IF us_input-mtart = 'Z010'.
-            lw_clientdata-manuf_prof = us_input-mprof.
-            lw_clientdatax-manuf_prof = 'X'.
-          ENDIF.
-          lw_plantdata-del_flag = ls_werks-lvoma.                             " 删除标记
-          lw_plantdatax-del_flag = 'X'.
+        "但是其他工厂不需要虚拟工厂
+        IF ls_werks-werks = '8100' OR ls_werks-werks = '8200'.
 
-          IF ls_werks-werks = '8100'.
-            lw_plantdata-plant = '8199'.
-            lw_plantdatax-plant = '8199'.
-            lw_plantdata-profit_ctr = 'DUMMY'.
-            lw_plantdatax-profit_ctr = 'X'.
-            lw_valuationdata-val_area = '8199'.
-            lw_valuationdatax-val_area = '8199'.
-          ELSEIF ls_werks-werks = '8200'.
-            lw_plantdata-plant = '8299'.
-            lw_plantdatax-plant = '8299'.
-            lw_plantdata-profit_ctr = 'DUMMY'.
-            lw_plantdatax-profit_ctr = 'X'.
-            lw_valuationdata-val_area = '8299'.
-            lw_valuationdatax-val_area = '8299'.
-          ENDIF.
+          IF us_input-mtart = 'Z010'
+            OR us_input-mtart = 'Z020'
+            OR us_input-mtart = 'Z030'
+            OR us_input-mtart = 'Z040'
+            OR us_input-mtart = 'Z050'.
+            CLEAR: lw_headdata, lw_clientdata, lw_clientdata, lw_plantdata, lw_plantdatax.
+            lw_headdata-material = uv_matnr.                                    " 物料号
+            lw_headdata-matl_type = us_input-mtart.                             " 物料类型
+            lw_headdata-ind_sector = 'P'.                                       " 行业领域
+            lw_headdata-storage_view = 'X'.                                     " 库存视图
+            lw_clientdata-temp_conds = ls_werks-tempb.                          " 温度条件
+            lw_clientdata-stor_conds = ls_werks-raube.                          " 存储条件
+            lw_clientdata-minremlife = ls_werks-mhdrz.                          " 最小剩余货架寿命
+            lw_clientdata-shelf_life = ls_werks-mhdhb.                          " 总货架寿命
+            lw_clientdata-period_ind_expiration_date = ls_werks-iprkz.          " 期间标识
+            lw_clientdata-round_up_rule_expiration_date = ls_werks-rdmhd.       " 舍入规则
+*********************虚拟工厂添加批次管理标识和外部采购仓储地点   HK  2020.1.20.
+            lw_clientdata-batch_mgmt = ls_werks-xchpf.                          " 批次管理标识
+            lw_plantdata-sloc_exprc = ls_werks-lgfsb.                " 外部采购仓储地点
+            lw_plantdatax-sloc_exprc = 'X'.
+            lw_clientdatax-batch_mgmt = 'X'.
+*********************END***************************************
+            lw_clientdatax-temp_conds = 'X'.
+            lw_clientdatax-stor_conds = 'X'.
+            lw_clientdatax-minremlife = 'X'.
+            lw_clientdatax-shelf_life = 'X'.
+            lw_clientdatax-period_ind_expiration_date = 'X'.
+            lw_clientdatax-round_up_rule_expiration_date = 'X'.
+            IF us_input-mtart = 'Z010'.
+              lw_clientdata-manuf_prof = us_input-mprof.
+              lw_clientdatax-manuf_prof = 'X'.
+            ENDIF.
+            lw_plantdata-del_flag = ls_werks-lvoma.                             " 删除标记
+            lw_plantdatax-del_flag = 'X'.
+
+            IF ls_werks-werks = '8100'.
+              lw_plantdata-plant = '8199'."工厂
+              lw_plantdatax-plant = '8199'.
+              lw_plantdata-profit_ctr = 'DUMMY'."利润中心
+              lw_plantdatax-profit_ctr = 'X'.
+              lw_valuationdata-val_area = '8199'." 估价范围
+              lw_valuationdatax-val_area = '8199'.
+            ELSEIF ls_werks-werks = '8200'.
+              lw_plantdata-plant = '8299'.
+              lw_plantdatax-plant = '8299'.
+              lw_plantdata-profit_ctr = 'DUMMY'.
+              lw_plantdatax-profit_ctr = 'X'.
+              lw_valuationdata-val_area = '8299'.
+              lw_valuationdatax-val_area = '8299'.
+            ENDIF.
 
 **********************add by sujx 20191130***********************************************
 *          SELECT SINGLE * INTO ls_mbew
@@ -1287,7 +1315,7 @@ FORM frm_plant_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
 *          ENDIF.
 *          CLEAR: ls_marc,ls_mbew.
 ********************** end add ************************************************
-
+          ENDIF.
         ENDIF.
         CLEAR: lw_return.
         CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
@@ -1526,7 +1554,16 @@ FORM frm_salesorg_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
 *      lw_salesdatax-valid_from = 'X'.
 
       CLEAR: lt_taxclassifications, lw_taxclassifications.
-      lw_taxclassifications-depcountry = 'CN'.                          " 发货国(由该国家发货)
+*      lw_taxclassifications-depcountry = 'CN'.                          " 发货国(由该国家发货)
+      SELECT SINGLE
+        land1
+      INTO lw_taxclassifications-depcountry
+      FROM t001
+      INNER JOIN tvko
+      ON tvko~bukrs = t001~bukrs
+      WHERE tvko~vkorg = ls_vkorg-vkorg.
+
+
       lw_taxclassifications-tax_type_1 = 'MWST'.                        " 税类别(营业税，联邦营业税，...)
       lw_taxclassifications-taxclass_1 = ls_vkorg-taxm1.                " 物料的税分类
       APPEND lw_taxclassifications TO lt_taxclassifications.
@@ -1599,9 +1636,9 @@ FORM frm_class_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
         PERFORM frm_get_class USING uv_matnr '001' CHANGING lw_alloclist.
         IF lw_alloclist IS INITIAL.
           lv_classnum = ls_class-classname.
-          PERFORM frm_class_create USING uv_matnr '001' lv_classnum ls_class CHANGING cs_return.
+          PERFORM frm_class_create USING uv_matnr '001' lv_classnum ls_class us_input CHANGING cs_return.
         ELSE.
-          PERFORM frm_class_change USING uv_matnr lw_alloclist ls_class CHANGING cs_return.
+          PERFORM frm_class_change USING uv_matnr lw_alloclist ls_class us_input CHANGING cs_return.
         ENDIF.
       ELSE.
         IF lv_mess IS INITIAL.
@@ -1629,7 +1666,7 @@ FORM frm_class_view  USING    us_input  TYPE zdt_oa2sap_mdm_mara
             OR us_input-mtart = 'Z080'.
             lv_classnum = 'BATCH_CP'.
           ENDIF.
-          PERFORM frm_class_create USING uv_matnr '022' lv_classnum ls_class CHANGING cs_return.
+          PERFORM frm_class_create USING uv_matnr '022' lv_classnum ls_class us_input CHANGING cs_return.
         ENDIF.
       ENDIF.
     ENDIF.
@@ -1804,6 +1841,7 @@ FORM frm_class_create  USING    uv_matnr     TYPE matnr
                                 uv_classtype TYPE klassenart
                                 uv_classnum  TYPE klasse_d
                                 us_class     TYPE zdt_oa2sap_mdm_mara_class
+                                us_input  TYPE zdt_oa2sap_mdm_mara
                        CHANGING cs_return    TYPE zdt_oa2sap_mdm_ret_zmd001.
   DATA: lv_objectkeynew    TYPE objnum,
         lt_allocvaluesnum  TYPE STANDARD TABLE OF bapi1003_alloc_values_num,
@@ -1830,6 +1868,14 @@ FORM frm_class_create  USING    uv_matnr     TYPE matnr
 *      LS_ALLOCVALUESCHAR-VALUE_NEUTRAL = LS_CLASSIFY-ATTRVALUE.
       ls_allocvalueschar-value_char_long = ls_classify-attrvalue.
       ls_allocvalueschar-value_neutral_long = ls_classify-attrvalue.
+      "Seashell 20210112 针对10、20物料的供应商跟制造商字段不写入SAP
+      IF us_input-mtart = 'Z010' OR us_input-mtart = 'Z020'.
+        IF ls_classify-attrname = 'ZSUPINFO' OR ls_classify-attrname = 'ZMANF'.
+          ls_allocvalueschar-value_char_long = ''.
+          ls_allocvalueschar-value_neutral_long = ''.
+        ENDIF.
+      ENDIF.
+      "END
       APPEND ls_allocvalueschar TO lt_allocvalueschar.
       CLEAR: ls_allocvalueschar.
     ENDLOOP.
@@ -1898,6 +1944,7 @@ ENDFORM.
 FORM frm_class_change  USING    uv_matnr     TYPE matnr
                                 us_alloclist TYPE bapi1003_alloc_list
                                 us_class     TYPE zdt_oa2sap_mdm_mara_class
+                                us_input  TYPE zdt_oa2sap_mdm_mara
                        CHANGING cs_return    TYPE zdt_oa2sap_mdm_ret_zmd001.
   DATA: lv_objectkeynew    TYPE objnum,
         lv_classnumnew     TYPE klasse_d,
@@ -1953,6 +2000,14 @@ FORM frm_class_change  USING    uv_matnr     TYPE matnr
         <fs_char>-value_neutral = ''.
         <fs_char>-value_char_long = ls_classify-attrvalue.
         <fs_char>-value_neutral_long = ls_classify-attrvalue.
+        " Seasehll 20210112 针对10、20物料制造商跟供应商字段不写入SAP
+        IF us_input-mtart = 'Z010' OR us_input-mtart = 'Z020'.
+          IF ls_classify-attrname = 'ZSUPINFO' OR ls_classify-attrname = 'ZMANF'.
+            <fs_char>-value_char_long = ''.
+            <fs_char>-value_neutral_long = ''.
+          ENDIF.
+        ENDIF.
+        "END
       ELSE.
         ls_allocvalueschar-charact = ls_classify-attrname.
         ls_allocvalueschar-charact_descr = ls_classify-attrname.
@@ -1960,6 +2015,14 @@ FORM frm_class_change  USING    uv_matnr     TYPE matnr
 *        LS_ALLOCVALUESCHAR-VALUE_NEUTRAL = LS_CLASSIFY-ATTRVALUE.
         ls_allocvalueschar-value_char_long = ls_classify-attrvalue.
         ls_allocvalueschar-value_neutral_long = ls_classify-attrvalue.
+        " Seasehll 20210112 针对10、20物料制造商跟供应商字段不写入SAP
+        IF us_input-mtart = 'Z010' OR us_input-mtart = 'Z020'.
+          IF ls_classify-attrname = 'ZSUPINFO' OR ls_classify-attrname = 'ZMANF'.
+            ls_allocvalueschar-value_char_long = ''.
+            ls_allocvalueschar-value_neutral_long = ''.
+          ENDIF.
+        ENDIF.
+        "END
         APPEND ls_allocvalueschar TO lt_allocvalueschar.
         CLEAR: ls_allocvalueschar.
       ENDIF.
@@ -2089,6 +2152,7 @@ FORM frm_change_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
         lv_length    TYPE i,
         lv_meins     TYPE meins,
         lv_meinh     TYPE meins,
+        lv_bstme     TYPE mara-bstme,
         lv_flag      TYPE c.
 
   DATA : lv_mprof TYPE mara-mprof .
@@ -2205,6 +2269,47 @@ FORM frm_change_matnr  USING    us_input  TYPE zdt_oa2sap_mdm_mara
         lw_clientdata-manuf_prof = us_input-mprof.            " 制造商参数文件
         lw_clientdatax-manuf_prof = 'X'.
       ENDIF.
+      "HK 2020.11.15新增订单单位、可变单位2个字段
+      "可变单位为空的情况下，不允许修改订单单位；可变单位为1时，订单单位默认=销售单位，而且以上只适用于50物料有扩充采购视图的情况下
+*      IF lw_headdata-purchase_view = 'X'.
+*        IF us_input-bstme IS NOT INITIAL."可变单位
+*          lw_clientdata-var_ord_un = '1'.
+*          lw_clientdatax-var_ord_un ='X'.
+*          IF us_input-bstme <> ls_mara-bstme OR ls_mara IS INITIAL."订单单位
+*            cunit_input: us_input-bstme lw_clientdata-po_unit.
+*
+**            SELECT SINGLE
+**              MSEHI
+**            INTO lw_clientdata-po_unit
+**            FROM T006A
+**            WHERE T006A~spras = '1'
+**              AND T006A~MSEHL = us_input-bstme.
+**            lw_clientdata-po_unit = us_input-bstme.
+*            lw_clientdatax-po_unit = 'X'.
+*          ENDIF.
+*        ENDIF.
+*      ENDIF.
+      IF lw_headdata-purchase_view = 'X'.
+        IF us_input-vabme IS NOT INITIAL."可变单位.
+          lw_clientdata-var_ord_un = us_input-vabme.
+          lw_clientdatax-var_ord_un = 'X'.
+        ELSE.
+          lw_clientdata-var_ord_un = ''.
+          lw_clientdatax-var_ord_un = 'X'.
+        ENDIF.
+        IF us_input-bstme IS NOT INITIAL."订单单位
+          cunit_input: us_input-bstme lw_clientdata-po_unit.
+          lw_clientdatax-po_unit = 'X'.
+        ELSE.
+          lw_clientdata-po_unit = ''.
+          lw_clientdatax-po_unit = 'X'.
+        ENDIF.
+      ENDIF.
+
+
+
+      "修改结束
+
 
 *      IF lv_mfrnr IS INITIAL AND us_input-mtart = 'Z010'.
 *        lw_clientdata-manuf_prof = 'IMPN'.                    " 制造商参数文件

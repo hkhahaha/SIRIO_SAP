@@ -280,7 +280,14 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
        lv_kalab(30),
        lv_netwr2(30),
        lv_invoice(30),
-       lv_kains(30).
+       lv_kains(30),
+       "时间加上斜杆
+       lv_udate(30),
+       lv_zysjhq(30),
+       lv_znbjhq(30),
+       lv_zatpdfrq(30),
+       lv_budat(30),
+       lv_erdat(30).
 
 * data lines
 *接下来获取ZSDT0019B的全部数据
@@ -303,7 +310,13 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       lv_kalab,
       lv_netwr2,
       lv_invoice,
-      lv_kains.
+      lv_kains,
+      lv_udate,
+      lv_zysjhq,
+      lv_znbjhq,
+      lv_zatpdfrq,
+      lv_budat,
+      lv_erdat.
 
       lv_kwmeng = ls_zsdt0019b-kwmeng.
       lv_kwmeng2 = ls_zsdt0019b-kwmeng2.
@@ -314,6 +327,24 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       lv_netwr2 = ls_zsdt0019b-netwr2.
       lv_invoice = ls_zsdt0019b-invoice.
       lv_kains = ls_zsdt0019b-kains.
+      IF ls_zsdt0019b-udate IS NOT INITIAL.
+        lv_udate = ls_zsdt0019b-udate+0(4) && '/' && ls_zsdt0019b-udate+4(2) && '/' && ls_zsdt0019b-udate+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-zysjhq IS NOT INITIAL.
+        lv_zysjhq = ls_zsdt0019b-zysjhq+0(4) && '/' && ls_zsdt0019b-zysjhq+4(2) && '/' && ls_zsdt0019b-zysjhq+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-znbjhq IS NOT INITIAL.
+        lv_znbjhq = ls_zsdt0019b-znbjhq+0(4) && '/' && ls_zsdt0019b-znbjhq+4(2) && '/' && ls_zsdt0019b-znbjhq+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-zatpdfrq IS NOT INITIAL.
+        lv_zatpdfrq = ls_zsdt0019b-zatpdfrq+0(4) && '/' && ls_zsdt0019b-zatpdfrq+4(2) && '/' && ls_zsdt0019b-zatpdfrq+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-budat IS NOT INITIAL.
+        lv_budat = ls_zsdt0019b-budat+0(4) && '/' && ls_zsdt0019b-budat+4(2) && '/' && ls_zsdt0019b-budat+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-erdat IS NOT INITIAL.
+        lv_erdat = ls_zsdt0019b-erdat+0(4) && '/' && ls_zsdt0019b-erdat+4(2) && '/' && ls_zsdt0019b-erdat+6(2).
+      ENDIF.
 
       CONCATENATE lv_string
       ls_zsdt0019b-statdetail	gc_tab"订单状态
@@ -325,10 +356,10 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       ls_zsdt0019b-posnr  gc_tab"行号
       ls_zsdt0019b-matwa  gc_tab"产品编号
       ls_zsdt0019b-maktx  gc_tab"产品名称
-      ls_zsdt0019b-udate  gc_tab"二审日期
-      ls_zsdt0019b-zysjhq	gc_tab"原始交货期
-      ls_zsdt0019b-znbjhq	gc_tab"内部交货期
-      ls_zsdt0019b-zatpdfrq	gc_tab"ATP答复日期
+      lv_udate  gc_tab"二审日期
+      lv_zysjhq	gc_tab"原始交货期
+      lv_znbjhq	gc_tab"内部交货期
+      lv_zatpdfrq	gc_tab"ATP答复日期
       ls_zsdt0019b-groes  gc_tab"规格型号
       ls_zsdt0019b-atwrt  gc_tab"包装规格
       lv_kwmeng	gc_tab"基本计量数量
@@ -340,7 +371,7 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       lv_netwr2	gc_tab"不含税金额
       ls_zsdt0019b-ettyp  gc_tab"计划行类型
       ls_zsdt0019b-werks  gc_tab"工厂
-      ls_zsdt0019b-budat  gc_tab"最晚入库日期
+      lv_budat  gc_tab"最晚入库日期
       lv_kalab  gc_tab"非限制库存
       lv_kains  gc_tab"其他库存
       lv_rfmng  gc_tab"出库量
@@ -350,7 +381,7 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       ls_zsdt0019b-kunnr_nam  gc_tab"售达方
       ls_zsdt0019b-kunnr_det  gc_tab"实际客户
       ls_zsdt0019b-vtweg  gc_tab"分销渠道
-      ls_zsdt0019b-erdat  gc_crlf"创建日期
+      lv_erdat  gc_crlf"创建日期
       INTO lv_string.
       CLEAR:ls_zsdt0019b.
     ENDLOOP.
@@ -384,7 +415,13 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       lv_kalab,
       lv_netwr2,
       lv_invoice,
-      lv_kains.
+      lv_kains,
+      lv_udate,
+      lv_zysjhq,
+      lv_znbjhq,
+      lv_zatpdfrq,
+      lv_budat,
+      lv_erdat.
 
       lv_kwmeng = ls_zsdt0019b-kwmeng.
       lv_kwmeng2 = ls_zsdt0019b-kwmeng2.
@@ -395,6 +432,24 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       lv_netwr2 = ls_zsdt0019b-netwr2.
       lv_invoice = ls_zsdt0019b-invoice.
       lv_kains = ls_zsdt0019b-kains.
+      IF ls_zsdt0019b-udate IS NOT INITIAL.
+        lv_udate = ls_zsdt0019b-udate+0(4) && '/' && ls_zsdt0019b-udate+4(2) && '/' && ls_zsdt0019b-udate+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-zysjhq IS NOT INITIAL.
+        lv_zysjhq = ls_zsdt0019b-zysjhq+0(4) && '/' && ls_zsdt0019b-zysjhq+4(2) && '/' && ls_zsdt0019b-zysjhq+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-znbjhq IS NOT INITIAL.
+        lv_znbjhq = ls_zsdt0019b-znbjhq+0(4) && '/' && ls_zsdt0019b-znbjhq+4(2) && '/' && ls_zsdt0019b-znbjhq+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-zatpdfrq IS NOT INITIAL.
+        lv_zatpdfrq = ls_zsdt0019b-zatpdfrq+0(4) && '/' && ls_zsdt0019b-zatpdfrq+4(2) && '/' && ls_zsdt0019b-zatpdfrq+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-budat IS NOT INITIAL.
+        lv_budat = ls_zsdt0019b-budat+0(4) && '/' && ls_zsdt0019b-budat+4(2) && '/' && ls_zsdt0019b-budat+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-erdat IS NOT INITIAL.
+        lv_erdat = ls_zsdt0019b-erdat+0(4) && '/' && ls_zsdt0019b-erdat+4(2) && '/' && ls_zsdt0019b-erdat+6(2).
+      ENDIF.
 
       CONCATENATE lv_string
       ls_zsdt0019b-statdetail	gc_tab"订单状态
@@ -406,10 +461,10 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       ls_zsdt0019b-posnr  gc_tab"行号
       ls_zsdt0019b-matwa  gc_tab"产品编号
       ls_zsdt0019b-maktx  gc_tab"产品名称
-      ls_zsdt0019b-udate  gc_tab"二审日期
-      ls_zsdt0019b-zysjhq	gc_tab"原始交货期
-      ls_zsdt0019b-znbjhq	gc_tab"内部交货期
-      ls_zsdt0019b-zatpdfrq	gc_tab"ATP答复日期
+      lv_udate  gc_tab"二审日期
+      lv_zysjhq	gc_tab"原始交货期
+      lv_znbjhq	gc_tab"内部交货期
+      lv_zatpdfrq	gc_tab"ATP答复日期
       ls_zsdt0019b-groes  gc_tab"规格型号
       ls_zsdt0019b-atwrt  gc_tab"包装规格
       lv_kwmeng	gc_tab"基本计量数量
@@ -421,7 +476,7 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       lv_netwr2	gc_tab"不含税金额
       ls_zsdt0019b-ettyp  gc_tab"计划行类型
       ls_zsdt0019b-werks  gc_tab"工厂
-      ls_zsdt0019b-budat  gc_tab"最晚入库日期
+      lv_budat  gc_tab"最晚入库日期
       lv_kalab  gc_tab"非限制库存
       lv_kains  gc_tab"其他库存
       lv_rfmng  gc_tab"出库量
@@ -431,7 +486,7 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       ls_zsdt0019b-kunnr_nam  gc_tab"售达方
       ls_zsdt0019b-kunnr_det  gc_tab"实际客户
       ls_zsdt0019b-vtweg  gc_tab"分销渠道
-      ls_zsdt0019b-erdat  gc_crlf"创建日期
+      lv_erdat  gc_crlf"创建日期
       INTO lv_string.
       CLEAR:ls_zsdt0019b.
     ENDLOOP.
@@ -454,7 +509,13 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       lv_kalab,
       lv_netwr2,
       lv_invoice,
-      lv_kains.
+      lv_kains,
+      lv_udate,
+      lv_zysjhq,
+      lv_znbjhq,
+      lv_zatpdfrq,
+      lv_budat,
+      lv_erdat.
 
       lv_kwmeng = ls_zsdt0019b-kwmeng.
       lv_kwmeng2 = ls_zsdt0019b-kwmeng2.
@@ -465,6 +526,24 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       lv_netwr2 = ls_zsdt0019b-netwr2.
       lv_invoice = ls_zsdt0019b-invoice.
       lv_kains = ls_zsdt0019b-kains.
+      IF ls_zsdt0019b-udate IS NOT INITIAL.
+        lv_udate = ls_zsdt0019b-udate+0(4) && '/' && ls_zsdt0019b-udate+4(2) && '/' && ls_zsdt0019b-udate+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-zysjhq IS NOT INITIAL.
+        lv_zysjhq = ls_zsdt0019b-zysjhq+0(4) && '/' && ls_zsdt0019b-zysjhq+4(2) && '/' && ls_zsdt0019b-zysjhq+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-znbjhq IS NOT INITIAL.
+        lv_znbjhq = ls_zsdt0019b-znbjhq+0(4) && '/' && ls_zsdt0019b-znbjhq+4(2) && '/' && ls_zsdt0019b-znbjhq+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-zatpdfrq IS NOT INITIAL.
+        lv_zatpdfrq = ls_zsdt0019b-zatpdfrq+0(4) && '/' && ls_zsdt0019b-zatpdfrq+4(2) && '/' && ls_zsdt0019b-zatpdfrq+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-budat IS NOT INITIAL.
+        lv_budat = ls_zsdt0019b-budat+0(4) && '/' && ls_zsdt0019b-budat+4(2) && '/' && ls_zsdt0019b-budat+6(2).
+      ENDIF.
+      IF ls_zsdt0019b-erdat IS NOT INITIAL.
+        lv_erdat = ls_zsdt0019b-erdat+0(4) && '/' && ls_zsdt0019b-erdat+4(2) && '/' && ls_zsdt0019b-erdat+6(2).
+      ENDIF.
 
       CONCATENATE lv_string
       ls_zsdt0019b-statdetail	gc_tab"订单状态
@@ -476,10 +555,10 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       ls_zsdt0019b-posnr  gc_tab"行号
       ls_zsdt0019b-matwa  gc_tab"产品编号
       ls_zsdt0019b-maktx  gc_tab"产品名称
-      ls_zsdt0019b-udate  gc_tab"二审日期
-      ls_zsdt0019b-zysjhq	gc_tab"原始交货期
-      ls_zsdt0019b-znbjhq	gc_tab"内部交货期
-      ls_zsdt0019b-zatpdfrq	gc_tab"ATP答复日期
+      lv_udate  gc_tab"二审日期
+      lv_zysjhq	gc_tab"原始交货期
+      lv_znbjhq	gc_tab"内部交货期
+      lv_zatpdfrq	gc_tab"ATP答复日期
       ls_zsdt0019b-groes  gc_tab"规格型号
       ls_zsdt0019b-atwrt  gc_tab"包装规格
       lv_kwmeng	gc_tab"基本计量数量
@@ -491,7 +570,7 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       lv_netwr2	gc_tab"不含税金额
       ls_zsdt0019b-ettyp  gc_tab"计划行类型
       ls_zsdt0019b-werks  gc_tab"工厂
-      ls_zsdt0019b-budat  gc_tab"最晚入库日期
+      lv_budat  gc_tab"最晚入库日期
       lv_kalab  gc_tab"非限制库存
       lv_kains  gc_tab"其他库存
       lv_rfmng  gc_tab"出库量
@@ -501,7 +580,7 @@ FORM create_content USING ls_zsdt0019a TYPE ty_zsdt0019a CHANGING flag.
       ls_zsdt0019b-kunnr_nam  gc_tab"售达方
       ls_zsdt0019b-kunnr_det  gc_tab"实际客户
       ls_zsdt0019b-vtweg  gc_tab"分销渠道
-      ls_zsdt0019b-erdat  gc_crlf"创建日期
+      lv_erdat  gc_crlf"创建日期
       INTO lv_string.
       CLEAR:ls_zsdt0019b.
     ENDLOOP.

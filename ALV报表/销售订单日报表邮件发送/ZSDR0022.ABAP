@@ -221,7 +221,8 @@ FORM getdata."查询语句
     posnv AS posnr,
     rfmng,
     vbtyp_n,
-    erdat
+    erdat,
+    ruuid
     INTO TABLE @DATA(lt_vbfa)
     FROM vbfa
     FOR ALL ENTRIES IN @lt_alv
@@ -315,8 +316,10 @@ FORM getdata."查询语句
 
     "T052U表
     SELECT
-      text1,
+      t052u~text1,
       vbeln,
+      t052u~zterm,
+      t052u~ztagg,
       posnr
     INTO TABLE @DATA(lt_t052u)
     FROM t052u
@@ -374,6 +377,9 @@ FORM getdata."查询语句
       kschl,
       kinak,
       kbetr,
+      kposn,
+      stunr,
+      zaehk,
       kpein
     INTO TABLE @DATA(lt_prcd_elements)
     FROM prcd_elements
@@ -387,7 +393,8 @@ FORM getdata."查询语句
       posnr,
       ettyp,
       umvkz,
-      umvkn
+      umvkn,
+      etenr
     INTO TABLE @DATA(lt_vbep)
     FROM vbep
     FOR ALL ENTRIES IN @lt_alv
@@ -398,13 +405,16 @@ FORM getdata."查询语句
       vbelv,
       posnv,
       vbtyp_n,
-      rfmng
+      rfmng,
+      vbeln,
+      posnn,
+      ruuid
     INTO TABLE @DATA(lt_vbfa_all)
     FROM vbfa
     FOR ALL ENTRIES IN @lt_alv
     WHERE vbfa~vbelv = @lt_alv-vbeln
       AND vbfa~posnv = @lt_alv-posnr
-      AND vbfa~vbtyp_n IN ('R','h').
+      AND vbfa~vbtyp_n IN ( 'h','R' ).
     "保存类型为R的
     SELECT
     vbelv,
@@ -427,7 +437,9 @@ FORM getdata."查询语句
     SELECT
       bname,
       usr21~persnumber,
-      name_text
+      name_text,
+      date_from,
+      nation
     INTO TABLE @DATA(lt_adrp)
     FROM adrp
     INNER JOIN usr21
@@ -442,7 +454,9 @@ FORM getdata."查询语句
       werks,
       lgort,
       kalab,
-      kains
+      kains,
+      charg,
+      sobkz
     INTO TABLE @DATA(lt_mska)
     FROM mska
     FOR ALL ENTRIES IN @lt_alv
@@ -486,7 +500,7 @@ FORM getdata."查询语句
     MOVE-CORRESPONDING ls_alv TO ls_zsdt0019b.
     "开票量
     LOOP AT lt_vbfa INTO DATA(ls_vbfa) WHERE vbeln = ls_alv-vbeln AND posnr = ls_alv-posnr.
-      ls_alv-invoice = ls_alv-invoice + ls_vbfa-rfmng.
+*      ls_alv-invoice = ls_alv-invoice + ls_vbfa-rfmng.
       IF ls_vbfa-vbtyp_n = 'M' OR ls_vbfa-vbtyp_n = 'O'.
         ls_alv-invoice = ls_alv-invoice + ls_vbfa-rfmng.
       ELSEIF ls_vbfa-vbtyp_n = 'N' OR ls_vbfa-vbtyp_n = 'S'.
@@ -647,7 +661,8 @@ FORM getdata."查询语句
     "价税合计
     ls_alv-netwr = ls_alv-netwr + ls_alv-mwsbp.
     "折前单价
-    READ TABLE lt_prcd_elements INTO DATA(ls_prcd_elements) WITH KEY knumv = ls_alv-knumv.
+    READ TABLE lt_prcd_elements INTO DATA(ls_prcd_elements) WITH KEY knumv = ls_alv-knumv
+                                                                     kposn = ls_alv-posnr.
     IF sy-subrc = 0.
       ls_alv-kbetr = ls_prcd_elements-kbetr / ls_prcd_elements-kpein.
     ENDIF.
@@ -669,6 +684,9 @@ FORM getdata."查询语句
                                                          vbtyp_n = 'h'.
       ls_alv-rfmng = ls_vbfa_r-rfmeng - ls_vbfa_h-rfmeng.
     ENDIF.
+    IF ls_alv-kwmeng IS NOT INITIAL AND ls_alv-kwmeng2 IS NOT INITIAL AND ( ls_alv-kwmeng / ls_alv-kwmeng2  ) <> 0.
+      ls_alv-rfmng = ls_alv-rfmng /  ( ls_alv-kwmeng / ls_alv-kwmeng2  ).
+    ENDIF.
     CLEAR:ls_vbfa_r,ls_vbfa_h.
     "制单人
     READ TABLE lt_adrp INTO DATA(ls_adrp) WITH KEY bname = ls_alv-ernam.
@@ -677,20 +695,25 @@ FORM getdata."查询语句
     ENDIF.
     CLEAR ls_adrp.
     "非限制库存
-    READ TABLE lt_mska INTO DATA(ls_mska) WITH KEY matnr = ls_alv-matnr
-                                                   posnr = ls_alv-posnr
-                                                   vbeln = ls_alv-vbeln
-                                                   werks = ls_alv-werks.
-    IF sy-subrc = 0.
-      IF ls_alv-umvkz <> 0.
-        ls_alv-kalab = ls_mska-kalab / ls_alv-umvkz * ls_alv-umvkn.
-        ls_alv-kains = ls_mska-kains / ls_alv-umvkz * ls_alv-umvkn.
-      ELSE.
-        ls_alv-kalab = ls_mska-kalab.
-        ls_alv-kains = ls_mska-kains.
-      ENDIF.
+    CLEAR:ls_alv-kalab,ls_alv-kains.
+    LOOP AT lt_mska INTO DATA(ls_mska) WHERE matnr = ls_alv-matnr AND posnr = ls_alv-posnr AND vbeln = ls_alv-vbeln AND werks = ls_alv-werks.
+      ls_alv-kalab = ls_alv-kalab + ls_mska-kalab.
+      ls_alv-kains = ls_alv-kains + ls_mska-kains.
       CLEAR ls_mska.
+    ENDLOOP.
+*    READ TABLE lt_mska INTO ls_mska WITH KEY matnr = ls_alv-matnr
+*                                                   posnr = ls_alv-posnr
+*                                                   vbeln = ls_alv-vbeln
+*                                                   werks = ls_alv-werks.
+    IF ls_alv-umvkz <> 0.
+      ls_alv-kalab = ls_alv-kalab / ls_alv-umvkz * ls_alv-umvkn.
+      ls_alv-kains = ls_alv-kains / ls_alv-umvkz * ls_alv-umvkn.
+    ELSE.
+      ls_alv-kalab = ls_alv-kalab.
+      ls_alv-kains = ls_alv-kains.
     ENDIF.
+    CLEAR ls_mska.
+
     IF lv_matkl IS NOT INITIAL.
       READ TABLE lt_t023t INTO DATA(ls_t023t) WITH KEY matkl = lv_matkl.
       IF sy-subrc = 0.
@@ -733,7 +756,11 @@ FORM getdata."查询语句
   WHERE a~udate IN @s_udate
   INTO TABLE @lt_zsdt0019b.
 
-  SORT lt_zsdt0019b BY udate.
+
+  DELETE lt_zsdt0019b WHERE udate IS INITIAL.
+  DELETE lt_zsdt0019b WHERE ettyp = 'Z1'.
+  DELETE lt_zsdt0019b WHERE ettyp = 'ZB' AND kains IS INITIAL AND kalab IS INITIAL.
+  SORT lt_zsdt0019b BY ettyp DESCENDING udate ASCENDING.
 
 
 

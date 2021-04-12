@@ -74,16 +74,16 @@ FORM getdata."查询语句
       foreign_lock   = 1
       system_failure = 2
       OTHERS         = 3.
-  IF sy-subrc = 0.
-* Implement suitable error handling here
-    lv_name = sy-uname.
-    SET PARAMETER ID 'YTEST' FIELD lv_name.
-  ELSE.
-    GET PARAMETER ID 'YTEST' FIELD lv_name.
-    MESSAGE '该公司账期被' && lv_name  && '锁定' TYPE 'E'.
-  ENDIF.
+*  IF sy-subrc = 0.
+** Implement suitable error handling here
+*    lv_name = sy-uname.
+*    SET PARAMETER ID 'YTEST' FIELD lv_name.
+*  ELSE.
+*    GET PARAMETER ID 'YTEST' FIELD lv_name.
+*    MESSAGE '该账期变式账期被' && lv_name  && '锁定' TYPE 'E'.
+*  ENDIF.
 
-
+  CLEAR:lt_zfit0063,lt_zfit0063_temp,lt_zfit0063_top,lt_t001b.
   IF p_bukrs = '0000'.
     "集团的数据
     SELECT
@@ -92,7 +92,7 @@ FORM getdata."查询语句
     WHERE bukrs = p_bukrs.
   ELSEIF p_bukrs <> '0000'.
 
-    "公司的数据
+    "账期变式的数据
     SELECT
        *
     FROM t001b INTO CORRESPONDING FIELDS OF TABLE lt_zfit0063
@@ -132,7 +132,7 @@ FORM catalog."表头
     fieldcat-col_pos = &4."列位置
     APPEND fieldcat.
   END-OF-DEFINITION.
-  fieldcatset 'BUKRS' '公司代码' '' sy-tabix.
+  fieldcatset 'BUKRS' '账期变式代码' '' sy-tabix.
   fieldcatset 'MKOAR' '帐户类型' 'X' sy-tabix.
   fieldcatset 'VKONT' '起始科目' 'X' sy-tabix.
   fieldcatset 'BKONT' '终止科目' 'X' sy-tabix.
@@ -299,13 +299,13 @@ FORM newdata USING is_selfield TYPE slis_selfield.
       ENDIF.
     ENDIF.
 
-    "判断公司的数据是否在集团内
-    LOOP AT lt_zfit0063 INTO ls_zfit0063 WHERE bukrs <> '0000'."循环遍历公司的数据
+    "判断账期变式的数据是否在集团内
+    LOOP AT lt_zfit0063 INTO ls_zfit0063 WHERE bukrs <> '0000'."循环遍历账期变式的数据
       READ TABLE lt_zfit0063_top INTO ls_zfit0063_top WITH KEY mkoar = ls_zfit0063-mkoar."读取集团数据
       IF sy-subrc <> 0.
         MESSAGE '对应账户类型下没有先维护好集团的数据，请先维护集团数据喔！' TYPE 'E'.
       ELSEIF sy-subrc = 0.
-        "判断公司的数据是否在集团的区间下面
+        "判断账期变式的数据是否在集团的区间下面
         "(1)判断时间区间是否正确
         IF ls_zfit0063-toye1 >= ls_zfit0063-frye1.
           IF ls_zfit0063-toye1 = ls_zfit0063-frye1 AND ls_zfit0063-frpe1 > ls_zfit0063-tope1.
@@ -339,7 +339,7 @@ FORM newdata USING is_selfield TYPE slis_selfield.
 
 
     "对数据库进行写入操作
-    "公司写入T001B表
+    "账期变式写入T001B表
     LOOP AT lt_zfit0063 INTO ls_zfit0063 WHERE bukrs <> '0000'.
       IF ls_zfit0063-guid IS INITIAL OR ls_zfit0063-guid = '0'.
         CLEAR lv_guid.
@@ -368,6 +368,7 @@ FORM newdata USING is_selfield TYPE slis_selfield.
       MESSAGE '保存成功' TYPE 'S'.
     ELSE.
       "集团写入自定义表
+      CLEAR lt_zfit0063b.
       LOOP AT lt_zfit0063 INTO ls_zfit0063 WHERE bukrs = '0000'.
         IF ls_zfit0063-guid IS INITIAL OR ls_zfit0063-guid = '0'.
           CLEAR lv_guid.
@@ -433,7 +434,7 @@ FORM newdata USING is_selfield TYPE slis_selfield.
       IF ls_zfit0063-bukrs = '0000'.
         READ TABLE lt_t001b INTO ls_t001b WITH KEY mkoar = ls_zfit0063-mkoar.
         IF sy-subrc = 0.
-          MESSAGE '子公司存在对应账户类型账期，不允许删除。异常公司：'&& ls_t001b-bukrs TYPE 'E'.
+          MESSAGE '子账期变式存在对应账户类型账期，不允许删除。异常账期变式：'&& ls_t001b-bukrs TYPE 'E'.
         ENDIF.
       ENDIF.
 
@@ -448,7 +449,7 @@ FORM newdata USING is_selfield TYPE slis_selfield.
                             AND rrcty = ls_zfit0063-rrcty
                             AND mkoar = ls_zfit0063-mkoar
                             AND bkont = ls_zfit0063-bkont.
-        MESSAGE '公司数据删除成功' TYPE 'S'.
+        MESSAGE '账期变式数据删除成功' TYPE 'S'.
         MOVE-CORRESPONDING ls_zfit0063 TO ls_zfit0063a.
         MODIFY zfit0063a FROM ls_zfit0063a.
       ENDIF.

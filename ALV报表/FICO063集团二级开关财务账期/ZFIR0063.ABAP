@@ -13,11 +13,14 @@ DATA:lv_guid TYPE sxmsguid,
      lv_grid TYPE REF TO cl_gui_alv_grid.
 TABLES:zfit0063,t001b,zfit0063a.
 TYPES:BEGIN OF ty_zfit0063,
+        field_style TYPE lvc_t_styl,
         sel(1).
+
         INCLUDE TYPE zfit0063.
       TYPES END OF ty_zfit0063.
 
 DATA:lt_zfit0063        TYPE TABLE OF ty_zfit0063,
+     lt_zfit0063b       TYPE TABLE OF ty_zfit0063,
      lt_zfit0063_top    TYPE TABLE OF ty_zfit0063,
      lt_zfit0063_detail TYPE TABLE OF ty_zfit0063,
      lt_zfit0063_temp   TYPE TABLE OF ty_zfit0063,
@@ -31,6 +34,7 @@ DATA:lt_zfit0063        TYPE TABLE OF ty_zfit0063,
      lt_t001b           TYPE TABLE OF t001b,
      ls_t001b           LIKE LINE OF lt_t001b.
 DATA gv_sel_error TYPE flag.
+DATA stylelin TYPE lvc_s_styl.
 
 SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001."定义屏幕
 *SELECT-OPTIONS:s_bukrs FOR t001b-bukrs OBLIGATORY. "条件输入框，一个for对应一个
@@ -39,23 +43,55 @@ SELECTION-SCREEN END OF BLOCK blk.
 
 START-OF-SELECTION.
 *调用子程序
-  PERFORM frm_authority_check."权限控制
+*  PERFORM frm_authority_check."权限控制
+
+
+
   IF gv_sel_error <> 'X'.
     PERFORM getdata.
     PERFORM catalog.
     PERFORM alvshow.
   ENDIF.
 
+
 *定义子程序
 FORM getdata."查询语句
+  DATA:varkey  TYPE  rstable-varkey,
+       lv_name TYPE sy-uname.
+  varkey = sy-sysid && '0' && p_bukrs.
+  "锁对象
+  CALL FUNCTION 'ENQUEUE_E_TABLE'
+    EXPORTING
+*     MODE_RSTABLE   = 'E'
+      tabname        = 'T001B'
+      varkey         = varkey
+*     X_TABNAME      = ' '
+*     X_VARKEY       = ' '
+*     _SCOPE         = '2'
+*     _WAIT          = ' '
+*     _COLLECT       = ' '
+    EXCEPTIONS
+      foreign_lock   = 1
+      system_failure = 2
+      OTHERS         = 3.
+  IF sy-subrc = 0.
+* Implement suitable error handling here
+    lv_name = sy-uname.
+    SET PARAMETER ID 'YTEST' FIELD lv_name.
+  ELSE.
+    GET PARAMETER ID 'YTEST' FIELD lv_name.
+    MESSAGE '该公司账期被' && lv_name  && '锁定' TYPE 'E'.
+  ENDIF.
+
 
   IF p_bukrs = '0000'.
     "集团的数据
     SELECT
          *
-      FROM zfit0063 INTO CORRESPONDING FIELDS OF TABLE lt_zfit0063
-      WHERE bukrs = p_bukrs.
+    FROM zfit0063 INTO CORRESPONDING FIELDS OF TABLE lt_zfit0063
+    WHERE bukrs = p_bukrs.
   ELSEIF p_bukrs <> '0000'.
+
     "公司的数据
     SELECT
        *
@@ -65,12 +101,22 @@ FORM getdata."查询语句
 
 
   SELECT
-    *
+  *
   FROM zfit0063 INTO CORRESPONDING FIELDS OF TABLE lt_zfit0063_temp.
 
   SELECT
-    *
+   *
   FROM t001b INTO CORRESPONDING FIELDS OF TABLE lt_t001b.
+
+  "修改编辑状态
+  LOOP AT lt_zfit0063 INTO ls_zfit0063.
+    stylelin-fieldname = 'MKOAR'.
+    stylelin-style = cl_gui_alv_grid=>mc_style_disabled.
+    APPEND stylelin TO ls_zfit0063-field_style.
+    MODIFY lt_zfit0063 FROM ls_zfit0063.
+    CLEAR ls_zfit0063.
+  ENDLOOP.
+  MOVE lt_zfit0063 TO lt_zfit0063b.
 ENDFORM.
 
 FORM catalog."表头
@@ -116,6 +162,7 @@ FORM catalog."表头
 *  layout-edit_mode = 'A'.
   layout-box_fname = 'sel'.
 *  layout-colwidth_optimize = 'X'.
+  layout-stylefname = 'FIELD_STYLE'.
 
 ENDFORM.
 *响应鼠标点击时间的子程序
@@ -132,7 +179,13 @@ FORM alv_user_command USING r_ucomm LIKE sy-ucomm
 ENDFORM.
 
 FORM frm_set_pf_status USING pt_extab TYPE slis_t_extab.
-  SET PF-STATUS 'ZHK'.
+
+  IF p_bukrs = '0000'.
+    SET PF-STATUS 'ZHK'.
+  ELSE.
+    SET PF-STATUS 'ZHK2'.
+  ENDIF.
+
 ENDFORM.
 
 
@@ -199,15 +252,17 @@ FORM newdata USING is_selfield TYPE slis_selfield.
             && '【' && ls_zfit0063_top-tope1 && '】月' TYPE 'E'.
   END-OF-DEFINITION.
 
-
+  CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
+    IMPORTING
+      e_grid = lv_grid.
   IF sy-ucomm = '&NEW'.
+
     CLEAR:ls_zfit0063,lt_zfit0063.
     ls_zfit0063-bkont = 'ZZZZZZZZZZ'.
     ls_zfit0063-bukrs = p_bukrs.
+    ls_zfit0063-rrcty = '0'.
     APPEND ls_zfit0063 TO lt_zfit0063.
-    CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
-      IMPORTING
-        e_grid = lv_grid.
+
     is_selfield-refresh = 'X'.
     is_selfield-col_stable = 'X'.
     is_selfield-row_stable = 'X'.
@@ -286,7 +341,7 @@ FORM newdata USING is_selfield TYPE slis_selfield.
     "对数据库进行写入操作
     "公司写入T001B表
     LOOP AT lt_zfit0063 INTO ls_zfit0063 WHERE bukrs <> '0000'.
-      IF ls_zfit0063-guid IS INITIAL OR ls_zfit0063 = '0'.
+      IF ls_zfit0063-guid IS INITIAL OR ls_zfit0063-guid = '0'.
         CLEAR lv_guid.
         lv_guid = zcl_bc_public=>get_guid( ).
       ENDIF.
@@ -314,7 +369,7 @@ FORM newdata USING is_selfield TYPE slis_selfield.
     ELSE.
       "集团写入自定义表
       LOOP AT lt_zfit0063 INTO ls_zfit0063 WHERE bukrs = '0000'.
-        IF ls_zfit0063-guid IS INITIAL OR ls_zfit0063 = '0'.
+        IF ls_zfit0063-guid IS INITIAL OR ls_zfit0063-guid = '0'.
           CLEAR lv_guid.
           lv_guid = zcl_bc_public=>get_guid( ).
         ENDIF.
@@ -338,10 +393,16 @@ FORM newdata USING is_selfield TYPE slis_selfield.
         ls_zfit0063a-cputm = sy-uzeit.
         ls_zfit0063a-seqno = lv_guid.
         MODIFY zfit0063a FROM ls_zfit0063a.
+        MOVE-CORRESPONDING ls_temp TO ls_zfit0063.
+        APPEND ls_zfit0063 TO lt_zfit0063b.
         CLEAR:ls_zfit0063,lv_guid,ls_temp,ls_zfit0063a.
       ENDLOOP.
       IF sy-subrc = 0.
         MESSAGE '保存成功' TYPE 'S'.
+        CLEAR lt_zfit0063.
+        CLEAR lt_zfit0063.
+        MOVE lt_zfit0063b TO lt_zfit0063.
+        CALL METHOD lv_grid->refresh_table_display.
       ELSE.
         MESSAGE '数据有误' TYPE 'E' DISPLAY LIKE 'S'.
       ENDIF.
@@ -349,11 +410,16 @@ FORM newdata USING is_selfield TYPE slis_selfield.
 
     ENDIF.
 
-    LEAVE TO SCREEN 0.
-  ELSEIF sy-ucomm = '&DELETE'.
+*    LEAVE TO SCREEN 0.
+
+
+
+
+
+  ELSEIF sy-ucomm = '&DELETE' OR sy-ucomm = '&DEL'.
     LOOP AT lt_zfit0063 INTO ls_zfit0063 WHERE sel = 'X'.
       "将数据写入日志表
-      IF ls_zfit0063-guid IS INITIAL OR ls_zfit0063 = '0'.
+      IF ls_zfit0063-guid IS INITIAL OR ls_zfit0063-guid = '0'.
         CLEAR lv_guid.
         lv_guid = zcl_bc_public=>get_guid( ).
       ENDIF.
@@ -367,7 +433,7 @@ FORM newdata USING is_selfield TYPE slis_selfield.
       IF ls_zfit0063-bukrs = '0000'.
         READ TABLE lt_t001b INTO ls_t001b WITH KEY mkoar = ls_zfit0063-mkoar.
         IF sy-subrc = 0.
-          MESSAGE '请先删除公司数据后再删除集团数据！异常公司：'&& ls_t001b-bukrs TYPE 'E'.
+          MESSAGE '子公司存在对应账户类型账期，不允许删除。异常公司：'&& ls_t001b-bukrs TYPE 'E'.
         ENDIF.
       ENDIF.
 
@@ -426,9 +492,9 @@ ENDFORM.
 
 FORM frm_authority_check.
   CLEAR gv_sel_error.
-  AUTHORITY-CHECK OBJECT 'F_BKPF_BUK'
+  AUTHORITY-CHECK OBJECT 'ZFI_ACC_PE'
 *   ID 'ACTVT' DUMMY
-  ID 'BUKRS' FIELD p_bukrs.
+  ID 'ZBUKRS' FIELD p_bukrs.
   IF sy-subrc <> 0.
 * Implement a suitable exception handling here
     MESSAGE '权限检查失败' TYPE 'E'.

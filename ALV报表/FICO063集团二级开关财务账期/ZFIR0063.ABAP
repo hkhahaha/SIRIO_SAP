@@ -31,7 +31,8 @@ DATA:lt_zfit0063        TYPE TABLE OF ty_zfit0063,
      ls_zfit0063a       LIKE LINE OF lt_zfit0063a,
      lt_temp            TYPE TABLE OF zfit0063,
      ls_temp            LIKE LINE OF lt_temp,
-     lt_t001b           TYPE TABLE OF t001b,
+     lt_t001b           LIKE TABLE OF t001b,
+     lt_t001b2          TYPE TABLE OF t001b,
      ls_t001b           LIKE LINE OF lt_t001b.
 DATA gv_sel_error TYPE flag.
 DATA stylelin TYPE lvc_s_styl.
@@ -298,12 +299,21 @@ FORM newdata USING is_selfield TYPE slis_selfield.
         MESSAGE '请先维护集团数据' TYPE 'E'.
       ENDIF.
     ENDIF.
+    "对新增数据进行初步格式判断
+    READ TABLE lt_zfit0063 INTO ls_zfit0063 INDEX 1 .
+    IF ls_zfit0063-frye1 > ls_zfit0063-toye1.
+      MESSAGE '终止账期不允许小于起始账期（年）' TYPE 'E'.
+    ELSEIF ls_zfit0063-frye1 = ls_zfit0063-toye1.
+      IF ls_zfit0063-frpe1 > ls_zfit0063-tope1.
+        MESSAGE '终止账期不允许小于起始账期（月）' TYPE 'E'.
+      ENDIF.
+    ENDIF.
 
     "判断账期变式的数据是否在集团内
     LOOP AT lt_zfit0063 INTO ls_zfit0063 WHERE bukrs <> '0000'."循环遍历账期变式的数据
       READ TABLE lt_zfit0063_top INTO ls_zfit0063_top WITH KEY mkoar = ls_zfit0063-mkoar."读取集团数据
       IF sy-subrc <> 0.
-        MESSAGE '对应账户类型下没有先维护好集团的数据，请先维护集团数据喔！' TYPE 'E'.
+        MESSAGE '对应账户类型下没有先维护好集团的数据，请先维护集团数据喔！异常类型：' && ls_zfit0063-mkoar  TYPE 'E'.
       ELSEIF sy-subrc = 0.
         "判断账期变式的数据是否在集团的区间下面
         "(1)判断时间区间是否正确
@@ -335,6 +345,9 @@ FORM newdata USING is_selfield TYPE slis_selfield.
       CLEAR:ls_zfit0063,ls_zfit0063_top.
     ENDLOOP.
 
+    "当维护的是集团数据的时候，修改集团的账期顺带修改对应类型的子公司账期
+
+
 
 
 
@@ -350,10 +363,20 @@ FORM newdata USING is_selfield TYPE slis_selfield.
       INSERT t001b FROM ls_t001b.
       IF sy-subrc = 0.
         COMMIT WORK.
+        MODIFY lt_t001b FROM ls_t001b TRANSPORTING rrcty bukrs mkoar bkont
+                                      WHERE bukrs = ls_t001b-bukrs
+                                      AND   rrcty = ls_t001b-rrcty
+                                      AND   mkoar = ls_t001b-mkoar
+                                      AND   bkont = ls_t001b-bkont.
       ELSE.
         ls_zfit0063a-ztype = '修改'.
         UPDATE t001b FROM ls_t001b.
         COMMIT WORK.
+        MODIFY lt_t001b FROM ls_t001b TRANSPORTING rrcty bukrs mkoar bkont
+                                      WHERE bukrs = ls_t001b-bukrs
+                                      AND   rrcty = ls_t001b-rrcty
+                                      AND   mkoar = ls_t001b-mkoar
+                                      AND   bkont = ls_t001b-bkont.
       ENDIF.
       "将数据写入日志表
       MOVE-CORRESPONDING ls_zfit0063 TO ls_zfit0063a.
@@ -381,12 +404,107 @@ FORM newdata USING is_selfield TYPE slis_selfield.
         INSERT zfit0063 FROM ls_temp.
         IF sy-subrc = 0.
           COMMIT WORK.
+          "判断公司的起始账期是否在集团账期内，如果没有的话就修改成集团账期
+          LOOP AT lt_t001b INTO ls_t001b WHERE mkoar = ls_zfit0063-mkoar.
+*          READ TABLE lt_t001b INTO ls_t001b WITH KEY mkoar = ls_zfit0063-mkoar.
+            IF sy-subrc = 0.
+              "判断全部账期
+              IF ls_t001b-frye1 < ls_zfit0063-frye1 AND ls_t001b-toye1 < ls_zfit0063-toye1 OR ls_t001b-frye1 > ls_zfit0063-frye1 AND ls_t001b-toye1 > ls_zfit0063-toye1.
+                ls_t001b-frye1 = ls_zfit0063-frye1.
+                ls_t001b-frpe1 = ls_zfit0063-frpe1.
+                ls_t001b-toye1 = ls_zfit0063-toye1.
+                ls_t001b-tope1 = ls_zfit0063-tope1.
+              ENDIF.
+              "判断起始账期
+              IF ls_zfit0063-frye1 > ls_t001b-frye1.
+                ls_t001b-frye1 = ls_zfit0063-frye1.
+                ls_t001b-frpe1 = ls_zfit0063-frpe1.
+              ELSEIF ls_zfit0063-frye1 = ls_t001b-frye1.
+                IF ls_zfit0063-frye1 > ls_t001b-frye1.
+                  ls_t001b-frye1 = ls_zfit0063-frye1.
+                ENDIF.
+              ENDIF.
+              "判断终止账期
+              IF ls_zfit0063-toye1 < ls_t001b-toye1.
+                ls_t001b-toye1 = ls_zfit0063-toye1.
+                ls_t001b-tope1 = ls_zfit0063-tope1.
+                IF ls_t001b-tope1 < ls_t001b-frpe1.
+                  ls_t001b-tope1 = ls_zfit0063-tope1.
+                ENDIF.
+              ELSEIF ls_zfit0063-toye1 = ls_t001b-toye1.
+                IF ls_zfit0063-tope1 < ls_t001b-tope1.
+                  ls_t001b-tope1 = ls_zfit0063-tope1.
+                ENDIF.
+              ENDIF.
+
+              UPDATE t001b FROM ls_t001b.
+              IF sy-subrc = 0.
+                COMMIT WORK.
+                MODIFY lt_t001b FROM ls_t001b TRANSPORTING rrcty bukrs mkoar bkont
+                                      WHERE bukrs = ls_t001b-bukrs
+                                      AND   rrcty = ls_t001b-rrcty
+                                      AND   mkoar = ls_t001b-mkoar
+                                      AND   bkont = ls_t001b-bkont.
+              ELSE.
+                MESSAGE '数据插入T001异常' TYPE 'E'.
+              ENDIF.
+            ENDIF.
+          ENDLOOP.
         ELSE.
           ls_zfit0063a-ztype = '修改'.
           UPDATE zfit0063 FROM ls_temp.
           COMMIT WORK.
+          "判断公司的起始账期是否在集团账期内，如果没有的话就修改成集团账期
+*          MOVE-CORRESPONDING lt_t001b TO lt_t001b2.
+          LOOP AT lt_t001b INTO ls_t001b WHERE mkoar = ls_zfit0063-mkoar.
+*          READ TABLE lt_t001b INTO ls_t001b WITH KEY mkoar = ls_zfit0063-mkoar.
+            IF sy-subrc = 0.
+              "判断全部账期
+              IF ls_t001b-frye1 < ls_zfit0063-frye1 AND ls_t001b-toye1 < ls_zfit0063-toye1 OR ls_t001b-frye1 > ls_zfit0063-frye1 AND ls_t001b-toye1 > ls_zfit0063-toye1.
+                ls_t001b-frye1 = ls_zfit0063-frye1.
+                ls_t001b-frpe1 = ls_zfit0063-frpe1.
+                ls_t001b-toye1 = ls_zfit0063-toye1.
+                ls_t001b-tope1 = ls_zfit0063-tope1.
+              ENDIF.
+              "判断起始账期
+              IF ls_zfit0063-frye1 > ls_t001b-frye1.
+                ls_t001b-frye1 = ls_zfit0063-frye1.
+                ls_t001b-frpe1 = ls_zfit0063-frpe1.
+              ELSEIF ls_zfit0063-frye1 = ls_t001b-frye1.
+                IF ls_zfit0063-frpe1 > ls_t001b-frpe1.
+                  ls_t001b-frpe1 = ls_zfit0063-frpe1.
+                ENDIF.
+              ENDIF.
+              "判断终止账期
+              IF ls_zfit0063-toye1 < ls_t001b-toye1.
+                ls_t001b-toye1 = ls_zfit0063-toye1.
+                ls_t001b-tope1 = ls_zfit0063-tope1.
+                IF ls_t001b-toye1 < ls_t001b-frye1.
+                  ls_t001b-toye1 = ls_zfit0063-toye1.
+                ENDIF.
+              ELSEIF ls_zfit0063-toye1 = ls_t001b-toye1.
+                IF ls_zfit0063-tope1 < ls_t001b-tope1.
+                  ls_t001b-tope1 = ls_zfit0063-tope1.
+                ENDIF.
+              ENDIF.
+              UPDATE t001b FROM ls_t001b.
+              IF sy-subrc = 0.
+                COMMIT WORK.
+                MODIFY lt_t001b FROM ls_t001b TRANSPORTING rrcty bukrs mkoar bkont
+                                      WHERE bukrs = ls_t001b-bukrs
+                                      AND   rrcty = ls_t001b-rrcty
+                                      AND   mkoar = ls_t001b-mkoar
+                                      AND   bkont = ls_t001b-bkont.
+*                MODIFY lt_t001b FROM ls_t001b TRANSPORTING RRCTY BUKRS MKOAR BKONT.
+                "将需要修改的数据存入GT_T001B表。
+              ELSE.
+                MESSAGE '数据插入T001异常' TYPE 'E'.
+              ENDIF.
+            ENDIF.
+          ENDLOOP.
         ENDIF.
-
+*        CLEAR lt_t001b.
+*        MOVE-CORRESPONDING lt_t001b2 TO lt_t001b.
         "将数据写入日志表
         MOVE-CORRESPONDING ls_zfit0063 TO ls_zfit0063a.
         ls_zfit0063a-usnam = sy-uname.
@@ -403,6 +521,12 @@ FORM newdata USING is_selfield TYPE slis_selfield.
         CLEAR lt_zfit0063.
         CLEAR lt_zfit0063.
         MOVE lt_zfit0063b TO lt_zfit0063.
+        LOOP AT lt_zfit0063_temp INTO ls_zfit0063_temp WHERE bukrs = '0000'.
+          APPEND ls_zfit0063_temp TO lt_zfit0063.
+          CLEAR ls_zfit0063_temp.
+        ENDLOOP.
+        SORT lt_zfit0063 BY rrcty bukrs mkoar bkont.
+        DELETE ADJACENT DUPLICATES FROM lt_zfit0063 COMPARING rrcty bukrs mkoar bkont.
         CALL METHOD lv_grid->refresh_table_display.
       ELSE.
         MESSAGE '数据有误' TYPE 'E' DISPLAY LIKE 'S'.
@@ -438,10 +562,12 @@ FORM newdata USING is_selfield TYPE slis_selfield.
         ENDIF.
       ENDIF.
 
-      DELETE FROM zfit0063 WHERE guid = ls_zfit0063-guid."删除的是集团数据
+*      DELETE FROM zfit0063 WHERE guid = ls_zfit0063-guid."删除的是集团数据
+      DELETE FROM zfit0063 WHERE bukrs = ls_zfit0063-bukrs AND rrcty = ls_zfit0063-rrcty AND mkoar = ls_zfit0063-mkoar AND bkont = ls_zfit0063-bkont.
+      DELETE lt_zfit0063_temp WHERE bukrs = ls_zfit0063-bukrs AND rrcty = ls_zfit0063-rrcty AND mkoar = ls_zfit0063-mkoar AND bkont = ls_zfit0063-bkont.
       IF sy-subrc = 0.
         MESSAGE '集团数据删除成功' TYPE 'S'.
-        DELETE lt_zfit0063 WHERE guid = ls_zfit0063-guid.
+        DELETE lt_zfit0063 WHERE bukrs = ls_zfit0063-bukrs AND rrcty = ls_zfit0063-rrcty AND mkoar = ls_zfit0063-mkoar AND bkont = ls_zfit0063-bkont.
         MOVE-CORRESPONDING ls_zfit0063 TO ls_zfit0063a.
         MODIFY zfit0063a FROM ls_zfit0063a.
       ELSEIF sy-subrc <> 0.
@@ -450,30 +576,21 @@ FORM newdata USING is_selfield TYPE slis_selfield.
                             AND mkoar = ls_zfit0063-mkoar
                             AND bkont = ls_zfit0063-bkont.
         MESSAGE '账期变式数据删除成功' TYPE 'S'.
+        DELETE lt_zfit0063 WHERE bukrs = ls_zfit0063-bukrs AND rrcty = ls_zfit0063-rrcty AND mkoar = ls_zfit0063-mkoar AND bkont = ls_zfit0063-bkont.
         MOVE-CORRESPONDING ls_zfit0063 TO ls_zfit0063a.
         MODIFY zfit0063a FROM ls_zfit0063a.
       ENDIF.
+      CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
+        IMPORTING
+          e_grid = lv_grid.
+      CALL METHOD lv_grid->check_changed_data.
+      CALL METHOD lv_grid->refresh_table_display.
       CLEAR:ls_zfit0063,ls_zfit0063a.
     ENDLOOP.
   ENDIF.
   CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
-*   EXPORTING
-*     IR_SALV_FULLSCREEN_ADAPTER       =
     IMPORTING
-*     ET_EXCLUDING                     =
-*     E_REPID                          =
-*     E_CALLBACK_PROGRAM               =
-*     E_CALLBACK_ROUTINE               =
-      e_grid = lv_grid
-*     ET_FIELDCAT_LVC                  =
-*     ER_TRACE                         =
-*     E_FLG_NO_HTML                    =
-*     ES_LAYOUT_KKBLO                  =
-*     ES_SEL_HIDE                      =
-*     ET_EVENT_EXIT                    =
-*     ER_FORM_TOL                      =
-*     ER_FORM_EOL                      =
-    .
+      e_grid = lv_grid.
   is_selfield-refresh = 'X'.
   is_selfield-col_stable = 'X'.
   is_selfield-row_stable = 'X'.

@@ -404,6 +404,10 @@ FORM newdata USING is_selfield TYPE slis_selfield.
         INSERT zfit0063 FROM ls_temp.
         IF sy-subrc = 0.
           COMMIT WORK.
+*          IF lt_zfit0063_temp IS INITIAL.
+*            APPEND ls_zfit0063  TO lt_zfit0063_temp.
+*          ENDIF.
+
           "判断公司的起始账期是否在集团账期内，如果没有的话就修改成集团账期
           LOOP AT lt_t001b INTO ls_t001b WHERE mkoar = ls_zfit0063-mkoar.
 *          READ TABLE lt_t001b INTO ls_t001b WITH KEY mkoar = ls_zfit0063-mkoar.

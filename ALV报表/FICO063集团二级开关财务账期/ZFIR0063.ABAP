@@ -19,20 +19,20 @@ TYPES:BEGIN OF ty_zfit0063,
         INCLUDE TYPE zfit0063.
       TYPES END OF ty_zfit0063.
 
-DATA:lt_zfit0063        TYPE TABLE OF ty_zfit0063,
-     lt_zfit0063b       TYPE TABLE OF ty_zfit0063,
-     lt_zfit0063_top    TYPE TABLE OF ty_zfit0063,
-     lt_zfit0063_detail TYPE TABLE OF ty_zfit0063,
-     lt_zfit0063_temp   TYPE TABLE OF ty_zfit0063,
+DATA:lt_zfit0063        TYPE TABLE OF ty_zfit0063,"用于ALV输出
+     lt_zfit0063b       TYPE TABLE OF ty_zfit0063,"临时的中间表
+     lt_zfit0063_top    TYPE TABLE OF ty_zfit0063,"集团数据对照表
+*     lt_zfit0063_detail TYPE TABLE OF ty_zfit0063,
+     lt_zfit0063_temp   TYPE TABLE OF ty_zfit0063,"完整的数据库数据
      ls_zfit0063        LIKE LINE OF lt_zfit0063,
      ls_zfit0063_temp   LIKE LINE OF lt_zfit0063,
      ls_zfit0063_top    LIKE LINE OF lt_zfit0063,
      lt_zfit0063a       TYPE TABLE OF zfit0063a,
-     ls_zfit0063a       LIKE LINE OF lt_zfit0063a,
+     ls_zfit0063a       LIKE LINE OF lt_zfit0063a,"与zfit0063a表相同的结构
      lt_temp            TYPE TABLE OF zfit0063,
-     ls_temp            LIKE LINE OF lt_temp,
+     ls_temp            LIKE LINE OF lt_temp,"与t001b表结构相同的工作区
      lt_t001b           LIKE TABLE OF t001b,
-     lt_t001b2          TYPE TABLE OF t001b,
+     lt_t001b2          TYPE TABLE OF t001b,"该内表已弃用
      ls_t001b           LIKE LINE OF lt_t001b.
 DATA gv_sel_error TYPE flag.
 DATA stylelin TYPE lvc_s_styl.
@@ -60,7 +60,7 @@ FORM getdata."查询语句
   DATA:varkey  TYPE  rstable-varkey,
        lv_name TYPE sy-uname.
   varkey = sy-sysid && '0' && p_bukrs.
-  "锁对象
+  "锁对象，条件是根据当前系统的Id + 0 +账期公式作为拼接条件，存储在VARKEY参数中
   CALL FUNCTION 'ENQUEUE_E_TABLE'
     EXPORTING
 *     MODE_RSTABLE   = 'E'
@@ -93,18 +93,18 @@ FORM getdata."查询语句
     WHERE bukrs = p_bukrs.
   ELSEIF p_bukrs <> '0000'.
 
-    "账期变式的数据
+    "账期变式的数据，公司
     SELECT
        *
     FROM t001b INTO CORRESPONDING FIELDS OF TABLE lt_zfit0063
     WHERE bukrs = p_bukrs.
   ENDIF.
 
-
+  "集团账期数据中间表
   SELECT
   *
   FROM zfit0063 INTO CORRESPONDING FIELDS OF TABLE lt_zfit0063_temp.
-
+  "公司所在的表
   SELECT
    *
   FROM t001b INTO CORRESPONDING FIELDS OF TABLE lt_t001b.
@@ -118,6 +118,7 @@ FORM getdata."查询语句
     CLEAR ls_zfit0063.
   ENDLOOP.
   MOVE lt_zfit0063 TO lt_zfit0063b.
+  SORT lt_zfit0063 BY mkoar.
 ENDFORM.
 
 FORM catalog."表头
@@ -135,8 +136,8 @@ FORM catalog."表头
   END-OF-DEFINITION.
   fieldcatset 'BUKRS' '账期变式代码' '' sy-tabix.
   fieldcatset 'MKOAR' '帐户类型' 'X' sy-tabix.
-  fieldcatset 'VKONT' '起始科目' 'X' sy-tabix.
-  fieldcatset 'BKONT' '终止科目' 'X' sy-tabix.
+  fieldcatset 'VKONT' '起始科目' '' sy-tabix.
+  fieldcatset 'BKONT' '终止科目' '' sy-tabix.
   fieldcatset 'FRPE1' '起始期间' 'X' sy-tabix.
   fieldcatset 'FRYE1' '起始年度' 'X' sy-tabix.
   fieldcatset 'TOPE1' '终止期间' 'X' sy-tabix.
@@ -192,56 +193,111 @@ ENDFORM.
 
 
 FORM alvshow.
-  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
-    EXPORTING
-*     I_INTERFACE_CHECK        = ' '
-*     I_BYPASSING_BUFFER       =
-*     I_BUFFER_ACTIVE          =
-      i_callback_program       = sy-repid
-      i_callback_pf_status_set = 'FRM_SET_PF_STATUS'
-      i_callback_user_command  = 'ALV_USER_COMMAND'
-*     I_CALLBACK_TOP_OF_PAGE   = ' '
-*     I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
-*     I_CALLBACK_HTML_END_OF_LIST       = ' '
-*     I_STRUCTURE_NAME         =
-*     I_BACKGROUND_ID          = ' '
-      i_grid_title             = '集团二级开关财务账期'
-*     I_GRID_SETTINGS          =
-      is_layout_lvc            = layout
-      it_fieldcat_lvc          = fieldcat[]
-*     IT_EXCLUDING             =
-*     IT_SPECIAL_GROUPS_LVC    =
-*     IT_SORT_LVC              =
-*     IT_FILTER_LVC            =
-*     IT_HYPERLINK             =
-*     IS_SEL_HIDE              =
-      i_default                = 'X'
-      i_save                   = 'A'
-*     IS_VARIANT               =
-*     IT_EVENTS                =
-*     IT_EVENT_EXIT            =
-*     IS_PRINT_LVC             =
-*     IS_REPREP_ID_LVC         =
-*     I_SCREEN_START_COLUMN    = 0
-*     I_SCREEN_START_LINE      = 0
-*     I_SCREEN_END_COLUMN      = 0
-*     I_SCREEN_END_LINE        = 0
-*     I_HTML_HEIGHT_TOP        =
-*     I_HTML_HEIGHT_END        =
-*     IT_ALV_GRAPHICS          =
-*     IT_EXCEPT_QINFO_LVC      =
-*     IR_SALV_FULLSCREEN_ADAPTER        =
+  IF p_bukrs = '0000'.
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+      EXPORTING
+*       I_INTERFACE_CHECK        = ' '
+*       I_BYPASSING_BUFFER       =
+*       I_BUFFER_ACTIVE          =
+        i_callback_program       = sy-repid
+        i_callback_pf_status_set = 'FRM_SET_PF_STATUS'
+        i_callback_user_command  = 'ALV_USER_COMMAND'
+*       I_CALLBACK_TOP_OF_PAGE   = ' '
+*       I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
+*       I_CALLBACK_HTML_END_OF_LIST       = ' '
+*       I_STRUCTURE_NAME         =
+*       I_BACKGROUND_ID          = ' '
+        i_grid_title             = '集团账期'
+*       I_GRID_SETTINGS          =
+        is_layout_lvc            = layout
+        it_fieldcat_lvc          = fieldcat[]
+*       IT_EXCLUDING             =
+*       IT_SPECIAL_GROUPS_LVC    =
+*       IT_SORT_LVC              =
+*       IT_FILTER_LVC            =
+*       IT_HYPERLINK             =
+*       IS_SEL_HIDE              =
+        i_default                = 'X'
+        i_save                   = 'A'
+*       IS_VARIANT               =
+*       IT_EVENTS                =
+*       IT_EVENT_EXIT            =
+*       IS_PRINT_LVC             =
+*       IS_REPREP_ID_LVC         =
+*       I_SCREEN_START_COLUMN    = 0
+*       I_SCREEN_START_LINE      = 0
+*       I_SCREEN_END_COLUMN      = 0
+*       I_SCREEN_END_LINE        = 0
+*       I_HTML_HEIGHT_TOP        =
+*       I_HTML_HEIGHT_END        =
+*       IT_ALV_GRAPHICS          =
+*       IT_EXCEPT_QINFO_LVC      =
+*       IR_SALV_FULLSCREEN_ADAPTER        =
 * IMPORTING
-*     E_EXIT_CAUSED_BY_CALLER  =
-*     ES_EXIT_CAUSED_BY_USER   =
-    TABLES
-      t_outtab                 = lt_zfit0063
-    EXCEPTIONS
-      program_error            = 1
-      OTHERS                   = 2.
-  IF sy-subrc <> 0.
+*       E_EXIT_CAUSED_BY_CALLER  =
+*       ES_EXIT_CAUSED_BY_USER   =
+      TABLES
+        t_outtab                 = lt_zfit0063
+      EXCEPTIONS
+        program_error            = 1
+        OTHERS                   = 2.
+    IF sy-subrc <> 0.
 * Implement suitable error handling here
+    ENDIF.
+  ELSE.
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+      EXPORTING
+*       I_INTERFACE_CHECK        = ' '
+*       I_BYPASSING_BUFFER       =
+*       I_BUFFER_ACTIVE          =
+        i_callback_program       = sy-repid
+        i_callback_pf_status_set = 'FRM_SET_PF_STATUS'
+        i_callback_user_command  = 'ALV_USER_COMMAND'
+*       I_CALLBACK_TOP_OF_PAGE   = ' '
+*       I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
+*       I_CALLBACK_HTML_END_OF_LIST       = ' '
+*       I_STRUCTURE_NAME         =
+*       I_BACKGROUND_ID          = ' '
+        i_grid_title             = '子公司账期'
+*       I_GRID_SETTINGS          =
+        is_layout_lvc            = layout
+        it_fieldcat_lvc          = fieldcat[]
+*       IT_EXCLUDING             =
+*       IT_SPECIAL_GROUPS_LVC    =
+*       IT_SORT_LVC              =
+*       IT_FILTER_LVC            =
+*       IT_HYPERLINK             =
+*       IS_SEL_HIDE              =
+        i_default                = 'X'
+        i_save                   = 'A'
+*       IS_VARIANT               =
+*       IT_EVENTS                =
+*       IT_EVENT_EXIT            =
+*       IS_PRINT_LVC             =
+*       IS_REPREP_ID_LVC         =
+*       I_SCREEN_START_COLUMN    = 0
+*       I_SCREEN_START_LINE      = 0
+*       I_SCREEN_END_COLUMN      = 0
+*       I_SCREEN_END_LINE        = 0
+*       I_HTML_HEIGHT_TOP        =
+*       I_HTML_HEIGHT_END        =
+*       IT_ALV_GRAPHICS          =
+*       IT_EXCEPT_QINFO_LVC      =
+*       IR_SALV_FULLSCREEN_ADAPTER        =
+* IMPORTING
+*       E_EXIT_CAUSED_BY_CALLER  =
+*       ES_EXIT_CAUSED_BY_USER   =
+      TABLES
+        t_outtab                 = lt_zfit0063
+      EXCEPTIONS
+        program_error            = 1
+        OTHERS                   = 2.
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+    ENDIF.
   ENDIF.
+
+
 ENDFORM.
 
 FORM newdata USING is_selfield TYPE slis_selfield.
@@ -300,14 +356,18 @@ FORM newdata USING is_selfield TYPE slis_selfield.
       ENDIF.
     ENDIF.
     "对新增数据进行初步格式判断
-    READ TABLE lt_zfit0063 INTO ls_zfit0063 INDEX 1 .
-    IF ls_zfit0063-frye1 > ls_zfit0063-toye1.
-      MESSAGE '终止账期不允许小于起始账期（年）' TYPE 'E'.
-    ELSEIF ls_zfit0063-frye1 = ls_zfit0063-toye1.
-      IF ls_zfit0063-frpe1 > ls_zfit0063-tope1.
-        MESSAGE '终止账期不允许小于起始账期（月）' TYPE 'E'.
+    LOOP AT lt_zfit0063 INTO ls_zfit0063.
+      IF ls_zfit0063-frye1 > ls_zfit0063-toye1.
+        MESSAGE '终止账期不允许小于起始账期（年）' TYPE 'E'.
+      ELSEIF ls_zfit0063-frye1 = ls_zfit0063-toye1.
+        IF ls_zfit0063-frpe1 > ls_zfit0063-tope1.
+          MESSAGE '终止账期不允许小于起始账期（月）' TYPE 'E'.
+        ENDIF.
       ENDIF.
-    ENDIF.
+      CLEAR ls_zfit0063.
+    ENDLOOP.
+
+
 
     "判断账期变式的数据是否在集团内
     LOOP AT lt_zfit0063 INTO ls_zfit0063 WHERE bukrs <> '0000'."循环遍历账期变式的数据
@@ -428,6 +488,7 @@ FORM newdata USING is_selfield TYPE slis_selfield.
                   ls_t001b-frye1 = ls_zfit0063-frye1.
                 ENDIF.
               ENDIF.
+
               "判断终止账期
               IF ls_zfit0063-toye1 < ls_t001b-toye1.
                 ls_t001b-toye1 = ls_zfit0063-toye1.
@@ -437,6 +498,11 @@ FORM newdata USING is_selfield TYPE slis_selfield.
                 ENDIF.
               ELSEIF ls_zfit0063-toye1 = ls_t001b-toye1.
                 IF ls_zfit0063-tope1 < ls_t001b-tope1.
+                  ls_t001b-tope1 = ls_zfit0063-tope1.
+                ENDIF.
+              ENDIF.
+              IF ls_t001b-frye1 = ls_t001b-toye1.
+                IF ls_t001b-tope1 < ls_t001b-frpe1.
                   ls_t001b-tope1 = ls_zfit0063-tope1.
                 ENDIF.
               ENDIF.
@@ -491,6 +557,11 @@ FORM newdata USING is_selfield TYPE slis_selfield.
                   ls_t001b-tope1 = ls_zfit0063-tope1.
                 ENDIF.
               ENDIF.
+              IF ls_t001b-frye1 = ls_t001b-toye1.
+                IF ls_t001b-tope1 < ls_t001b-frpe1.
+                  ls_t001b-tope1 = ls_zfit0063-tope1.
+                ENDIF.
+              ENDIF.
               UPDATE t001b FROM ls_t001b.
               IF sy-subrc = 0.
                 COMMIT WORK.
@@ -510,6 +581,9 @@ FORM newdata USING is_selfield TYPE slis_selfield.
 *        CLEAR lt_t001b.
 *        MOVE-CORRESPONDING lt_t001b2 TO lt_t001b.
         "将数据写入日志表
+        IF lv_guid IS INITIAL OR lv_guid = '0'.
+          lv_guid = zcl_bc_public=>get_guid( ).
+        ENDIF.
         MOVE-CORRESPONDING ls_zfit0063 TO ls_zfit0063a.
         ls_zfit0063a-usnam = sy-uname.
         ls_zfit0063a-cpudt = sy-datum.
@@ -524,6 +598,10 @@ FORM newdata USING is_selfield TYPE slis_selfield.
         MESSAGE '保存成功' TYPE 'S'.
         CLEAR lt_zfit0063.
         CLEAR lt_zfit0063.
+        SELECT
+          *
+          FROM zfit0063 INTO CORRESPONDING FIELDS OF TABLE lt_zfit0063_temp.
+
         MOVE lt_zfit0063b TO lt_zfit0063.
         LOOP AT lt_zfit0063_temp INTO ls_zfit0063_temp WHERE bukrs = '0000'.
           APPEND ls_zfit0063_temp TO lt_zfit0063.
@@ -592,6 +670,7 @@ FORM newdata USING is_selfield TYPE slis_selfield.
       CLEAR:ls_zfit0063,ls_zfit0063a.
     ENDLOOP.
   ENDIF.
+  SORT lt_zfit0063 BY mkoar.
   CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
     IMPORTING
       e_grid = lv_grid.
@@ -611,7 +690,7 @@ ENDFORM.
 
 
 
-
+"权限控制
 FORM frm_authority_check.
   CLEAR gv_sel_error.
   AUTHORITY-CHECK OBJECT 'ZFI_ACC_PE'

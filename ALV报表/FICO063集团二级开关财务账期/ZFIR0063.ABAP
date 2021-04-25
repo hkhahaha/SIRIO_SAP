@@ -19,21 +19,21 @@ TYPES:BEGIN OF ty_zfit0063,
         INCLUDE TYPE zfit0063.
       TYPES END OF ty_zfit0063.
 
-DATA:lt_zfit0063        TYPE TABLE OF ty_zfit0063,"用于ALV输出
-     lt_zfit0063b       TYPE TABLE OF ty_zfit0063,"临时的中间表
-     lt_zfit0063_top    TYPE TABLE OF ty_zfit0063,"集团数据对照表
+DATA:lt_zfit0063      TYPE TABLE OF ty_zfit0063, "用于ALV输出
+     lt_zfit0063b     TYPE TABLE OF ty_zfit0063, "临时的中间表
+     lt_zfit0063_top  TYPE TABLE OF ty_zfit0063, "集团数据对照表
 *     lt_zfit0063_detail TYPE TABLE OF ty_zfit0063,
-     lt_zfit0063_temp   TYPE TABLE OF ty_zfit0063,"完整的数据库数据
-     ls_zfit0063        LIKE LINE OF lt_zfit0063,
-     ls_zfit0063_temp   LIKE LINE OF lt_zfit0063,
-     ls_zfit0063_top    LIKE LINE OF lt_zfit0063,
-     lt_zfit0063a       TYPE TABLE OF zfit0063a,
-     ls_zfit0063a       LIKE LINE OF lt_zfit0063a,"与zfit0063a表相同的结构
-     lt_temp            TYPE TABLE OF zfit0063,
-     ls_temp            LIKE LINE OF lt_temp,"与t001b表结构相同的工作区
-     lt_t001b           LIKE TABLE OF t001b,
-     lt_t001b2          TYPE TABLE OF t001b,"该内表已弃用
-     ls_t001b           LIKE LINE OF lt_t001b.
+     lt_zfit0063_temp TYPE TABLE OF ty_zfit0063, "完整的数据库数据
+     ls_zfit0063      LIKE LINE OF lt_zfit0063,
+     ls_zfit0063_temp LIKE LINE OF lt_zfit0063,
+     ls_zfit0063_top  LIKE LINE OF lt_zfit0063,
+     lt_zfit0063a     TYPE TABLE OF zfit0063a,
+     ls_zfit0063a     LIKE LINE OF lt_zfit0063a, "与zfit0063a表相同的结构
+     lt_temp          TYPE TABLE OF zfit0063,
+     ls_temp          LIKE LINE OF lt_temp, "与t001b表结构相同的工作区
+     lt_t001b         LIKE TABLE OF t001b,
+     lt_t001b2        TYPE TABLE OF t001b, "该内表已弃用
+     ls_t001b         LIKE LINE OF lt_t001b.
 DATA gv_sel_error TYPE flag.
 DATA stylelin TYPE lvc_s_styl.
 
@@ -44,7 +44,7 @@ SELECTION-SCREEN END OF BLOCK blk.
 
 START-OF-SELECTION.
 *调用子程序
-*  PERFORM frm_authority_check."权限控制
+  PERFORM frm_authority_check."权限控制
 
 
 
@@ -138,10 +138,20 @@ FORM catalog."表头
   fieldcatset 'MKOAR' '帐户类型' 'X' sy-tabix.
   fieldcatset 'VKONT' '起始科目' '' sy-tabix.
   fieldcatset 'BKONT' '终止科目' '' sy-tabix.
-  fieldcatset 'FRPE1' '起始期间' 'X' sy-tabix.
-  fieldcatset 'FRYE1' '起始年度' 'X' sy-tabix.
-  fieldcatset 'TOPE1' '终止期间' 'X' sy-tabix.
-  fieldcatset 'TOYE1' '终止年度' 'X' sy-tabix.
+  fieldcatset 'FRPE1' '起始期间1' 'X' sy-tabix.
+  fieldcatset 'FRYE1' '起始年度1' 'X' sy-tabix.
+  fieldcatset 'TOPE1' '终止期间1' 'X' sy-tabix.
+  fieldcatset 'TOYE1' '终止年度1' 'X' sy-tabix.
+
+  fieldcatset 'FRPE2' '起始期间2' 'X' sy-tabix.
+  fieldcatset 'FRYE2' '起始年度2' 'X' sy-tabix.
+  fieldcatset 'TOPE2' '终止期间2' 'X' sy-tabix.
+  fieldcatset 'TOYE2' '终止年度2' 'X' sy-tabix.
+
+  fieldcatset 'FRPE3' '起始期间3' 'X' sy-tabix.
+  fieldcatset 'FRYE3' '起始年度3' 'X' sy-tabix.
+  fieldcatset 'TOPE3' '终止期间3' 'X' sy-tabix.
+  fieldcatset 'TOYE3' '终止年度3' 'X' sy-tabix.
 
   READ TABLE fieldcat INDEX 1.
 *  fieldcat-ref_table = 'T001B'."调用透明表的数据结构
@@ -358,10 +368,26 @@ FORM newdata USING is_selfield TYPE slis_selfield.
     "对新增数据进行初步格式判断
     LOOP AT lt_zfit0063 INTO ls_zfit0063.
       IF ls_zfit0063-frye1 > ls_zfit0063-toye1.
-        MESSAGE '终止账期不允许小于起始账期（年）' TYPE 'E'.
+        MESSAGE '终止账期1不允许小于起始账期1（年）' TYPE 'E'.
       ELSEIF ls_zfit0063-frye1 = ls_zfit0063-toye1.
         IF ls_zfit0063-frpe1 > ls_zfit0063-tope1.
-          MESSAGE '终止账期不允许小于起始账期（月）' TYPE 'E'.
+          MESSAGE '终止账期1不允许小于起始账期1（月）' TYPE 'E'.
+        ENDIF.
+      ENDIF.
+
+      IF ls_zfit0063-frye2 > ls_zfit0063-toye2.
+        MESSAGE '终止账期2不允许小于起始账期2（年）' TYPE 'E'.
+      ELSEIF ls_zfit0063-frye2 = ls_zfit0063-toye2.
+        IF ls_zfit0063-frpe2 > ls_zfit0063-tope2.
+          MESSAGE '终止账期2不允许小于起始账期2（月）' TYPE 'E'.
+        ENDIF.
+      ENDIF.
+
+      IF ls_zfit0063-frye3 > ls_zfit0063-toye3.
+        MESSAGE '终止账期3不允许小于起始账期3（年）' TYPE 'E'.
+      ELSEIF ls_zfit0063-frye3 = ls_zfit0063-toye3.
+        IF ls_zfit0063-frpe3 > ls_zfit0063-tope3.
+          MESSAGE '终止账期3不允许小于起始账期3（月）' TYPE 'E'.
         ENDIF.
       ENDIF.
       CLEAR ls_zfit0063.
@@ -377,9 +403,10 @@ FORM newdata USING is_selfield TYPE slis_selfield.
       ELSEIF sy-subrc = 0.
         "判断账期变式的数据是否在集团的区间下面
         "(1)判断时间区间是否正确
+        "第一个
         IF ls_zfit0063-toye1 >= ls_zfit0063-frye1.
           IF ls_zfit0063-toye1 = ls_zfit0063-frye1 AND ls_zfit0063-frpe1 > ls_zfit0063-tope1.
-            MESSAGE '同个会计年度，终止期间 < 起始期间' TYPE 'E'.
+            MESSAGE '同个会计年度，终止期间1 < 起始期间1' TYPE 'E'.
           ENDIF.
 
           "起始的时间
@@ -399,7 +426,58 @@ FORM newdata USING is_selfield TYPE slis_selfield.
             ENDIF.
           ENDIF.
         ELSE.
-          MESSAGE '终止会计年度 > 起始会计年度' TYPE 'E'.
+          MESSAGE '终止会计年度1 > 起始会计年度1' TYPE 'E'.
+        ENDIF.
+        "第二个
+        IF ls_zfit0063-toye2 >= ls_zfit0063-frye2.
+          IF ls_zfit0063-toye2 = ls_zfit0063-frye2 AND ls_zfit0063-frpe2 > ls_zfit0063-tope2.
+            MESSAGE '同个会计年度，终止期间2 < 起始期间2' TYPE 'E'.
+          ENDIF.
+
+          "起始的时间
+          IF ls_zfit0063-frye2 < ls_zfit0063_top-frye2.
+            message_set.
+          ELSEIF ls_zfit0063-frye2 = ls_zfit0063_top-frye2.
+            IF ls_zfit0063-frpe2 < ls_zfit0063_top-frpe2.
+              message_set.
+            ENDIF.
+          ENDIF.
+          "终止的时间
+          IF ls_zfit0063-toye2 > ls_zfit0063_top-toye2.
+            message_set.
+          ELSEIF ls_zfit0063-toye2 = ls_zfit0063_top-toye2.
+            IF ls_zfit0063-tope2 > ls_zfit0063_top-tope2.
+              message_set.
+            ENDIF.
+          ENDIF.
+        ELSE.
+          MESSAGE '终止会计年度2 > 起始会计年度2' TYPE 'E'.
+        ENDIF.
+
+        "第三个
+        IF ls_zfit0063-toye3 >= ls_zfit0063-frye3.
+          IF ls_zfit0063-toye3 = ls_zfit0063-frye3 AND ls_zfit0063-frpe3 > ls_zfit0063-tope3.
+            MESSAGE '同个会计年度，终止期间3 < 起始期间3' TYPE 'E'.
+          ENDIF.
+
+          "起始的时间
+          IF ls_zfit0063-frye3 < ls_zfit0063_top-frye3.
+            message_set.
+          ELSEIF ls_zfit0063-frye3 = ls_zfit0063_top-frye3.
+            IF ls_zfit0063-frpe3 < ls_zfit0063_top-frpe3.
+              message_set.
+            ENDIF.
+          ENDIF.
+          "终止的时间
+          IF ls_zfit0063-toye3 > ls_zfit0063_top-toye3.
+            message_set.
+          ELSEIF ls_zfit0063-toye3 = ls_zfit0063_top-toye3.
+            IF ls_zfit0063-tope3 > ls_zfit0063_top-tope3.
+              message_set.
+            ENDIF.
+          ENDIF.
+        ELSE.
+          MESSAGE '终止会计年度3 > 起始会计年度3' TYPE 'E'.
         ENDIF.
       ENDIF.
       CLEAR:ls_zfit0063,ls_zfit0063_top.
@@ -472,6 +550,7 @@ FORM newdata USING is_selfield TYPE slis_selfield.
           LOOP AT lt_t001b INTO ls_t001b WHERE mkoar = ls_zfit0063-mkoar.
 *          READ TABLE lt_t001b INTO ls_t001b WITH KEY mkoar = ls_zfit0063-mkoar.
             IF sy-subrc = 0.
+              "第一个
               "判断全部账期
               IF ls_t001b-frye1 < ls_zfit0063-frye1 AND ls_t001b-toye1 < ls_zfit0063-toye1 OR ls_t001b-frye1 > ls_zfit0063-frye1 AND ls_t001b-toye1 > ls_zfit0063-toye1.
                 ls_t001b-frye1 = ls_zfit0063-frye1.
@@ -507,6 +586,80 @@ FORM newdata USING is_selfield TYPE slis_selfield.
                 ENDIF.
               ENDIF.
 
+              "第二个
+              "判断全部账期
+              IF ls_t001b-frye2 < ls_zfit0063-frye2 AND ls_t001b-toye2 < ls_zfit0063-toye2 OR ls_t001b-frye2 > ls_zfit0063-frye2 AND ls_t001b-toye2 > ls_zfit0063-toye2.
+                ls_t001b-frye2 = ls_zfit0063-frye2.
+                ls_t001b-frpe2 = ls_zfit0063-frpe2.
+                ls_t001b-toye2 = ls_zfit0063-toye2.
+                ls_t001b-tope2 = ls_zfit0063-tope2.
+              ENDIF.
+              "判断起始账期
+              IF ls_zfit0063-frye2 > ls_t001b-frye2.
+                ls_t001b-frye2 = ls_zfit0063-frye2.
+                ls_t001b-frpe2 = ls_zfit0063-frpe2.
+              ELSEIF ls_zfit0063-frye2 = ls_t001b-frye2.
+                IF ls_zfit0063-frye2 > ls_t001b-frye2.
+                  ls_t001b-frye2 = ls_zfit0063-frye2.
+                ENDIF.
+              ENDIF.
+
+              "判断终止账期
+              IF ls_zfit0063-toye2 < ls_t001b-toye2.
+                ls_t001b-toye2 = ls_zfit0063-toye2.
+                ls_t001b-tope2 = ls_zfit0063-tope2.
+                IF ls_t001b-tope2 < ls_t001b-frpe2.
+                  ls_t001b-tope2 = ls_zfit0063-tope2.
+                ENDIF.
+              ELSEIF ls_zfit0063-toye2 = ls_t001b-toye2.
+                IF ls_zfit0063-tope2 < ls_t001b-tope2.
+                  ls_t001b-tope2 = ls_zfit0063-tope2.
+                ENDIF.
+              ENDIF.
+              IF ls_t001b-frye2 = ls_t001b-toye2.
+                IF ls_t001b-tope2 < ls_t001b-frpe2.
+                  ls_t001b-tope2 = ls_zfit0063-tope2.
+                ENDIF.
+              ENDIF.
+
+              "第三个
+              "判断全部账期
+              IF ls_t001b-frye3 < ls_zfit0063-frye3 AND ls_t001b-toye3 < ls_zfit0063-toye3 OR ls_t001b-frye3 > ls_zfit0063-frye3 AND ls_t001b-toye3 > ls_zfit0063-toye3.
+                ls_t001b-frye3 = ls_zfit0063-frye3.
+                ls_t001b-frpe3 = ls_zfit0063-frpe3.
+                ls_t001b-toye3 = ls_zfit0063-toye3.
+                ls_t001b-tope3 = ls_zfit0063-tope3.
+              ENDIF.
+              "判断起始账期
+              IF ls_zfit0063-frye3 > ls_t001b-frye3.
+                ls_t001b-frye3 = ls_zfit0063-frye3.
+                ls_t001b-frpe3 = ls_zfit0063-frpe3.
+              ELSEIF ls_zfit0063-frye3 = ls_t001b-frye3.
+                IF ls_zfit0063-frye3 > ls_t001b-frye3.
+                  ls_t001b-frye3 = ls_zfit0063-frye3.
+                ENDIF.
+              ENDIF.
+
+              "判断终止账期
+              IF ls_zfit0063-toye3 < ls_t001b-toye3.
+                ls_t001b-toye3 = ls_zfit0063-toye3.
+                ls_t001b-tope3 = ls_zfit0063-tope3.
+                IF ls_t001b-tope3 < ls_t001b-frpe3.
+                  ls_t001b-tope3 = ls_zfit0063-tope3.
+                ENDIF.
+              ELSEIF ls_zfit0063-toye3 = ls_t001b-toye3.
+                IF ls_zfit0063-tope3 < ls_t001b-tope3.
+                  ls_t001b-tope3 = ls_zfit0063-tope3.
+                ENDIF.
+              ENDIF.
+              IF ls_t001b-frye3 = ls_t001b-toye3.
+                IF ls_t001b-tope3 < ls_t001b-frpe3.
+                  ls_t001b-tope3 = ls_zfit0063-tope3.
+                ENDIF.
+              ENDIF.
+
+
+
               UPDATE t001b FROM ls_t001b.
               IF sy-subrc = 0.
                 COMMIT WORK.
@@ -529,6 +682,7 @@ FORM newdata USING is_selfield TYPE slis_selfield.
           LOOP AT lt_t001b INTO ls_t001b WHERE mkoar = ls_zfit0063-mkoar.
 *          READ TABLE lt_t001b INTO ls_t001b WITH KEY mkoar = ls_zfit0063-mkoar.
             IF sy-subrc = 0.
+              "第一个
               "判断全部账期
               IF ls_t001b-frye1 < ls_zfit0063-frye1 AND ls_t001b-toye1 < ls_zfit0063-toye1 OR ls_t001b-frye1 > ls_zfit0063-frye1 AND ls_t001b-toye1 > ls_zfit0063-toye1.
                 ls_t001b-frye1 = ls_zfit0063-frye1.
@@ -562,6 +716,78 @@ FORM newdata USING is_selfield TYPE slis_selfield.
                   ls_t001b-tope1 = ls_zfit0063-tope1.
                 ENDIF.
               ENDIF.
+
+              "第2个
+              "判断全部账期
+              IF ls_t001b-frye2 < ls_zfit0063-frye2 AND ls_t001b-toye2 < ls_zfit0063-toye2 OR ls_t001b-frye2 > ls_zfit0063-frye2 AND ls_t001b-toye2 > ls_zfit0063-toye2.
+                ls_t001b-frye2 = ls_zfit0063-frye2.
+                ls_t001b-frpe2 = ls_zfit0063-frpe2.
+                ls_t001b-toye2 = ls_zfit0063-toye2.
+                ls_t001b-tope2 = ls_zfit0063-tope2.
+              ENDIF.
+              "判断起始账期
+              IF ls_zfit0063-frye2 > ls_t001b-frye2.
+                ls_t001b-frye2 = ls_zfit0063-frye2.
+                ls_t001b-frpe2 = ls_zfit0063-frpe2.
+              ELSEIF ls_zfit0063-frye2 = ls_t001b-frye2.
+                IF ls_zfit0063-frpe2 > ls_t001b-frpe2.
+                  ls_t001b-frpe2 = ls_zfit0063-frpe2.
+                ENDIF.
+              ENDIF.
+              "判断终止账期
+              IF ls_zfit0063-toye2 < ls_t001b-toye2.
+                ls_t001b-toye2 = ls_zfit0063-toye2.
+                ls_t001b-tope2 = ls_zfit0063-tope2.
+                IF ls_t001b-toye2 < ls_t001b-frye2.
+                  ls_t001b-toye2 = ls_zfit0063-toye2.
+                ENDIF.
+              ELSEIF ls_zfit0063-toye2 = ls_t001b-toye2.
+                IF ls_zfit0063-tope2 < ls_t001b-tope2.
+                  ls_t001b-tope2 = ls_zfit0063-tope2.
+                ENDIF.
+              ENDIF.
+              IF ls_t001b-frye2 = ls_t001b-toye2.
+                IF ls_t001b-tope2 < ls_t001b-frpe2.
+                  ls_t001b-tope2 = ls_zfit0063-tope2.
+                ENDIF.
+              ENDIF.
+
+              "第3个
+              "判断全部账期
+              IF ls_t001b-frye3 < ls_zfit0063-frye3 AND ls_t001b-toye3 < ls_zfit0063-toye3 OR ls_t001b-frye3 > ls_zfit0063-frye3 AND ls_t001b-toye3 > ls_zfit0063-toye3.
+                ls_t001b-frye3 = ls_zfit0063-frye3.
+                ls_t001b-frpe3 = ls_zfit0063-frpe3.
+                ls_t001b-toye3 = ls_zfit0063-toye3.
+                ls_t001b-tope3 = ls_zfit0063-tope3.
+              ENDIF.
+              "判断起始账期
+              IF ls_zfit0063-frye3 > ls_t001b-frye3.
+                ls_t001b-frye3 = ls_zfit0063-frye3.
+                ls_t001b-frpe3 = ls_zfit0063-frpe3.
+              ELSEIF ls_zfit0063-frye3 = ls_t001b-frye3.
+                IF ls_zfit0063-frpe3 > ls_t001b-frpe3.
+                  ls_t001b-frpe3 = ls_zfit0063-frpe3.
+                ENDIF.
+              ENDIF.
+              "判断终止账期
+              IF ls_zfit0063-toye3 < ls_t001b-toye3.
+                ls_t001b-toye3 = ls_zfit0063-toye3.
+                ls_t001b-tope3 = ls_zfit0063-tope3.
+                IF ls_t001b-toye3 < ls_t001b-frye3.
+                  ls_t001b-toye3 = ls_zfit0063-toye3.
+                ENDIF.
+              ELSEIF ls_zfit0063-toye3 = ls_t001b-toye3.
+                IF ls_zfit0063-tope3 < ls_t001b-tope3.
+                  ls_t001b-tope3 = ls_zfit0063-tope3.
+                ENDIF.
+              ENDIF.
+              IF ls_t001b-frye3 = ls_t001b-toye3.
+                IF ls_t001b-tope3 < ls_t001b-frpe3.
+                  ls_t001b-tope3 = ls_zfit0063-tope3.
+                ENDIF.
+              ENDIF.
+
+
               UPDATE t001b FROM ls_t001b.
               IF sy-subrc = 0.
                 COMMIT WORK.

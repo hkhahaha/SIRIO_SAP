@@ -59,3 +59,33 @@ DEFINE  macro_fill_fcat.
 
   APPEND gs_fieldcat TO gt_fieldcat.
 END-OF-DEFINITION.
+
+TYPES:BEGIN OF ty_po,
+        matnr    TYPE mara-matnr,
+        werks    TYPE marc-werks,
+        ebeln    TYPE ekko-ebeln,
+        ebelp    TYPE ekpo-ebelp,
+        count(3) TYPE i,
+      END OF ty_po.
+
+DATA: lt_po TYPE TABLE OF ty_po,
+      ls_po LIKE LINE OF lt_po.
+
+TYPES:BEGIN OF ty_so,
+        matnr    TYPE mara-matnr,
+        werks    TYPE marc-werks,
+        count(3) TYPE i,
+      END OF ty_so.
+
+DATA: lt_so  TYPE TABLE OF ty_so,
+      lt_so2 TYPE TABLE OF ty_so,
+      ls_so  LIKE LINE OF lt_so.
+
+TYPES:BEGIN OF ty_po_un,
+        matnr    TYPE mara-matnr,
+        werks    TYPE ekpo-werks,
+        menge(3) TYPE i,
+      END OF ty_po_un.
+
+DATA: lt_po_un TYPE TABLE OF ty_po_un,
+      ls_po_un LIKE LINE OF lt_po_un.

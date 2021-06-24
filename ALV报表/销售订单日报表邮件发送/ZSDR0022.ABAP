@@ -9,7 +9,7 @@ TYPE-POOLS:slis."调用系统存在的类型池
 DATA:fieldcat TYPE slis_t_fieldcat_alv WITH HEADER LINE,
      layout   TYPE slis_layout_alv,
      w_repid  TYPE sy-repid. "记录系统当前的程序名
-TABLES:vbak,zsdt0019,but000,vbpa,knvp,makt,vbap.
+TABLES:vbak,zsdt0019,but000,vbpa,knvp,makt,vbap,zsdt0025.
 TYPES:BEGIN OF ty_alv,
         objnr TYPE vbak-objnr, "对象编号
         matnr TYPE vbap-matnr,
@@ -25,27 +25,29 @@ TYPES:BEGIN OF ty_val,
         objek TYPE ausp-objek,
       END OF ty_val.
 
-DATA:ls_zsdt0019  TYPE zsdt0019,
-     lt_zsdt0019  TYPE TABLE OF zsdt0019, "自定义表1
-     lt_zsdt00192 TYPE TABLE OF zsdt0019, "自定义表1
-     lt_zsdt0019b TYPE TABLE OF zsdt0019b,
-     ls_zsdt0019b TYPE zsdt0019b,
-     lt_knvp      TYPE TABLE OF knvp,
-     ls_knvp      TYPE knvp,
-     lt_alv       TYPE TABLE OF ty_alv,
-     ls_alv       TYPE ty_alv,
-     lt_jest      TYPE TABLE OF jest,
-     ls_jest      TYPE jest,
-     lt_jcds      TYPE TABLE OF jcds,
-     ls_jcds      TYPE jcds,
-     lt_but000    TYPE TABLE OF but000,
-     ls_but000    TYPE but000,
+DATA:ls_zsdt0019   TYPE zsdt0019,
+     lt_zsdt0019   TYPE TABLE OF zsdt0019, "自定义表1
+     lt_zsdt00192  TYPE TABLE OF zsdt0019, "自定义表1
+     lt_zsdt0019b  TYPE TABLE OF zsdt0019b,
+*     lt_zsdt0019b1 TYPE TABLE OF zsdt0019b,
+     lt_zsdt0019b2 TYPE TABLE OF zsdt0019b,
+     ls_zsdt0019b  TYPE zsdt0019b,
+     lt_knvp       TYPE TABLE OF knvp,
+     ls_knvp       TYPE knvp,
+     lt_alv        TYPE TABLE OF ty_alv,
+     ls_alv        TYPE ty_alv,
+     lt_jest       TYPE TABLE OF jest,
+     ls_jest       TYPE jest,
+     lt_jcds       TYPE TABLE OF jcds,
+     ls_jcds       TYPE jcds,
+     lt_but000     TYPE TABLE OF but000,
+     ls_but000     TYPE but000,
 *     lt_vbpa      TYPE TABLE OF vbpa,
 *     ls_vbpa      TYPE vbpa,
-     lt_tvakt     TYPE TABLE OF tvakt,
-     ls_tvakt     TYPE tvakt,
-     lt_val       TYPE TABLE OF ty_val,
-     ls_val       TYPE ty_val.
+     lt_tvakt      TYPE TABLE OF tvakt,
+     ls_tvakt      TYPE tvakt,
+     lt_val        TYPE TABLE OF ty_val,
+     ls_val        TYPE ty_val.
 
 SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001."定义屏幕
 SELECT-OPTIONS:s_auart FOR vbak-auart,"订单类型
@@ -758,14 +760,62 @@ FORM getdata."查询语句
 
 
   DELETE lt_zsdt0019b WHERE udate IS INITIAL.
+  "Seasehll Huang 2021.3 23 新增多方交易类型
+*取数逻辑：
+*上面实际上已经取到了多方交易的涉及的全部单据
+*多方交易的原始单据为“Z1”类型，判断是否多方交易的方式是
+*将销售订单反查ZSDT0025数据表里面的数据，如果存在的话那么可以证明是多方交易的类型
+*可以通过“多方交易节点”字段判断销售订单的数据是不是最终单据或者是原始单据
+*报表需要的是原始单据的数据，但是一部分数据在最终单据里面，所以要把数据填充回原始单据，然后将Z1类型改成最终单据的类型
+  "(1)捞出全部单据，保存在lt_zsdt0019b1表里面，并且为原始单据
+*  SELECT
+*    a~*
+*  FROM @lt_zsdt0019b AS a
+*  INNER JOIN zsdt0025
+*  ON a~vbeln = zsdt0025~vbeln
+*  AND a~posnr = zsdt0025~posnr
+*  WHERE zsdt0025~zjied = ''
+*  AND   zsdt0025~zysdj = a~vbeln
+*  INTO TABLE @DATA(lt_zsdt0019b1).
+  "（2）捞出全部多方交易的数据，并且为最终单据，保存在LT_ZSDT0019B2表中
+  SELECT
+    a~*
+  FROM @lt_zsdt0019b AS a
+  INNER JOIN zsdt0025
+  ON a~vbeln = zsdt0025~vbeln
+  AND a~posnr = zsdt0025~posnr
+  INTO TABLE @DATA(lt_zsdt0019b2).
+
+  SELECT
+    *
+  INTO TABLE @DATA(lt_zsdt0025)
+  FROM zsdt0025
+  FOR ALL ENTRIES IN @lt_zsdt0019b
+  WHERE zsdt0025~zysdj = @lt_zsdt0019b-vbeln.
+
+
+  "（3）循环读取LT_ZSDT0019B1表里面的数据，将最终单据所需要的数据覆盖原始单据
+  DATA:ls_zsdt0019b1 TYPE zsdt0019b,
+       ls_zsdt0019b2 TYPE zsdt0019b.
+  LOOP AT lt_zsdt0019b INTO ls_zsdt0019b.
+    LOOP AT lt_zsdt0025 INTO DATA(ls_zsdt0025) WHERE zysdj = ls_zsdt0019b-vbeln AND zjied = '2'.
+      READ TABLE lt_zsdt0019b2 INTO ls_zsdt0019b2 WITH KEY vbeln = ls_zsdt0025-vbeln posnr = ls_zsdt0025-posnr.
+      IF sy-subrc = 0.
+        ls_zsdt0019b-ettyp = ls_zsdt0019b2-ettyp.
+        ls_zsdt0019b-werks = ls_zsdt0019b2-werks.
+        MODIFY lt_zsdt0019b FROM ls_zsdt0019b.
+      ENDIF.
+      CLEAR ls_zsdt0019b2.
+      CLEAR ls_zsdt0025.
+    ENDLOOP.
+    CLEAR ls_zsdt0019b.
+  ENDLOOP.
+
+
   DELETE lt_zsdt0019b WHERE ettyp = 'Z1'.
+  DELETE lt_zsdt0019b WHERE vtweg = '00'.
   DELETE lt_zsdt0019b WHERE ettyp = 'ZB' AND kains IS INITIAL AND kalab IS INITIAL.
   SORT lt_zsdt0019b BY ettyp DESCENDING udate ASCENDING.
-
-
-
-
-
 
 
 

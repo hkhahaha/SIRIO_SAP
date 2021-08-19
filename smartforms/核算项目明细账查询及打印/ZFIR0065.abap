@@ -48,6 +48,8 @@ TYPES:BEGIN OF ty_all,
 DATA:lt_all   TYPE TABLE OF ty_all,
      ls_all   LIKE LINE OF lt_all,
      ls_all2  LIKE LINE OF lt_all,
+     ls_all4  LIKE LINE OF lt_all,
+     ls_all4c LIKE LINE OF lt_all,
      lt_all_t TYPE TABLE OF ty_all, "期初余额缓存表
      lt_all1  TYPE TABLE OF ty_all, "期初余额
      lt_all3a TYPE TABLE OF ty_all, "本期发生额
@@ -55,6 +57,7 @@ DATA:lt_all   TYPE TABLE OF ty_all,
      lt_all4  TYPE TABLE OF ty_all, "本年累计发生额
      lt_all4a TYPE TABLE OF ty_all, "本年累计发生额,借方数据
      lt_all4b TYPE TABLE OF ty_all, "本年累计发生额，贷方数据
+     lt_all4c TYPE TABLE OF ty_all, "本年累计发生额，贷方数据
      lt_all2  TYPE TABLE OF ty_all. "本期明细
 
 DATA:lt_out  TYPE TABLE OF ty_all, "ALV输出
@@ -93,8 +96,8 @@ FORM getdata.
       racct,
       rtcur,
       gvtyp,
-      SUM( wsl ) AS wsl2,
-      SUM( hsl ) AS hsl2
+      SUM( wsl ) AS wsl,
+      SUM( hsl ) AS hsl
     FROM acdoca
     INNER JOIN ska1
     ON ska1~ktopl = acdoca~ktopl
@@ -211,15 +214,44 @@ FORM getdata.
       AND racct BETWEEN 1001010000 AND 6910999999
     GROUP BY rbukrs,racct,rtcur,gvtyp,rfarea
     INTO CORRESPONDING FIELDS OF TABLE @lt_all4b.
+  "总的数据
+  SELECT
+    rbukrs,
+    racct,
+    rtcur,
+    gvtyp,
+    SUM( wsl ) AS wsla,
+    SUM( hsl ) AS hsla
+  FROM acdoca
+  INNER JOIN ska1
+  ON ska1~ktopl = acdoca~ktopl
+  AND ska1~saknr = acdoca~racct
+  WHERE rbukrs = @p_rbukrs
+    AND fiscyearper < @p_year
+    AND racct IN @s_racct
+    AND rfarea IN @p_rfarea
+    AND kunnr IN @s_kunnr
+    AND lifnr IN @s_lifnr
+    AND racct BETWEEN 1001010000 AND 6910999999
+  GROUP BY rbukrs,racct,rtcur,gvtyp
+  INTO CORRESPONDING FIELDS OF TABLE @lt_all4c.
 
   "(1)+(2)合并
-  LOOP AT lt_all4a INTO ls_all.
+  LOOP AT lt_all4c INTO ls_all.
     READ TABLE lt_all4b INTO ls_all2 WITH KEY racct = ls_all-racct
                                              rbukrs = ls_all-rbukrs
                                              rtcur = ls_all-rtcur.
     IF sy-subrc = 0.
       ls_all-hsl2 = ls_all2-hslb.
       ls_all-wsl2 = ls_all2-wslb.
+    ENDIF.
+    CLEAR ls_all2.
+    READ TABLE lt_all4a INTO ls_all2 WITH KEY racct = ls_all-racct
+                                             rbukrs = ls_all-rbukrs
+                                             rtcur = ls_all-rtcur.
+    IF sy-subrc = 0.
+      ls_all-hsl1 = ls_all2-hslb.
+      ls_all-wsl1 = ls_all2-wslb.
     ENDIF.
     ls_all-hsl1 = ls_all-hsla.
     ls_all-wsl1 = ls_all-wsla.
@@ -274,9 +306,58 @@ FORM getdata.
     APPEND ls_all TO lt_all4.
     CLEAR:ls_all,ls_all2,ls_tempa.
   ENDLOOP.
-  
-  "开始对数据进行处理
-  
+
+  "开始对数据进行处理,以LT_ALL1作为基底，然后循环处理数据
+  LOOP AT lt_all1 INTO ls_all.
+    "第一行处理的是期初余额
+    IF ls_all-gvtyp = 'X'.
+      ls_all-hsl = 0.
+      ls_all-wsl = 0.
+    ENDIF.
+    "科目描述
+    READ TABLE lt_skat INTO ls_skat WITH KEY saknr = ls_all-racct.
+    IF sy-subrc = 0.
+      ls_all-txt20 = ls_skat-txt20.
+    ENDIF.
+    "借贷标识
+    IF ls_all-wsl = 0.
+      ls_all-type = '平'.
+    ELSEIF ls_all-wsl > 0.
+      ls_all-type = '借'.
+    ELSE.
+      ls_all-type = '贷'.
+    ENDIF.
+
+    ls_all-style = '期初余额'.
+    MOVE-CORRESPONDING ls_all TO ls_out.
+    APPEND ls_out TO lt_out.
+    CLEAR ls_out.
+    "接下来插入本期明细
+
+
+
+
+
+    "本期发生额
+
+
+
+    "本年累计
+    READ TABLE lt_all4 INTO ls_all4 WITH KEY rbukrs = ls_all-rbukrs
+                                             racct = ls_all-racct
+                                             rtcur = ls_all-rtcur.
+    CLEAR ls_out.
+    MOVE-CORRESPONDING ls_all4 TO ls_out.
+    READ TABLE lt_skat INTO ls_skat WITH KEY saknr = ls_all4-racct.
+    IF sy-subrc = 0.
+      ls_out-txt20 = ls_skat-txt20.
+    ENDIF.
+    ls_out-style = '本年累计发生额'.
+    APPEND ls_out TO lt_out.
+    CLEAR ls_out.
+
+    CLEAR ls_all.
+  ENDLOOP.
 
 
 

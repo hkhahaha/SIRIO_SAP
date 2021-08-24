@@ -1,0 +1,1760 @@
+*----------------------------------------------------------------------*
+***INCLUDE LZQM003F01.
+*----------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*& Form FRM_GET_BATCHINFO
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> LT_BATCH_CHARA
+*&      --> LS_MCHA
+*&---------------------------------------------------------------------*
+FORM FRM_GET_BATCHINFO  TABLES   PT_BATCH_CHARA STRUCTURE GS_BATCH_CHARA
+                        USING    PS_MCHA LIKE MCHA.
+
+  CHECK PS_MCHA IS NOT INITIAL.
+
+  CLEAR:PT_BATCH_CHARA[].
+  CLEAR:GT_BATCH_CHARA.
+
+* 批次信息
+  DATA: LV_OBJEK              TYPE CUOBN,
+        LV_OBTAB              TYPE TABELLE,
+        LV_KLART              TYPE KLASSENART,
+        LV_CLASS              TYPE KLASSE_D,
+        LV_FLTP_TO_STRING(16) TYPE C,
+        "批次特性通用返回类型表 num型 char型 curr型
+        LT_NUM                TYPE TABLE OF BAPI1003_ALLOC_VALUES_NUM,
+        LT_CHAR               TYPE TABLE OF BAPI1003_ALLOC_VALUES_CHAR,
+        LT_CURR               TYPE TABLE OF BAPI1003_ALLOC_VALUES_CURR,
+        LT_RETURN             TYPE TABLE OF BAPIRET2.
+
+  CALL FUNCTION 'VB_BATCH_2_CLASS_OBJECT'
+    EXPORTING
+      I_MATNR = PS_MCHA-MATNR
+      I_CHARG = PS_MCHA-CHARG
+      I_WERKS = PS_MCHA-WERKS
+    IMPORTING
+      E_OBJEK = LV_OBJEK "对象
+      E_OBTAB = LV_OBTAB "表
+      E_KLART = LV_KLART "类型
+      E_CLASS = LV_CLASS. "类
+
+  CALL FUNCTION 'BAPI_OBJCL_GETDETAIL'
+    EXPORTING
+      OBJECTKEY_LONG  = LV_OBJEK
+      OBJECTTABLE     = LV_OBTAB
+      CLASSNUM        = LV_CLASS
+      CLASSTYPE       = LV_KLART
+    TABLES
+      ALLOCVALUESNUM  = LT_NUM
+      ALLOCVALUESCHAR = LT_CHAR
+      ALLOCVALUESCURR = LT_CURR
+      RETURN          = LT_RETURN.
+
+  READ TABLE LT_RETURN INTO DATA(LS_RETURN) WITH KEY TYPE = 'S'.
+  CHECK SY-SUBRC = 0.
+
+  SELECT ATNAM,
+         ATFOR,
+         ANZST
+    FROM CABN
+    INTO TABLE @DATA(LT_CABN).
+
+  SORT  LT_CABN BY ATNAM.
+
+  DATA: LV_SOLLWERT TYPE QSOLLWERTC,
+        LV_QSTELLEN TYPE QSTELLEN.
+
+  LOOP AT LT_NUM INTO DATA(LS_VALUESUM).
+    CLEAR GS_BATCH_CHARA.
+    GS_BATCH_CHARA-ATNAM = LS_VALUESUM-CHARACT.
+    GS_BATCH_CHARA-ATBEZ = LS_VALUESUM-CHARACT_DESCR.
+    GS_BATCH_CHARA-ATWRT = LS_VALUESUM-VALUE_FROM.
+
+*   日期类型NUM转CHAR显示
+    READ TABLE LT_CABN WITH KEY ATNAM = LS_VALUESUM-CHARACT BINARY SEARCH INTO DATA(LS_CABN).
+    IF SY-SUBRC = 0.
+      GS_BATCH_CHARA-ATFOR = LS_CABN-ATFOR."格式(DATE、NUM）
+      GS_BATCH_CHARA-ANZST = LS_CABN-ANZST."字符个数
+      CASE LS_CABN-ATFOR.
+        WHEN 'DATE'.
+          CLEAR LV_SOLLWERT.
+          CALL FUNCTION 'QSS0_FLTP_TO_CHAR_CONVERSION'
+            EXPORTING
+              I_NUMBER_OF_DIGITS = 0
+              I_FLTP_VALUE       = LS_VALUESUM-VALUE_FROM
+*             I_VALUE_NOT_INITIAL_FLAG       = 'X'
+*             I_SCREEN_FIELDLENGTH           = 16
+            IMPORTING
+              E_CHAR_FIELD       = LV_SOLLWERT.
+          CONDENSE LV_SOLLWERT NO-GAPS.
+          IF LV_SOLLWERT = '0'.
+            CLEAR LV_SOLLWERT.
+          ENDIF.
+          GS_BATCH_CHARA-ATWRT = LV_SOLLWERT.
+        WHEN 'NUM'."转字符格式显示
+          CLEAR LV_SOLLWERT.
+          LV_QSTELLEN = CONV #( LS_CABN-ANZST )."字符个数
+          CALL FUNCTION 'QSS0_FLTP_TO_CHAR_CONVERSION'
+            EXPORTING
+              I_NUMBER_OF_DIGITS = LV_QSTELLEN "字符个数
+              I_FLTP_VALUE       = LS_VALUESUM-VALUE_FROM
+*             I_VALUE_NOT_INITIAL_FLAG       = 'X'
+*             I_SCREEN_FIELDLENGTH           = 16
+            IMPORTING
+              E_CHAR_FIELD       = LV_SOLLWERT.
+          CONDENSE LV_SOLLWERT NO-GAPS.
+          GS_BATCH_CHARA-ATWRT = ZCL_BC_PUBLIC=>TRAILING_QUAN_ZERO( CONV #( LV_SOLLWERT ) ).
+        WHEN OTHERS.
+      ENDCASE.
+    ENDIF.
+    APPEND GS_BATCH_CHARA TO GT_BATCH_CHARA.
+  ENDLOOP.
+
+*
+  LOOP AT LT_CHAR INTO DATA(LS_VALUESCHAR).
+    CLEAR GS_BATCH_CHARA.
+    GS_BATCH_CHARA-ATNAM = LS_VALUESCHAR-CHARACT.
+    GS_BATCH_CHARA-ATBEZ = LS_VALUESCHAR-CHARACT_DESCR.
+    GS_BATCH_CHARA-ATWRT = LS_VALUESCHAR-VALUE_CHAR_LONG.
+    READ TABLE LT_CABN WITH KEY ATNAM = LS_VALUESCHAR-CHARACT BINARY SEARCH INTO LS_CABN.
+    IF SY-SUBRC = 0.
+      GS_BATCH_CHARA-ATFOR = LS_CABN-ATFOR."格式(DATE、NUM）
+      GS_BATCH_CHARA-ANZST = LS_CABN-ANZST."字符个数
+    ENDIF.
+    APPEND GS_BATCH_CHARA TO GT_BATCH_CHARA.
+  ENDLOOP.
+
+
+  PT_BATCH_CHARA[] = GT_BATCH_CHARA.
+  CLEAR:GT_BATCH_CHARA.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form frm_get_qm0561
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      <-- E_OUTPUT
+*&---------------------------------------------------------------------*
+FORM FRM_GET_QM0561 USING PS_INPUT TYPE ZQMS_LIMS_0003
+                    CHANGING PS_OUTPUT TYPE ZQMS_RET
+                             PS_DATA_0003 LIKE GS_DATA_0003.
+
+
+  DATA:LS_QALS       LIKE QALS.  "检验批记录
+  DATA:LS_MCHA       LIKE MCHA.  "批次
+  DATA:LS_BUT000_GY  LIKE BUT000."供应商
+  DATA:LS_BUT000_ZZ  LIKE BUT000."制造商
+  DATA:LS_BUT000_SDF LIKE BUT000."售达方
+  DATA:LS_KNA1       LIKE KNA1.  "客户主数据
+  DATA : LS_LFA1     LIKE LFA1 .
+  DATA:LS_AFKO       LIKE AFKO.  "订单号
+  DATA:LS_VBAK       LIKE VBAK.  "销售凭证 ： 抬头数据
+  DATA : LS_VBPA TYPE VBPA .
+  DATA:LS_T005T      LIKE T005T. "国家名
+  DATA:LT_T005T      LIKE STANDARD TABLE OF T005T. "国家名
+  DATA:LS_T006A      LIKE T006A. "单位
+  DATA:LT_T006A      LIKE STANDARD TABLE OF T006A.
+  DATA:LS_AUFK       LIKE AUFK.
+  DATA:LS_RESB       LIKE RESB.
+  DATA:LT_RESB       LIKE STANDARD TABLE OF RESB.
+  DATA:LS_MARA      LIKE MARA.
+
+* 批次信息
+  DATA:LT_BATCH_CHARA LIKE STANDARD TABLE OF GS_BATCH_CHARA.
+  DATA:LS_BATCH_CHARA LIKE  GS_BATCH_CHARA.
+
+  CLEAR:PS_DATA_0003.
+
+
+* 获取单位信息
+  SELECT *
+    INTO CORRESPONDING FIELDS OF TABLE LT_T006A
+    FROM T006A
+   WHERE SPRAS = SY-LANGU.
+
+  SORT LT_T006A BY MSEHI.
+
+* 获取国家名
+  SELECT *
+    INTO CORRESPONDING FIELDS OF TABLE LT_T005T
+    FROM T005T
+   WHERE SPRAS = SY-LANGU.
+
+  SORT LT_T005T BY LAND1.
+
+
+* 获取检验批记录信息
+  DO  20 TIMES.
+    SELECT SINGLE *
+      INTO LS_QALS
+      FROM QALS
+     WHERE PRUEFLOS = PS_INPUT-PRUEFLOS.
+    IF SY-SUBRC <> 0 .
+      WAIT UP TO 1 SECONDS .
+    ELSE .
+      EXIT .
+    ENDIF .
+  ENDDO.
+
+  IF LS_QALS IS  INITIAL.
+    PS_OUTPUT-CODE  = 'E'.
+    PS_OUTPUT-MSG = '没有查询到对应的检验批号'.
+    EXIT.
+  ENDIF.
+
+
+
+
+  IF LS_QALS-PRUEFLOS  IS NOT INITIAL.
+    PS_DATA_0003-PRUEFLOS    =   LS_QALS-PRUEFLOS.  "请验单号
+    PS_DATA_0003-ART         =   LS_QALS-ART.       "检验类型
+    PS_DATA_0003-MATNR       =   LS_QALS-MATNR.     "物料编码
+    PS_DATA_0003-WERK        =   LS_QALS-WERK.      "工厂
+*    PS_DATA_0003-CHARG       =  '19491001'." LS_QALS-CHARG.     "SAP批次号
+    PS_DATA_0003-CHARG       =   LS_QALS-CHARG.     "SAP批次号
+    PS_DATA_0003-LAGORTCHRG  =   LS_QALS-LAGORTCHRG."库存地
+
+
+*      物料工厂批次信息
+    SELECT SINGLE *
+      INTO CORRESPONDING FIELDS OF LS_MCHA
+      FROM MCHA
+     WHERE MATNR = LS_QALS-MATNR
+       AND WERKS = LS_QALS-WERK
+       AND CHARG = LS_QALS-CHARG.
+*
+    PS_DATA_0003-LWEDT   = LS_MCHA-LWEDT. "到货日期
+    PS_DATA_0003-LICHA    = LS_MCHA-LICHA. "供应商批次号
+    PS_DATA_0003-W_HSDAT  = LS_MCHA-HSDAT. "物料生产日期
+    PS_DATA_0003-W_VFDAT  = LS_MCHA-VFDAT. "物料有效日期
+
+    SELECT SINGLE *
+      INTO CORRESPONDING FIELDS OF  LS_MARA
+      FROM MARA
+     WHERE MATNR = LS_MCHA-MATNR.
+
+
+*       供应商 modify S4DK904914 start
+    CLEAR:LS_BUT000_GY.
+    SELECT SINGLE *
+      INTO LS_BUT000_GY
+      FROM BUT000
+     WHERE PARTNER = LS_QALS-LIFNR.
+
+    PS_DATA_0003-T_LIFNR       =  LS_BUT000_GY-NAME_ORG1."供应商名称
+    PS_DATA_0003-LIFNR         =  LS_QALS-LIFNR.         "供应商代码
+    CALL FUNCTION 'CONVERSION_EXIT_ALPHA_OUTPUT'
+      EXPORTING
+        INPUT  = PS_DATA_0003-LIFNR
+      IMPORTING
+        OUTPUT = PS_DATA_0003-LIFNR.
+*    PS_DATA_0003-LIFNR         =  LS_BUT000_GY-BU_SORT1.         "供应商代码
+
+*       制造商
+*old 20210629
+*"由QALS-PRUEFLOS取出QALS-EBELN，再由EKKO-EBELN=QALS-EBELN取出EKKO-BSART。
+*若EKKO-BSART字段的值不等于ZJS，则由QALS-PRUEFLOS取出QALS-HERSTELLER，再由BUT000-PARNER=QALS-HERSTELLER取出BUT000-NAME_ORG1。
+*若EKKO-BSART字段的值等于ZJS，则由EKPO-EBELN=QALS-EBELN取出EKPO-ZMFRNR，再由BUT000-PARNER=EKPO-ZMFRNR取出BUT000-NAME_ORG1。"
+*new 20210701
+*"若QALS-HERSTELLER非空，则取QALS-HERSTELLER；
+*若QALS-HERSTELLER为空，由EKPO-EBELN=QALS-EBELN取出EKPO-ZMFRNR。"
+    DATA : LV_PARTNER TYPE BUT000-PARTNER .
+    IF LS_QALS-HERSTELLER IS INITIAL.
+      SELECT SINGLE EKPO~ZMFRNR
+            INTO LV_PARTNER
+            FROM EKPO
+            WHERE EKPO~EBELN = LS_QALS-EBELN
+              AND EKPO~EBELP = LS_QALS-EBELP .
+    ELSE.
+      LV_PARTNER = LS_QALS-HERSTELLER.
+    ENDIF.
+
+*    LV_PARTNER = LS_QALS-HERSTELLER .
+
+
+    CLEAR:LS_BUT000_ZZ.
+    SELECT SINGLE *
+      INTO LS_BUT000_ZZ
+      FROM BUT000
+     WHERE PARTNER = LV_PARTNER .
+    PS_DATA_0003-T_HERSTELLER       =  LS_BUT000_ZZ-NAME_ORG1."制造商
+    PS_DATA_0003-MFGCODE            =  LV_PARTNER."制造商编号 add S4DK904914
+    CALL FUNCTION 'CONVERSION_EXIT_ALPHA_OUTPUT'
+      EXPORTING
+        INPUT  = PS_DATA_0003-MFGCODE
+      IMPORTING
+        OUTPUT = PS_DATA_0003-MFGCODE.
+*modify S4DK904914 end
+
+*       获取供应商等级
+    IF LS_MARA-MTART = 'Z010'.
+      LV_PARTNER = LS_QALS-HERSTELLER .
+    ELSEIF LS_MARA-MTART = 'Z020' OR LS_MARA-MTART = 'Z090' .
+      LV_PARTNER = LS_QALS-LIFNR .
+    ENDIF .
+    CLEAR:LS_LFA1.
+    SELECT SINGLE *
+      INTO LS_LFA1
+      FROM LFA1
+*     WHERE LIFNR = LS_QALS-LIFNR.
+     WHERE LIFNR = LV_PARTNER.
+    IF SY-SUBRC = 0 .
+      SELECT SINGLE REGIOGROUP
+        INTO PS_DATA_0003-ZMFR_GRD
+        FROM ADRC
+        WHERE ADDRNUMBER = LS_LFA1-ADRNR .
+*    PS_DATA_0003-ZMFR_GRD  =   LS_KNA1-KATR1."供应商等级
+    ENDIF .
+
+*       单位
+    IF LT_T006A[] IS NOT INITIAL.
+      CLEAR:LS_T006A.
+      READ TABLE LT_T006A INTO LS_T006A WITH KEY MSEHI = LS_QALS-MENGENEINH BINARY SEARCH."
+      PS_DATA_0003-T_MENGENEINH = LS_T006A-MSEH3.
+    ENDIF.
+
+*    SELECT SINGLE BU_SORT1
+*      INTO PS_DATA_0003-LIFNR
+*      FROM BUT000
+*      WHERE PARTNER = LS_QALS-LIFNR.
+
+*       获取订单数据信息
+    CLEAR:LS_AFKO.
+    SELECT SINGLE *
+      INTO LS_AFKO
+      FROM AFKO
+     WHERE AUFNR = LS_QALS-AUFNR.
+
+    PS_DATA_0003-PASTRTERM =   LS_AFKO-GSTRP."计划生产日期
+
+*
+*    PS_DATA_0003-LMENGEIST   =   LS_QALS-LMENGEIST."物料批量
+    IF LS_MARA-MTART = 'Z010'
+    OR LS_MARA-MTART = 'Z020'
+    OR LS_MARA-MTART = 'Z090' .
+      PS_DATA_0003-LMENGEIST   =   LS_QALS-LMENGEIST."物料批量
+    ELSE .
+      PS_DATA_0003-LMENGEIST   =   LS_QALS-LOSMENGE."物料批量
+    ENDIF .
+
+    IF LS_MARA-MTART = 'Z050'.
+      PS_DATA_0003-KDAUF       =   LS_QALS-KDAUF.    "销售凭证
+    ELSEIF LS_MARA-MTART = 'Z030' .
+      SELECT SINGLE ZKDAUF_S
+        INTO PS_DATA_0003-KDAUF
+        FROM AUFK
+        WHERE AUFNR = LS_QALS-AUFNR .
+    ENDIF.
+
+    PS_DATA_0003-AUFNR       =   LS_QALS-AUFNR.    "流程订单
+
+*       获取订单数据信息
+    IF PS_DATA_0003-KDAUF IS NOT INITIAL.
+      CLEAR:LS_VBAK.
+      SELECT SINGLE *
+        INTO LS_VBAK
+        FROM VBAK
+       WHERE VBELN = PS_DATA_0003-KDAUF.
+
+      IF   LS_VBAK IS NOT INITIAL.
+*          客户地区
+        CLEAR:LS_T005T.
+        READ TABLE LT_T005T INTO LS_T005T WITH KEY LAND1 = LS_VBAK-ZCKGJ BINARY SEARCH."国家名
+        PS_DATA_0003-CH_LANDX = LS_T005T-LANDX."客户地区
+
+*          售达方
+        CLEAR:LS_BUT000_SDF.
+        SELECT SINGLE *
+          INTO LS_BUT000_SDF
+          FROM BUT000
+         WHERE PARTNER = LS_VBAK-KUNNR.
+
+        PS_DATA_0003-T_KUNNR       =  LS_BUT000_SDF-BU_SORT1."售达方搜索词1
+
+
+        "SJKH 实际客户从KNVP取数改为VBPA取数 S4DK904914
+        CLEAR LS_VBPA .
+        SELECT SINGLE *
+          INTO LS_VBPA
+          FROM VBPA
+          WHERE VBELN = LS_VBAK-VBELN
+            AND PARVW = 'Z1' .
+        IF SY-SUBRC = 0 .
+          CLEAR:LS_BUT000_SDF.
+          SELECT SINGLE *
+            INTO LS_BUT000_SDF
+            FROM BUT000
+           WHERE PARTNER = LS_VBPA-KUNNR.
+          PS_DATA_0003-SJKH       =  LS_BUT000_SDF-BU_SORT1."实际客户搜索词1
+          PS_DATA_0003-SJKHCODE   =  LS_VBPA-KUNNR."实际客户编码 add S4DK904914
+          CALL FUNCTION 'CONVERSION_EXIT_ALPHA_OUTPUT'
+            EXPORTING
+              INPUT  = PS_DATA_0003-SJKHCODE
+            IMPORTING
+              OUTPUT = PS_DATA_0003-SJKHCODE.
+        ENDIF .
+      ENDIF.
+    ENDIF.
+
+*       获取批次信息
+    PERFORM FRM_GET_BATCHINFO TABLES LT_BATCH_CHARA USING LS_MCHA.
+
+    SORT  LT_BATCH_CHARA BY ATNAM.
+
+*      长批号
+    CLEAR:LS_BATCH_CHARA.
+    READ TABLE LT_BATCH_CHARA INTO  LS_BATCH_CHARA WITH KEY ATNAM = 'ZCHARGL' BINARY SEARCH.
+    IF LS_BATCH_CHARA IS NOT INITIAL.
+      PS_DATA_0003-ZCHARGL = LS_BATCH_CHARA-ATWRT.
+    ENDIF.
+
+*     打印批次号
+    CLEAR:LS_BATCH_CHARA.
+    READ TABLE LT_BATCH_CHARA INTO  LS_BATCH_CHARA WITH KEY ATNAM = 'Z_BATCH_DYPC' BINARY SEARCH.
+    IF LS_BATCH_CHARA IS NOT INITIAL.
+      PS_DATA_0003-Z_BATCH_DYPC = LS_BATCH_CHARA-ATWRT.
+    ENDIF.
+
+*      产品生产日期
+    CLEAR:LS_BATCH_CHARA.
+    READ TABLE LT_BATCH_CHARA INTO  LS_BATCH_CHARA WITH KEY ATNAM = 'Z_BATCH_SCRQ' BINARY SEARCH.
+    IF LS_BATCH_CHARA IS NOT INITIAL.
+      PS_DATA_0003-Z_BATCH_SCRQ = LS_BATCH_CHARA-ATWRT.
+      "  ELSE .
+      "    PS_DATA_0003-Z_BATCH_SCRQ = LS_MCHA-HSDAT .
+    ENDIF.
+
+*      产品有效期至
+    CLEAR:LS_BATCH_CHARA.
+    READ TABLE LT_BATCH_CHARA INTO  LS_BATCH_CHARA WITH KEY ATNAM = 'Z_BATCH_YXQZ' BINARY SEARCH.
+    IF LS_BATCH_CHARA IS NOT INITIAL.
+      PS_DATA_0003-Z_BATCH_YXQZ = LS_BATCH_CHARA-ATWRT.
+      "  ELSE .
+      "   PS_DATA_0003-Z_BATCH_YXQZ = LS_MCHA-VFDAT .
+    ENDIF.
+
+*      小M打印批次号
+    CLEAR:LS_BATCH_CHARA.
+*    READ TABLE LT_BATCH_CHARA INTO  LS_BATCH_CHARA WITH KEY ATNAM = 'Z_BATCH_XMDYPC' BINARY SEARCH.
+*    IF LS_BATCH_CHARA IS NOT INITIAL.
+*      PS_DATA_0003-Z_BATCH_XMDYPC = LS_BATCH_CHARA-ATWRT.
+*    ENDIF.
+    LOOP AT LT_BATCH_CHARA INTO  LS_BATCH_CHARA WHERE ATNAM = 'Z_BATCH_XMDYPC' .
+
+      IF PS_DATA_0003-Z_BATCH_XMDYPC = '' .
+        PS_DATA_0003-Z_BATCH_XMDYPC = LS_BATCH_CHARA-ATWRT.
+      ELSE .
+        CONCATENATE LS_BATCH_CHARA-ATWRT '|'  PS_DATA_0003-Z_BATCH_XMDYPC INTO PS_DATA_0003-Z_BATCH_XMDYPC .
+      ENDIF .
+
+    ENDLOOP .
+
+
+*      批次包装规格
+    IF LS_MARA-MTART = 'Z010'
+     OR LS_MARA-MTART = 'Z020'
+     OR LS_MARA-MTART = 'Z090' .
+
+      CLEAR:LS_BATCH_CHARA.
+      READ TABLE LT_BATCH_CHARA INTO  LS_BATCH_CHARA WITH KEY ATNAM = 'ZPACK_STA' BINARY SEARCH.
+      IF LS_BATCH_CHARA IS NOT INITIAL.
+        PS_DATA_0003-ZPSPE = LS_BATCH_CHARA-ATWRT.
+      ENDIF.
+    ELSEIF LS_MARA-MTART = 'Z030'
+     OR LS_MARA-MTART = 'Z050' .
+
+      SELECT SINGLE ATWRT
+        INTO PS_DATA_0003-ZPSPE
+        FROM AUSP
+        INNER JOIN CABN
+        ON CABN~ATINN = AUSP~ATINN
+        WHERE AUSP~OBJEK = LS_QALS-MATNR
+          AND AUSP~KLART = '001'
+          AND CABN~ATNAM = 'ZPSPE' .
+
+    ENDIF .
+
+    "批量件数
+    DATA : LV_MENGE1 TYPE MSEG-MENGE .
+    DATA : LV_MENGE2 TYPE I .
+    CLEAR LV_MENGE1 .
+    CALL FUNCTION 'Z_QM_LIMS_GUIG'
+      EXPORTING
+        I_INPUT = PS_DATA_0003-ZPSPE
+      IMPORTING
+        OUTPUT  = LV_MENGE1.
+    IF LV_MENGE1 <> 0 .
+      LV_MENGE2 = CEIL( LS_QALS-LOSMENGE / LV_MENGE1 ) .
+      PS_DATA_0003-PKGS = LV_MENGE2 .
+      CONDENSE PS_DATA_0003-PKGS NO-GAPS .
+    ENDIF .
+    IF  LS_MARA-MTART = 'Z030'
+     OR LS_MARA-MTART = 'Z050' .
+      CLEAR PS_DATA_0003-ZPSPE  ."成品物料不需传输包装规格
+    ENDIF .
+
+**      供应商批次编号
+*    CLEAR:LS_BATCH_CHARA.
+*    READ TABLE LT_BATCH_CHARA INTO  LS_BATCH_CHARA WITH KEY ATNAM = 'ZLICHA' BINARY SEARCH.
+*    IF LS_BATCH_CHARA IS NOT INITIAL.
+*      PS_DATA_0003-LICHA = LS_BATCH_CHARA-ATWRT.
+*    ENDIF.
+
+*      订单信息相关
+    IF LS_QALS-AUFNR IS NOT INITIAL.
+      SELECT SINGLE *
+        INTO CORRESPONDING FIELDS OF LS_AUFK
+        FROM AUFK
+       WHERE AUFNR  = LS_QALS-AUFNR.
+
+      PS_DATA_0003-ZCHEJ  = LS_AUFK-ZCHEJ."车间
+      PS_DATA_0003-ZCHANX = LS_AUFK-ZCHANX."产线
+
+      IF LS_MARA-MTART = 'Z030'.
+        PS_DATA_0003-KDAUF =   LS_AUFK-ZKDAUF_S.
+      ENDIF.
+
+
+      SELECT *
+        INTO CORRESPONDING FIELDS OF TABLE LT_RESB
+        FROM RESB
+*         WHERE RSNUM = LS_AUFK-PROCNR
+        WHERE AUFNR = LS_QALS-AUFNR
+         AND CHARG <> ''.
+
+      LOOP AT  LT_RESB INTO  LS_RESB.
+        PS_DATA_0003-S_CHARG  = LS_RESB-CHARG ."S码SAP批次号
+      ENDLOOP.
+
+    ENDIF.
+  ENDIF.
+*
+
+
+ENDFORM.
+
+
+
+*&---------------------------------------------------------------------*
+*& Form FRM_GOTO_LIMS_QM0561
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> IS_INPUT
+*&      <-- E_OUTPUT
+*&      <-- GS_DATA_0003
+*&---------------------------------------------------------------------*
+FORM FRM_GOTO_LIMS_QM0561  USING PS_INPUT TYPE ZQMS_LIMS_0003
+                        CHANGING PS_OUTPUT TYPE ZQMS_RET
+                          PS_DATA_0003 LIKE GS_DATA_0003.
+
+  IF PS_OUTPUT-CODE = 'E'.
+    EXIT.
+  ENDIF.
+
+********
+*----------------------------------------------------------------------
+*   业务逻辑处理
+*----------------------------------------------------------------------
+  DATA:LV_ERROR     TYPE C,
+       LV_STR       TYPE STRING,
+       LR_PROXY     TYPE REF TO ZCO_SI_SAP2LIMS_CHECK_CREATE_O, "代理类
+       LR_PROTOCOL  TYPE REF TO IF_WSPROTOCOL_MESSAGE_ID,
+       LS_INPUT     TYPE ZCREATE_TEST_REQUEST_SESSIONL1, "推送信息
+       LS_OUTPUT    TYPE ZCREATE_TEST_REQUEST_SESSIONLE, "返回信息
+       LS_INPUT_ROW TYPE ZBATCH_DTO.
+
+  CLEAR:LS_INPUT_ROW.
+
+
+* 调用PI下发至LIMS
+  TRY.
+      CREATE OBJECT LR_PROXY.
+
+      MOVE-CORRESPONDING PS_DATA_0003 TO LS_INPUT_ROW.
+
+      IF PS_DATA_0003-LWEDT = 0 .
+        CLEAR LS_INPUT_ROW-LWEDT .
+      ENDIF .
+
+      CALL FUNCTION 'CONVERSION_EXIT_MATN1_OUTPUT'
+        EXPORTING
+          INPUT  = PS_DATA_0003-MATNR
+        IMPORTING
+          OUTPUT = LS_INPUT_ROW-MATNR.
+
+      APPEND   LS_INPUT_ROW TO LS_INPUT-ARR_PARAMETERS-BATCH_DTO."业务数据
+
+      LS_INPUT-USER  = GC_LIMSUSER."访问LIMS系统用户名
+      LS_INPUT-PWD   = GC_LIMSPWD. "访问LIMS系统密码
+
+*    接口数据下发
+      CALL METHOD LR_PROXY->SI_SAP2LIMS_CHECK_CREATE_OUT
+        EXPORTING
+          OUTPUT = LS_INPUT
+        IMPORTING
+          INPUT  = LS_OUTPUT.
+
+      PS_OUTPUT-CODE     = LS_OUTPUT-CREATE_TEST_REQUEST_SESSIONLES-RET_CODE.
+      PS_OUTPUT-MSG      = LS_OUTPUT-CREATE_TEST_REQUEST_SESSIONLES-RET_MSG.
+
+    CATCH CX_ROOT INTO DATA(LR_ROOT).
+      PS_OUTPUT-CODE = 'A'.
+      PS_OUTPUT-MSG = LR_ROOT->GET_TEXT(  ).
+
+  ENDTRY.
+
+
+* 记录返回结果
+  PERFORM FRM_RECORD_RET USING PS_INPUT  CHANGING PS_OUTPUT .
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_GOTO_LIMS_QM0561
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> IS_INPUT
+*&      <-- E_OUTPUT
+*&      <-- GS_DATA_0003
+*&---------------------------------------------------------------------*
+FORM FRM_GOTO_LIMS_QM0561_C  USING PS_INPUT TYPE ZQMS_LIMS_0014
+                        CHANGING PS_OUTPUT TYPE ZQMS_RET
+                          PS_DATA_0003 LIKE GS_DATA_0003.
+
+  IF PS_OUTPUT-CODE = 'E'.
+    EXIT.
+  ENDIF.
+
+********
+*----------------------------------------------------------------------
+*   业务逻辑处理
+*----------------------------------------------------------------------
+  DATA:LV_ERROR     TYPE C,
+       LV_STR       TYPE STRING,
+       LR_PROXY     TYPE REF TO ZCO_SI_SAP2LIMS_CHECK_CREATE_O, "代理类
+       LR_PROTOCOL  TYPE REF TO IF_WSPROTOCOL_MESSAGE_ID,
+       LS_INPUT     TYPE ZCREATE_TEST_REQUEST_SESSIONL1, "推送信息
+       LS_OUTPUT    TYPE ZCREATE_TEST_REQUEST_SESSIONLE, "返回信息
+       LS_INPUT_ROW TYPE ZBATCH_DTO.
+
+  CLEAR:LS_INPUT_ROW.
+
+
+* 调用PI下发至LIMS
+  TRY.
+      CREATE OBJECT LR_PROXY.
+
+      MOVE-CORRESPONDING PS_DATA_0003 TO LS_INPUT_ROW.
+
+      IF PS_DATA_0003-LWEDT = 0 .
+        CLEAR LS_INPUT_ROW-LWEDT .
+      ENDIF .
+
+      CALL FUNCTION 'CONVERSION_EXIT_MATN1_OUTPUT'
+        EXPORTING
+          INPUT  = PS_DATA_0003-MATNR
+        IMPORTING
+          OUTPUT = LS_INPUT_ROW-MATNR.
+
+      APPEND   LS_INPUT_ROW TO LS_INPUT-ARR_PARAMETERS-BATCH_DTO."业务数据
+
+      LS_INPUT-USER  = GC_LIMSUSER."访问LIMS系统用户名
+      LS_INPUT-PWD   = GC_LIMSPWD. "访问LIMS系统密码
+
+*    接口数据下发
+      CALL METHOD LR_PROXY->SI_SAP2LIMS_CHECK_CREATE_OUT
+        EXPORTING
+          OUTPUT = LS_INPUT
+        IMPORTING
+          INPUT  = LS_OUTPUT.
+
+      PS_OUTPUT-CODE     = LS_OUTPUT-CREATE_TEST_REQUEST_SESSIONLES-RET_CODE.
+      PS_OUTPUT-MSG      = LS_OUTPUT-CREATE_TEST_REQUEST_SESSIONLES-RET_MSG.
+
+    CATCH CX_ROOT INTO DATA(LR_ROOT).
+      PS_OUTPUT-CODE = 'A'.
+      PS_OUTPUT-MSG = LR_ROOT->GET_TEXT(  ).
+
+  ENDTRY.
+
+
+* 记录返回结果
+  PERFORM FRM_RECORD_RET_C USING PS_INPUT  CHANGING PS_OUTPUT .
+
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_RECORD_RET
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> PS_INPUT
+*&      <-- PS_OUTPUT
+*&---------------------------------------------------------------------*
+FORM FRM_RECORD_RET USING PS_INPUT TYPE ZQMS_LIMS_0003
+                        CHANGING PS_OUTPUT TYPE ZQMS_RET.
+
+  DATA:LS_ZQMT_INTF_RESULT TYPE ZQMT_INTF_RESULT.
+  DATA:LT_ZQMT_INTF_RESULT TYPE STANDARD TABLE OF  ZQMT_INTF_RESULT.
+
+*   记录返回结果
+  CLEAR:LS_ZQMT_INTF_RESULT.
+  SELECT SINGLE *
+    INTO CORRESPONDING FIELDS OF LS_ZQMT_INTF_RESULT
+    FROM ZQMT_INTF_RESULT
+   WHERE ZKEY    = PS_INPUT-PRUEFLOS
+     AND INTID   = PS_INPUT-INTID.
+
+* Z_QM_LIMS_0003-输入参数
+  GV_JSON =  /UI2/CL_JSON=>SERIALIZE( EXPORTING DATA = PS_INPUT PRETTY_NAME = /UI2/CL_JSON=>PRETTY_MODE-NONE   )."转换成JSON字符串
+
+  LS_ZQMT_INTF_RESULT-INTID   = PS_INPUT-INTID..
+  LS_ZQMT_INTF_RESULT-ZKEY    = PS_INPUT-PRUEFLOS.
+  LS_ZQMT_INTF_RESULT-TYPE    = PS_OUTPUT-CODE.
+  LS_ZQMT_INTF_RESULT-MSG     = PS_OUTPUT-MSG.
+  LS_ZQMT_INTF_RESULT-ZDATA   = GV_JSON."记录输入参数
+  APPEND LS_ZQMT_INTF_RESULT  TO LT_ZQMT_INTF_RESULT.
+
+  MODIFY ZQMT_INTF_RESULT FROM TABLE LT_ZQMT_INTF_RESULT.
+  COMMIT WORK AND WAIT.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form FRM_RECORD_RET
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> PS_INPUT
+*&      <-- PS_OUTPUT
+*&---------------------------------------------------------------------*
+FORM FRM_RECORD_RET_C USING PS_INPUT TYPE ZQMS_LIMS_0014
+                        CHANGING PS_OUTPUT TYPE ZQMS_RET.
+
+  DATA:LS_ZQMT_INTF_RESULT TYPE ZQMT_INTF_RESULT.
+  DATA:LT_ZQMT_INTF_RESULT TYPE STANDARD TABLE OF  ZQMT_INTF_RESULT.
+
+*   记录返回结果
+  CLEAR:LS_ZQMT_INTF_RESULT.
+  SELECT SINGLE *
+    INTO CORRESPONDING FIELDS OF LS_ZQMT_INTF_RESULT
+    FROM ZQMT_INTF_RESULT
+   WHERE ZKEY    = PS_INPUT-PRUEFLOS
+     AND INTID   = PS_INPUT-INTID.
+
+* Z_QM_LIMS_0003-输入参数
+  GV_JSON =  /UI2/CL_JSON=>SERIALIZE( EXPORTING DATA = PS_INPUT PRETTY_NAME = /UI2/CL_JSON=>PRETTY_MODE-NONE   )."转换成JSON字符串
+
+  LS_ZQMT_INTF_RESULT-INTID   = PS_INPUT-INTID..
+  LS_ZQMT_INTF_RESULT-ZKEY    = PS_INPUT-PRUEFLOS.
+  LS_ZQMT_INTF_RESULT-TYPE    = PS_OUTPUT-CODE.
+  LS_ZQMT_INTF_RESULT-MSG     = PS_OUTPUT-MSG.
+  LS_ZQMT_INTF_RESULT-ZDATA   = GV_JSON."记录输入参数
+  APPEND LS_ZQMT_INTF_RESULT  TO LT_ZQMT_INTF_RESULT.
+
+  MODIFY ZQMT_INTF_RESULT FROM TABLE LT_ZQMT_INTF_RESULT.
+*  COMMIT WORK AND WAIT.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FRM_GET_QM0562
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> IS_INPUT
+*&      <-- E_OUTPUT
+*&      <-- GS_DATA_0003
+*&---------------------------------------------------------------------*
+FORM FRM_GET_QM0562 USING PS_INPUT TYPE ZQMS_LIMS_0003
+                      CHANGING PS_OUTPUT TYPE ZQMS_RET
+                        PS_DATA_0003 LIKE GS_DATA_0003.
+
+
+  DATA:LS_QALS       LIKE QALS.  "检验批记录
+  DATA:LS_MCHA       LIKE MCHA.  "批次
+  DATA:LS_BUT000_GY  LIKE BUT000."供应商
+  DATA:LS_BUT000_ZZ  LIKE BUT000."制造商
+  DATA:LS_BUT000_SDF LIKE BUT000."售达方
+  DATA:LS_KNA1       LIKE KNA1.  "客户主数据
+  DATA : LS_LFA1 TYPE LFA1 .
+  DATA:LS_AFKO       LIKE AFKO.  "订单号
+  DATA:LS_VBAK       LIKE VBAK.  "销售凭证 ： 抬头数据
+  DATA:LS_T005T      LIKE T005T. "国家名
+  DATA:LT_T005T      LIKE STANDARD TABLE OF T005T. "国家名
+  DATA:LS_T006A      LIKE T006A. "单位
+  DATA:LT_T006A      LIKE STANDARD TABLE OF T006A.
+  DATA:LS_AUFK       LIKE AUFK.
+  DATA:LS_RESB       LIKE RESB.
+  DATA:LT_RESB       LIKE STANDARD TABLE OF RESB.
+  DATA:LS_MARA      LIKE MARA.
+
+* 批次信息
+  DATA:LT_BATCH_CHARA LIKE STANDARD TABLE OF GS_BATCH_CHARA.
+  DATA:LS_BATCH_CHARA LIKE  GS_BATCH_CHARA.
+
+  CLEAR:PS_DATA_0003.
+
+* 获取单位信息
+  SELECT *
+    INTO CORRESPONDING FIELDS OF TABLE LT_T006A
+    FROM T006A
+   WHERE SPRAS = SY-LANGU.
+
+* 获取检验批记录信息
+  SELECT SINGLE *
+    INTO LS_QALS
+    FROM QALS
+   WHERE PRUEFLOS = PS_INPUT-PRUEFLOS.
+
+  IF LS_QALS IS  INITIAL.
+    PS_OUTPUT-CODE  = 'E'.
+    PS_OUTPUT-MSG = '没有查询到对应的检验批号'.
+    EXIT.
+  ENDIF.
+
+
+  IF LS_QALS-PRUEFLOS IS NOT INITIAL.
+    PS_DATA_0003-PRUEFLOS    =   LS_QALS-PRUEFLOS.  "请验单号
+
+*   物料工厂批次信息
+    SELECT SINGLE *
+      INTO CORRESPONDING FIELDS OF LS_MCHA
+      FROM MCHA
+     WHERE MATNR = LS_QALS-MATNR
+       AND WERKS = LS_QALS-WERK
+       AND CHARG = LS_QALS-CHARG.
+
+*
+    PS_DATA_0003-LICHA   = LS_MCHA-LICHA. "供应商批次号
+    PS_DATA_0003-W_HSDAT  = LS_MCHA-HSDAT. "物料生产日期
+    PS_DATA_0003-W_VFDAT  = LS_MCHA-VFDAT. "物料有效日期-物料货架寿命到期日
+
+*   获取批次信息
+    PERFORM FRM_GET_BATCHINFO TABLES LT_BATCH_CHARA USING LS_MCHA.
+
+    SORT  LT_BATCH_CHARA BY ATNAM.
+
+*   长批号
+    CLEAR:LS_BATCH_CHARA.
+    READ TABLE LT_BATCH_CHARA INTO  LS_BATCH_CHARA WITH KEY ATNAM = 'ZCHARGL' BINARY SEARCH.
+    IF LS_BATCH_CHARA IS NOT INITIAL.
+      PS_DATA_0003-ZCHARGL = LS_BATCH_CHARA-ATWRT.
+    ENDIF.
+
+
+***   供应商批次编号
+**    CLEAR:LS_BATCH_CHARA.
+**    READ TABLE LT_BATCH_CHARA INTO  LS_BATCH_CHARA WITH KEY ATNAM = 'ZLICHA' BINARY SEARCH.
+**    IF LS_BATCH_CHARA IS NOT INITIAL.
+**      PS_DATA_0003-LICHA = LS_BATCH_CHARA-ATWRT.
+**    ENDIF.
+*
+**    PS_DATA_0003-LMENGEIST   =   LS_QALS-LMENGEIST."物料批量
+*    PS_DATA_0003-LMENGEIST   =   LS_QALS-LOSMENGE."物料批量
+*
+**       单位
+*    IF LT_T006A[] IS NOT INITIAL.
+*      CLEAR:LS_T006A.
+*      READ TABLE LT_T006A INTO LS_T006A WITH KEY MSEHI = LS_QALS-MENGENEINH BINARY SEARCH."
+*      PS_DATA_0003-T_MENGENEINH = LS_T006A-MSEH3.
+*    ENDIF.
+*
+**       获取客户主数据信息
+*    CLEAR:LS_LFA1.
+*    SELECT SINGLE *
+*      INTO LS_LFA1
+*      FROM LFA1
+*     WHERE LIFNR = LS_QALS-LIFNR.
+*    IF SY-SUBRC = 0 .
+*      SELECT SINGLE REGIOGROUP
+*        INTO PS_DATA_0003-ZMFR_GRD
+*        FROM ADRC
+*        WHERE ADDRNUMBER = LS_LFA1-ADRNR .
+**    PS_DATA_0003-ZMFR_GRD  =   LS_KNA1-KATR1."供应商等级
+*    ENDIF .
+*
+**      订单信息相关
+*    IF LS_QALS-AUFNR IS NOT INITIAL.
+**      SELECT SINGLE *
+**        INTO CORRESPONDING FIELDS OF LS_AUFK
+**        FROM AUFK
+**       WHERE AUFNR  = LS_QALS-AUFNR.
+**
+**      PS_DATA_0003-ZCHEJ  = LS_AUFK-ZCHEJ."车间
+**      PS_DATA_0003-ZCHANX = LS_AUFK-ZCHANX."产线
+**
+**      IF LS_MARA-MTART = 'Z030'.
+**        PS_DATA_0003-KDAUF =   LS_AUFK-ZKDAUF_S.
+**      ENDIF.
+*      SELECT *
+*        INTO CORRESPONDING FIELDS OF TABLE LT_RESB
+*        FROM RESB
+**         WHERE RSNUM = LS_AUFK-PROCNR
+*        WHERE AUFNR = LS_QALS-AUFNR
+*         AND CHARG <> ''.
+*
+*      LOOP AT  LT_RESB INTO  LS_RESB.
+*        PS_DATA_0003-S_CHARG  = LS_RESB-CHARG ."S码SAP批次号
+*      ENDLOOP.
+*
+*
+**      批次包装规格
+*      IF LS_MARA-MTART = 'Z010'
+*       OR LS_MARA-MTART = 'Z020'
+*       OR LS_MARA-MTART = 'Z090' .
+*
+*        CLEAR:LS_BATCH_CHARA.
+*        READ TABLE LT_BATCH_CHARA INTO  LS_BATCH_CHARA WITH KEY ATNAM = 'ZPACK_STA' BINARY SEARCH.
+*        IF LS_BATCH_CHARA IS NOT INITIAL.
+*          PS_DATA_0003-PKGS = LS_BATCH_CHARA-ATWRT.
+*        ENDIF.
+*      ELSEIF LS_MARA-MTART = 'Z030'
+*       OR LS_MARA-MTART = 'Z050' .
+*
+*        SELECT SINGLE ATWRT
+*          INTO PS_DATA_0003-PKGS
+*          FROM AUSP
+*          WHERE OBJEK = LS_QALS-MATNR
+*            AND MAFID = '001'
+*            AND ATINN = 'ZPSPE' .
+*
+*      ENDIF .
+*
+*      "批量件数
+*      DATA : LV_MENGE1 TYPE MSEG-MENGE .
+*      DATA : LV_MENGE2 TYPE I .
+*      CLEAR LV_MENGE1 .
+*      CALL FUNCTION 'Z_QM_LIMS_GUIG'
+*        EXPORTING
+*          I_INPUT = PS_DATA_0003-PKGS
+*        IMPORTING
+*          OUTPUT  = LV_MENGE1.
+*      IF LV_MENGE1 <> 0 .
+*        LV_MENGE2 = CEIL( LS_QALS-LOSMENGE / LV_MENGE1 ) .
+*        PS_DATA_0003-ZPSPE = LV_MENGE2 .
+*        CONDENSE PS_DATA_0003-ZPSPE NO-GAPS .
+*      ENDIF .
+*
+*    ENDIF.
+
+  ENDIF.
+
+
+
+
+ENDFORM.
+
+
+
+*&---------------------------------------------------------------------*
+*& Form FRM_GOTO_LIMS_QM0562
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> IS_INPUT
+*&      <-- E_OUTPUT
+*&      <-- GS_DATA_0003
+*&---------------------------------------------------------------------*
+FORM FRM_GOTO_LIMS_QM0562 USING PS_INPUT TYPE ZQMS_LIMS_0003
+                          CHANGING PS_OUTPUT TYPE ZQMS_RET
+                            PS_DATA_0003 LIKE GS_DATA_0003.
+
+
+  IF PS_OUTPUT-CODE = 'E'.
+    EXIT.
+  ENDIF.
+
+********
+*----------------------------------------------------------------------
+*   业务逻辑处理
+*----------------------------------------------------------------------
+  DATA:LV_ERROR     TYPE C,
+       LV_STR       TYPE STRING,
+       LR_PROXY     TYPE REF TO ZCO_SI_SAP2LIMS_CHECK_UPDATE_O, "代理类
+       LR_PROTOCOL  TYPE REF TO IF_WSPROTOCOL_MESSAGE_ID,
+       LS_INPUT     TYPE ZUPDATE_TEST_REQUEST_SESSIONL1, "推送信息
+       LS_OUTPUT    TYPE ZUPDATE_TEST_REQUEST_SESSIONLE, "返回信息
+       LS_INPUT_ROW TYPE ZBATCH_DTO.
+
+  CLEAR:LS_INPUT_ROW.
+
+
+* 调用PI下发至LIMS
+  TRY.
+      CREATE OBJECT LR_PROXY.
+
+      MOVE-CORRESPONDING PS_DATA_0003 TO LS_INPUT_ROW.
+
+      APPEND   LS_INPUT_ROW TO LS_INPUT-ARR_PARAMETERS-BATCH_DTO."业务数据
+
+      LS_INPUT-USER  = GC_LIMSUSER."访问LIMS系统用户名
+      LS_INPUT-PWD   = GC_LIMSPWD. "访问LIMS系统密码
+
+      IF PS_DATA_0003-LWEDT = 0 .
+        CLEAR LS_INPUT_ROW-LWEDT .
+      ENDIF .
+
+      CALL FUNCTION 'CONVERSION_EXIT_MATN1_OUTPUT'
+        EXPORTING
+          INPUT  = PS_DATA_0003-MATNR
+        IMPORTING
+          OUTPUT = LS_INPUT_ROW-MATNR.
+
+*    接口数据下发
+      CALL METHOD LR_PROXY->SI_SAP2LIMS_CHECK_UPDATE_OUT
+        EXPORTING
+          OUTPUT = LS_INPUT
+        IMPORTING
+          INPUT  = LS_OUTPUT.
+
+      PS_OUTPUT-CODE     = LS_OUTPUT-UPDATE_TEST_REQUEST_SESSIONLES-RET_CODE.
+      PS_OUTPUT-MSG      = LS_OUTPUT-UPDATE_TEST_REQUEST_SESSIONLES-RET_MSG.
+
+    CATCH CX_ROOT INTO DATA(LR_ROOT).
+      PS_OUTPUT-CODE = 'A'.
+      PS_OUTPUT-MSG = LR_ROOT->GET_TEXT(  ).
+
+  ENDTRY.
+
+
+* 记录返回结果
+  PERFORM FRM_RECORD_RET USING PS_INPUT  CHANGING PS_OUTPUT .
+
+
+ENDFORM.
+
+
+
+*&---------------------------------------------------------------------*
+*& Form FRM_GET_QM0563
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> IS_INPUT
+*&      <-- E_OUTPUT
+*&      <-- GS_DATA_0003
+*&---------------------------------------------------------------------*
+FORM FRM_GET_QM0563  USING PS_INPUT TYPE ZQMS_LIMS_0003
+                      CHANGING PS_OUTPUT TYPE ZQMS_RET
+                        PS_DATA_0003 LIKE GS_DATA_0003.
+
+
+  DATA:LS_QALS       LIKE QALS.  "检验批记录
+  DATA:LS_MCHA       LIKE MCHA.  "批次
+  DATA:LS_BUT000_GY  LIKE BUT000."供应商
+  DATA:LS_BUT000_ZZ  LIKE BUT000."制造商
+  DATA:LS_BUT000_SDF LIKE BUT000."售达方
+  DATA:LS_KNA1       LIKE KNA1.  "客户主数据
+  DATA:LS_AFKO       LIKE AFKO.  "订单号
+  DATA:LS_VBAK       LIKE VBAK.  "销售凭证 ： 抬头数据
+  DATA:LS_T005T      LIKE T005T. "国家名
+  DATA:LT_T005T      LIKE STANDARD TABLE OF T005T. "国家名
+  DATA:LS_T006A      LIKE T006A. "单位
+  DATA:LT_T006A      LIKE STANDARD TABLE OF T006A.
+  DATA:LS_AUFK       LIKE AUFK.
+  DATA:LS_RESB       LIKE RESB.
+  DATA:LT_RESB       LIKE STANDARD TABLE OF RESB.
+  DATA:LS_MARA      LIKE MARA.
+
+* 批次信息
+  DATA:LT_BATCH_CHARA LIKE STANDARD TABLE OF GS_BATCH_CHARA.
+  DATA:LS_BATCH_CHARA LIKE  GS_BATCH_CHARA.
+
+  CLEAR:PS_DATA_0003.
+
+
+
+* 获取检验批记录信息
+  SELECT SINGLE *
+    INTO LS_QALS
+    FROM QALS
+   WHERE PRUEFLOS = PS_INPUT-PRUEFLOS.
+
+  IF LS_QALS IS  INITIAL.
+    PS_OUTPUT-CODE  = 'E'.
+    PS_OUTPUT-MSG = '没有查询到对应的检验批号'.
+    EXIT.
+  ENDIF.
+
+
+  IF LS_QALS-PRUEFLOS IS NOT INITIAL.
+    PS_DATA_0003-PRUEFLOS    =   LS_QALS-PRUEFLOS.  "请验单号
+
+  ENDIF.
+
+
+
+
+ENDFORM.
+
+
+
+*&---------------------------------------------------------------------*
+*& Form FRM_GOTO_LIMS_QM0563
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> IS_INPUT
+*&      <-- E_OUTPUT
+*&      <-- GS_DATA_0003
+*&---------------------------------------------------------------------*
+FORM FRM_GOTO_LIMS_QM0563  USING PS_INPUT TYPE ZQMS_LIMS_0003
+                      CHANGING PS_OUTPUT TYPE ZQMS_RET
+                        PS_DATA_0003 LIKE GS_DATA_0003.
+
+
+  IF PS_OUTPUT-CODE = 'E'.
+    EXIT.
+  ENDIF.
+
+********
+*----------------------------------------------------------------------
+*   业务逻辑处理
+*----------------------------------------------------------------------
+  DATA:LV_ERROR     TYPE C,
+       LV_STR       TYPE STRING,
+       LR_PROXY     TYPE REF TO ZCO_SI_SAP2LIMS_CHECK_REMOVE_O, "代理类
+       LR_PROTOCOL  TYPE REF TO IF_WSPROTOCOL_MESSAGE_ID,
+       LS_INPUT     TYPE ZREMOVE_TEST_REQUEST_SESSIONL1, "推送信息
+       LS_OUTPUT    TYPE ZREMOVE_TEST_REQUEST_SESSIONLE, "返回信息
+       LS_INPUT_ROW TYPE ZBATCH_DTO.
+
+  CLEAR:LS_INPUT_ROW.
+
+
+* 调用PI下发至LIMS
+  TRY.
+      CREATE OBJECT LR_PROXY.
+
+      MOVE-CORRESPONDING PS_DATA_0003 TO LS_INPUT_ROW.
+
+      APPEND   LS_INPUT_ROW TO LS_INPUT-ARR_PARAMETERS-BATCH_DTO."业务数据
+
+      LS_INPUT-USER  = GC_LIMSUSER."访问LIMS系统用户名
+      LS_INPUT-PWD   = GC_LIMSPWD. "访问LIMS系统密码
+
+      IF PS_DATA_0003-LWEDT = 0 .
+        CLEAR LS_INPUT_ROW-LWEDT .
+      ENDIF .
+
+      CALL FUNCTION 'CONVERSION_EXIT_MATN1_OUTPUT'
+        EXPORTING
+          INPUT  = PS_DATA_0003-MATNR
+        IMPORTING
+          OUTPUT = LS_INPUT_ROW-MATNR.
+
+*    接口数据下发
+      CALL METHOD LR_PROXY->SI_SAP2LIMS_CHECK_REMOVE_OUT
+        EXPORTING
+          OUTPUT = LS_INPUT
+        IMPORTING
+          INPUT  = LS_OUTPUT.
+
+      PS_OUTPUT-CODE     = LS_OUTPUT-REMOVE_TEST_REQUEST_SESSIONLES-RET_CODE.
+      PS_OUTPUT-MSG      = LS_OUTPUT-REMOVE_TEST_REQUEST_SESSIONLES-RET_MSG.
+
+    CATCH CX_ROOT INTO DATA(LR_ROOT).
+      PS_OUTPUT-CODE = 'A'.
+      PS_OUTPUT-MSG = LR_ROOT->GET_TEXT(  ).
+
+  ENDTRY.
+
+
+* 记录返回结果
+  PERFORM FRM_RECORD_RET USING PS_INPUT  CHANGING PS_OUTPUT .
+
+ENDFORM.
+
+
+
+*&---------------------------------------------------------------------*
+*& Form FRM_SHOW_TESTRESULTS
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> IS_INPUT
+*&      <-- E_OUTPUT
+*&---------------------------------------------------------------------*
+FORM FRM_SHOW_TESTRESULTS  USING    PS_QALS TYPE QALS
+                                     PS_MARA TYPE MARA
+                           CHANGING PS_OUTPUT TYPE BAPIRET2.
+
+*
+*  1.MARA-MTART=Z010，且QALS-ART=Y04      则将检验批号查询ZQMT059中“批属追溯”字段，取出对应条目；
+*
+*  2.MARA-MTART=Z050，且QALS-ART=Z04或04，则将当前检验批号赋给ZQMT059中“检验批号”字段，取出对应的“批属追溯”字段，再将该字段的值赋给ZQMT059的“检验批号”字段，取出对应条目；
+*
+*  3.MARA-MTART=Z050，且QALS-ART=C04，    则由检验批号QALS- PRUEFLOS取出QALS-AUFNR。
+*  根据（QALS-AUFNR）在（MSEG-BWART ）261于表mseg且物料类型（MARA-MTART=Z030）的物料凭证条目，取出S码批次号MSEG-CHARG给到QALS-CHARG，
+*  从而取出S码批次号。用ZQMT059-charg = S码批次号条件，查询自建表ZQMT059"
+
+*  4.MARA-MTART=Z050，且QALS-ART=G04，   则由检验批号QALS- PRUEFLOS取出QALS-AUFNR。
+*  根据（QALS-AUFNR）在（MSEG-BWART ）261于表mseg且物料类型（MARA-MTART=Z050）的物料凭证条目，取出M码批次号MSEG-CHARG给到QALS-CHARG，
+*  从而取出M码批次号。再去表QALS-charg = 小M批次号 ，得到检验批次号表
+*  检验类型QALS-ART = C04 ，执行第三种操作
+*  检验类型QALS-ART = 04 或Z０４，执行第二种操作"
+
+
+  CLEAR:GT_ZQMT059.
+
+  DATA:LT_ZQMT059 TYPE STANDARD TABLE OF ZQMT059.
+  DATA:LT_ZQMT0592 TYPE STANDARD TABLE OF ZQMT059.
+
+  DATA:BEGIN OF LS_MSEG,
+         MBLNR TYPE MSEG-MBLNR,
+         MJAHR TYPE MSEG-MJAHR,
+         ZEILE TYPE MSEG-ZEILE,
+         CHARG TYPE MSEG-CHARG,
+         MATNR TYPE MSEG-MATNR,
+         BWART TYPE MSEG-BWART,
+         MTART TYPE MARA-MTART,
+       END OF LS_MSEG.
+  DATA:LT_MSEG LIKE STANDARD TABLE OF LS_MSEG.
+
+  DATA:LS_QALS TYPE QALS.
+  DATA:LT_QALS TYPE STANDARD TABLE OF QALS.
+  DATA:LT_QALS1 TYPE STANDARD TABLE OF QALS.
+  DATA:LT_QALS2 TYPE STANDARD TABLE OF QALS.
+
+  CLEAR:LT_ZQMT059.
+
+* 第一种情况
+  IF PS_MARA-MTART = 'Z010' AND   PS_QALS-ART = '01'.
+**   先检验批号查询zqmt059-folderno
+    SELECT *
+      INTO CORRESPONDING FIELDS OF TABLE GT_ZQMT059
+      FROM ZQMT059
+     WHERE FOLDERNO = PS_QALS-PRUEFLOS.
+
+*   查不到再用检验批号查询zqmt059-FOLDERNO_REL
+*      IF   LT_ZQMT059[] IS INITIAL.
+    SELECT *
+      INTO CORRESPONDING FIELDS OF TABLE LT_ZQMT059
+      FROM ZQMT059
+     WHERE FOLDERNO_REL = PS_QALS-PRUEFLOS.
+*      ENDIF.
+
+
+    IF LT_ZQMT059[] IS NOT INITIAL.
+      APPEND LINES OF LT_ZQMT059 TO GT_ZQMT059.
+    ENDIF.
+
+* 第二种情况
+  ELSEIF PS_MARA-MTART = 'Z050' AND ( PS_QALS-ART = 'Z04' OR PS_QALS-ART = '04' ).
+*    IF PS_QALS-ART <> ''.
+*   先检验批号查询zqmt059-folderno
+    SELECT *
+      INTO CORRESPONDING FIELDS OF TABLE GT_ZQMT059
+      FROM ZQMT059
+     WHERE FOLDERNO = PS_QALS-PRUEFLOS.
+
+*   查到lt_zqmt059有folderno_rel，再用folderno_rel反查一次zqmt059
+    IF   GT_ZQMT059[] IS NOT INITIAL.
+      SELECT *
+        APPENDING CORRESPONDING FIELDS OF TABLE LT_ZQMT0592
+        FROM ZQMT059
+         FOR ALL ENTRIES IN GT_ZQMT059
+       WHERE FOLDERNO = GT_ZQMT059-FOLDERNO_REL.
+
+      APPEND LINES OF LT_ZQMT0592 TO LT_ZQMT059.
+    ENDIF.
+
+    IF LT_ZQMT059[] IS NOT INITIAL.
+      APPEND LINES OF LT_ZQMT059 TO GT_ZQMT059.
+    ENDIF.
+*    ENDIF.
+
+* 第三种情况
+  ELSEIF PS_MARA-MTART = 'Z050' AND PS_QALS-ART = 'C04' AND PS_QALS-AUFNR IS NOT INITIAL.
+*    IF PS_QALS-ART <> ''.
+*   获取S码批次号
+    SELECT  MSEG~MBLNR
+            MSEG~MJAHR
+            MSEG~ZEILE
+            MSEG~CHARG
+            MSEG~MATNR
+            MSEG~BWART
+            MARA~MTART
+      INTO TABLE LT_MSEG
+      FROM MSEG
+     INNER JOIN MARA ON MARA~MATNR = MSEG~MATNR
+     WHERE MSEG~BWART = '261'
+       AND MTART = 'Z030'
+       AND CHARG <> ''
+       AND MSEG~AUFNR = PS_QALS-AUFNR.
+
+
+*   通过获取的获取S码批次号，查询zqmt059
+    IF LT_MSEG[] IS NOT INITIAL.
+      SELECT *
+        INTO CORRESPONDING FIELDS OF TABLE LT_ZQMT059
+        FROM ZQMT059
+         FOR ALL ENTRIES IN LT_MSEG
+       WHERE CHARG  = LT_MSEG-CHARG.
+    ENDIF.
+
+    IF LT_ZQMT059[] IS NOT INITIAL.
+      APPEND LINES OF LT_ZQMT059 TO GT_ZQMT059.
+    ENDIF.
+*    ENDIF.
+
+* 第四种情况
+  ELSEIF PS_MARA-MTART = 'Z050' AND PS_QALS-ART = 'G04' AND PS_QALS-AUFNR IS NOT INITIAL..
+*    IF PS_QALS-ART <> ''.
+*   获取小M批次号
+    SELECT  MSEG~MBLNR
+            MSEG~MJAHR
+            MSEG~ZEILE
+            MSEG~CHARG
+            MSEG~MATNR
+            MSEG~BWART
+            MARA~MTART
+      INTO TABLE LT_MSEG
+      FROM MSEG
+     INNER JOIN MARA ON MARA~MATNR = MSEG~MATNR
+     WHERE MSEG~BWART = '261'
+       AND MARA~MTART = 'Z050'
+       AND MSEG~CHARG <> ''
+       AND MSEG~AUFNR =  PS_QALS-AUFNR.
+
+
+*   通过获取的获取小M批次号，查询qals
+    IF LT_MSEG[] IS NOT INITIAL.
+      SELECT *
+        INTO CORRESPONDING FIELDS OF TABLE LT_QALS
+        FROM QALS
+         FOR ALL ENTRIES IN LT_MSEG
+       WHERE CHARG  = LT_MSEG-CHARG
+         AND ART IN ( 'C04' ,'04' ,'Z04'  ).
+    ENDIF.
+
+
+*   检验类型QALS-ART = C04 ，执行第三种类似操作
+    LT_QALS1 = LT_QALS.
+    DELETE LT_QALS1 WHERE ART <> 'C04'.
+    DELETE LT_QALS1 WHERE AUFNR = ''.
+
+    IF LT_QALS1[] IS NOT INITIAL.
+      CLEAR:LT_ZQMT059.
+
+*   获取S码批次号
+      SELECT  MSEG~MBLNR
+              MSEG~MJAHR
+              MSEG~ZEILE
+              MSEG~CHARG
+              MSEG~MATNR
+              MSEG~BWART
+              MARA~MTART
+        INTO TABLE LT_MSEG
+        FROM MSEG
+       INNER JOIN MARA ON MARA~MATNR = MSEG~MATNR
+         FOR ALL ENTRIES IN LT_QALS1
+       WHERE MSEG~BWART = '261'
+         AND MTART = 'Z030'
+         AND CHARG <> ''
+         AND AUFNR = LT_QALS1-AUFNR.
+
+
+*   通过获取的获取S码批次号，查询zqmt059
+      IF LT_MSEG[] IS NOT INITIAL.
+        SELECT *
+          INTO CORRESPONDING FIELDS OF TABLE LT_ZQMT059
+          FROM ZQMT059
+           FOR ALL ENTRIES IN LT_MSEG
+         WHERE CHARG  = LT_MSEG-CHARG.
+      ENDIF.
+
+      IF LT_ZQMT059[] IS NOT INITIAL.
+        APPEND LINES OF LT_ZQMT059 TO GT_ZQMT059.
+      ENDIF.
+    ENDIF.
+
+
+
+*   检验类型QALS-ART = 04 或 Z04 ，执行第二种类似操作
+    LT_QALS2 = LT_QALS.
+    DELETE LT_QALS2 WHERE ART <> '04' AND  ART <> 'Z04' .
+    IF LT_QALS2[] IS NOT INITIAL.
+      CLEAR:LT_ZQMT059.
+      CLEAR:LT_ZQMT0592.
+
+*     先检验批号查询zqmt059-folderno
+      SELECT *
+        INTO CORRESPONDING FIELDS OF TABLE LT_ZQMT059
+        FROM ZQMT059
+         FOR ALL ENTRIES IN LT_QALS2
+       WHERE FOLDERNO = LT_QALS2-PRUEFLOS.
+
+*     查到lt_zqmt059有folderno_rel，再用folderno_rel反查一次zqmt059
+      IF   LT_ZQMT059[] IS NOT INITIAL.
+        SELECT *
+          APPENDING CORRESPONDING FIELDS OF TABLE LT_ZQMT0592
+          FROM ZQMT059
+           FOR ALL ENTRIES IN LT_ZQMT059
+         WHERE FOLDERNO = LT_ZQMT059-FOLDERNO_REL.
+
+        APPEND LINES OF LT_ZQMT0592 TO LT_ZQMT059.
+      ENDIF.
+
+      IF LT_ZQMT059[] IS NOT INITIAL.
+        APPEND LINES OF LT_ZQMT059 TO GT_ZQMT059.
+      ENDIF.
+    ENDIF.
+
+*    ENDIF.
+  ELSE .
+    SELECT *
+      INTO CORRESPONDING FIELDS OF TABLE GT_ZQMT059
+      FROM ZQMT059
+     WHERE FOLDERNO = PS_QALS-PRUEFLOS.
+  ENDIF.
+
+
+
+
+  IF GT_ZQMT059[] IS INITIAL.
+    PS_OUTPUT-TYPE = 'E'.
+    PS_OUTPUT-MESSAGE = '无符合条件的条目'.
+    EXIT.
+  ENDIF.
+
+  CALL SCREEN 100 STARTING AT 5 5 ENDING AT 80 20.
+
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form FRM_GOTO_LIMS_QM0565
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> LT_MSEG
+*&      --> GV_INTID
+*&      <-- E_OUTPUT
+*&---------------------------------------------------------------------*
+FORM FRM_GOTO_LIMS_QM0565  TABLES   PT_MSEG STRUCTURE MSEG
+                           USING    PV_INTID TYPE ZE_INTF_ID
+                           CHANGING  PS_OUTPUT TYPE ZQMS_RET.
+
+*  DATA:BEGIN OF LS_MSEG,
+*         MBLNR TYPE MSEG-MBLNR, "物料凭证编号
+*         MJAHR TYPE MSEG-MJAHR, "物料凭证年份
+*         ZEILE TYPE MSEG-ZEILE, "物料凭证项目
+*         WERKS TYPE MSEG-WERKS, "工厂
+*         MATNR TYPE MSEG-MATNR, "物料编码
+*         LIFNR TYPE MSEG-LIFNR, "供应商
+*         BUDAT TYPE MKPF-BUDAT, "入库日期
+*         MENGE TYPE MSEG-MENGE, "入库数量
+*         MEINS TYPE MSEG-MEINS, "基本计量单位
+*       END OF LS_MSEG,
+  DATA : LS_MSEG TYPE MSEG,
+         LT_MSEG LIKE STANDARD TABLE OF LS_MSEG.
+
+  DATA:GS_INPUT  TYPE  ZQMS_LIMS_GENERIC,
+       GV_INTID  TYPE  ZE_INTF_ID,
+       GS_OUTPUT TYPE  ZQMS_RET.
+  DATA:GV_STRLINE TYPE STRING.
+
+  IF PS_OUTPUT-CODE = 'E'.
+    EXIT.
+  ENDIF.
+
+* 输入参数-结构转换
+  LT_MSEG  = CORRESPONDING #( PT_MSEG[] ).
+
+
+********
+*----------------------------------------------------------------------
+*   业务逻辑处理
+*----------------------------------------------------------------------
+  DATA:LV_ERROR     TYPE C,
+       LV_STR       TYPE STRING,
+       LR_PROXY     TYPE REF TO ZCO_SI_SAP2LIMS_PURCHASE_OUT, "代理类
+       LR_PROTOCOL  TYPE REF TO IF_WSPROTOCOL_MESSAGE_ID,
+       LS_INPUT     TYPE ZPLACE_INVENTORY_SESSIONLESS_1, "推送信息
+       LS_OUTPUT    TYPE ZPLACE_INVENTORY_SESSIONLESS_S, "返回信息
+       LS_INPUT_ROW TYPE ZINVENTORY_DTO.
+
+  CLEAR:LS_INPUT_ROW.
+
+  DATA : LS_BUT000 TYPE BUT000 .
+
+
+* 调用PI下发至LIMS
+  TRY.
+      CREATE OBJECT LR_PROXY.
+
+      LOOP AT PT_MSEG INTO LS_MSEG.
+        CLEAR:LS_INPUT_ROW.
+        MOVE-CORRESPONDING LS_MSEG TO LS_INPUT_ROW.
+        LS_INPUT_ROW-BUDAT = LS_MSEG-BUDAT_MKPF .
+        CALL FUNCTION 'CONVERSION_EXIT_MATN1_OUTPUT'
+          EXPORTING
+            INPUT  = LS_MSEG-MATNR
+          IMPORTING
+            OUTPUT = LS_INPUT_ROW-MATNR.
+
+        SELECT SINGLE MSEH3
+        INTO LS_INPUT_ROW-MEINS
+        FROM T006A
+        WHERE SPRAS = SY-LANGU
+          AND MSEHI = LS_MSEG-MEINS .
+
+        CLEAR LS_BUT000 .
+        SELECT SINGLE *
+          INTO LS_BUT000
+          FROM BUT000
+          WHERE PARTNER = LS_MSEG-LIFNR .
+        CONCATENATE LS_BUT000-NAME_ORG1
+                    LS_BUT000-NAME_ORG2
+        INTO   LS_INPUT_ROW-LIFNR .
+
+        APPEND  LS_INPUT_ROW TO LS_INPUT-ARR_PARAMETERS-INVENTORY_DTO."业务数据
+      ENDLOOP.
+
+      LS_INPUT-USER  = GC_LIMSUSER."访问LIMS系统用户名
+      LS_INPUT-PWD   = GC_LIMSPWD. "访问LIMS系统密码
+
+
+
+*    接口数据下发
+      CALL METHOD LR_PROXY->SI_SAP2LIMS_PURCHASE_OUT
+        EXPORTING
+          OUTPUT = LS_INPUT
+        IMPORTING
+          INPUT  = LS_OUTPUT.
+
+      PS_OUTPUT-CODE     = LS_OUTPUT-PLACE_INVENTORY_SESSIONLESS_RE-RET_CODE.
+      PS_OUTPUT-MSG      = LS_OUTPUT-PLACE_INVENTORY_SESSIONLESS_RE-RET_MSG.
+
+    CATCH CX_ROOT INTO DATA(LR_ROOT).
+      PS_OUTPUT-CODE = 'E'.
+      PS_OUTPUT-MSG = LR_ROOT->GET_TEXT(  ).
+
+  ENDTRY.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form SUB_EDIT_102
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> I_MKPF
+*&      --> I_MSEG
+*&---------------------------------------------------------------------*
+FORM SUB_EDIT_102  USING    I_MKPF TYPE TY_T_MKPF
+                            I_MSEG TYPE TY_T_MSEG  .
+
+  DATA:LS_INPUT TYPE  ZQMS_LIMS_0003.
+  DATA:LS_MARA  TYPE MARA.
+  DATA:LV_TS TYPE C."S 存表，T推送
+  DATA : LS_QALS TYPE QALS .
+  DATA : LS_QAMB TYPE QAMB .
+  DATA : LS_MSEG TYPE MSEG .
+
+  LOOP AT I_MSEG INTO LS_MSEG WHERE BWART = '102' .
+
+    CLEAR LV_TS .
+    CLEAR LS_QALS .
+    CLEAR LS_QAMB .
+    CLEAR LS_INPUT .
+    CLEAR LS_MARA .
+
+    DO  100 TIMES.
+      SELECT SINGLE *
+        INTO LS_QAMB
+        FROM QAMB
+        WHERE TYP = '6'
+          AND ZAEHLER = '1'
+          AND MBLNR = LS_MSEG-SMBLN
+          AND MJAHR = LS_MSEG-SJAHR
+          AND ZEILE = LS_MSEG-SMBLP
+         .
+      IF SY-SUBRC = 0 .
+        EXIT .
+      ELSE .
+        WAIT UP TO '0.5' SECONDS  .
+      ENDIF .
+    ENDDO .
+
+    CHECK SY-SUBRC = 0 .
+
+    SELECT SINGLE *
+      INTO LS_QALS
+      FROM QALS
+      WHERE PRUEFLOS = LS_QAMB-PRUEFLOS .
+    CHECK SY-SUBRC = 0 .
+
+* 1.请验信息及批属关系下发LIMS-查询执行结果，调用LIMS新增功能
+* 若QALS-ART=01,Z01,Y04,04,C04,G04,Z08时，触发对LIMS请验新增接口的调用，推送请验新增信息。
+* 若QALS-ART=Z04时，由QALS-MATNR=MARA-MATNR取出MARA-MTART，
+*	若MARA-MTART=Z050则触发对LIMS请验新增接口的调用，推送请验新增信息。
+*	若MARA-MTART=Z030则进一步判读MARA-MATKL的值，当该字段的值等于301001或301002或301201或301202时触发对LIMS请验新增接口的调用，推送请验新增信息；
+*	                           若MARA-MATKL的值不等于301001或301002或301201或301202时则将条目写入自建表ZQMT056。
+    IF LS_QALS-ART = '01' OR LS_QALS-ART = 'Z01' OR LS_QALS-ART = 'Y04' OR LS_QALS-ART = '04' OR
+       LS_QALS-ART = 'C04' OR LS_QALS-ART = 'G04' OR LS_QALS-ART = 'Z08' .
+      LV_TS = 'T'.
+    ENDIF.
+
+    IF LV_TS = 'T'.
+*      没有处理成功或没有处理过的，需执行LIMS新增功能
+*
+      LS_INPUT-PRUEFLOS = LS_QALS-PRUEFLOS.
+      LS_INPUT-INTID = 'QM0563'.
+
+*      调用LIMS请验删除
+      CALL FUNCTION 'Z_QM_LIMS_0008' "STARTING NEW TASK 'UP01'
+        EXPORTING
+*         I_MARKS  = 'X'
+*         i_prueflos = ls_input.
+          IS_INPUT = LS_INPUT.
+
+    ENDIF.
+
+  ENDLOOP .
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form SUB_EDIT_101
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> I_MKPF
+*&      --> I_MSEG
+*&---------------------------------------------------------------------*
+FORM SUB_EDIT_101  USING    I_MKPF TYPE TY_T_MKPF
+                            I_MSEG TYPE TY_T_MSEG   .
+
+  DATA : LS_ZQMT0562 TYPE ZQMT0562 .
+  DATA : LT_ZQMT0562 TYPE TABLE OF ZQMT0562 .
+
+  DATA:LS_MARA  TYPE MARA.
+  DATA:LV_TS TYPE C."S 存表，T推送
+  DATA : LS_QALS TYPE QALS .
+  DATA : LS_QAMB TYPE QAMB .
+  DATA : LT_QAMB TYPE TABLE OF  QAMB .
+  DATA : LS_MSEG TYPE MSEG .
+  DATA : LV_BUDAT TYPE SY-DATUM .
+  DATA : LS_MCHA  LIKE MCHA.  "批次
+  DATA : LV_LINE TYPE I .
+  DATA:LS_INPUT TYPE  ZQMS_LIMS_0003 .
+
+* 批次信息
+  DATA:LT_BATCH_CHARA LIKE STANDARD TABLE OF GS_BATCH_CHARA.
+  DATA:LS_BATCH_CHARA LIKE  GS_BATCH_CHARA.
+
+*   若①MSEG-BWART=101；
+  LOOP AT I_MSEG INTO LS_MSEG WHERE BWART = '101' .
+
+*且②由QAMB-MBLNR=MSEG-SMBLN，QAMB-MJAHR=MSEG-SJAHR，QAMB-ZEILE=MSEG-SMBLP，QAMB-TYP=1检索到QAMB-PRUEFLOS，取出该检验批号下对应的QAMB-TYP=1条目至少有2个；
+    CLEAR LV_TS .
+    CLEAR LS_QALS .
+    CLEAR LS_QAMB .
+    CLEAR LS_MARA .
+    CLEAR LT_QAMB .
+
+    DO  100 TIMES.
+      SELECT  *
+        INTO TABLE LT_QAMB
+        FROM QAMB
+        WHERE TYP = '1'
+*        AND ZAEHLER = '1'
+          AND MBLNR = LS_MSEG-MBLNR
+          AND MJAHR = LS_MSEG-MJAHR .
+      IF SY-SUBRC = 0 .
+        EXIT .
+      ELSE .
+        WAIT UP TO '0.5' SECONDS .
+      ENDIF .
+    ENDDO.
+
+
+    READ TABLE LT_QAMB INTO LS_QAMB INDEX 1 .
+
+    CLEAR LT_QAMB .
+    SELECT  *
+      INTO TABLE LT_QAMB
+      FROM QAMB
+      WHERE TYP = '1'
+        AND PRUEFLOS = LS_QAMB-PRUEFLOS .
+
+    LV_LINE = LINES( LT_QAMB ) .
+
+    CHECK LV_LINE >= 2 .
+    READ TABLE LT_QAMB INTO LS_QAMB INDEX 1 .
+
+
+**且③由QAMB-PRUEFLOS取出QAMB-TYP=1, QAMB-ZAEHLER=1对应的MSEG- BUDAT_MKPF，判断是否与SY-DATUM相匹配，匹配则进入条件④的判断；
+*    CLEAR LV_BUDAT  .
+*    SELECT SINGLE BUDAT_MKPF
+*          INTO LV_BUDAT
+*          FROM MSEG
+*          WHERE MBLNR = LS_QAMB-MBLNR
+*            AND MJAHR = LS_QAMB-MJAHR
+*            AND ZEILE = LS_QAMB-ZEILE   .
+*    CHECK LV_BUDAT = LS_MSEG-BUDAT_MKPF .
+
+
+    SELECT SINGLE *
+      INTO LS_QALS
+      FROM QALS
+      WHERE PRUEFLOS = LS_QAMB-PRUEFLOS .
+    CHECK SY-SUBRC = 0 .
+*且④由QALS-PRUEFLOS=QAMB-PRUEFLOS，QALS-ART=01，Z01，Z08时，则触发对LIMS请验更新接口的调用，推送请验更新信息。
+    IF LS_QALS-ART = '01' OR LS_QALS-ART = 'Z01' OR  LS_QALS-ART = 'Z08' .
+      LV_TS = 'T'.
+    ENDIF.
+
+    IF LV_TS = 'T'.
+      CLEAR LS_INPUT .
+      LS_INPUT-PRUEFLOS  = LS_QAMB-PRUEFLOS.
+      LS_INPUT-INTID     = 'QM0562'.
+
+      CALL FUNCTION 'Z_QM_LIMS_0007'  "修改
+        EXPORTING
+          IS_INPUT = LS_INPUT.
+*      IMPORTING
+*        E_OUTPUT = LS_OUTPUT.
+*      CLEAR LS_ZQMT0562 .
+*      LS_ZQMT0562-QPLOS = LS_QALS-PRUEFLOS .
+*
+**      物料工厂批次信息
+*      SELECT SINGLE *
+*        INTO CORRESPONDING FIELDS OF LS_MCHA
+*        FROM MCHA
+*       WHERE MATNR = LS_QALS-MATNR
+*         AND WERKS = LS_QALS-WERK
+*         AND CHARG = LS_QALS-CHARG.
+*
+**       获取批次信息
+*      PERFORM FRM_GET_BATCHINFO TABLES LT_BATCH_CHARA USING LS_MCHA.
+*
+*      SORT  LT_BATCH_CHARA BY ATNAM.
+*
+**      长批号
+*      CLEAR:LS_BATCH_CHARA.
+*      READ TABLE LT_BATCH_CHARA INTO  LS_BATCH_CHARA WITH KEY ATNAM = 'Z_BATCH_DYPC' BINARY SEARCH.
+*      IF LS_BATCH_CHARA IS NOT INITIAL.
+*        LS_ZQMT0562-ZDYPC = LS_BATCH_CHARA-ATWRT.
+*      ENDIF.
+*
+*      LS_ZQMT0562-ZJYPC = SY-DATUM ."LS_QALS-ERSTELDAT .
+*      LS_ZQMT0562-ZSFTS = '' .
+*      LS_ZQMT0562-ERDAT = SY-DATUM .
+*      LS_ZQMT0562-ERZET = SY-UZEIT .
+*      LS_ZQMT0562-ERNAM = SY-UNAME .
+*      MODIFY ZQMT0562 FROM LS_ZQMT0562 .
+
+    ENDIF .
+
+  ENDLOOP .
+
+
+ENDFORM.

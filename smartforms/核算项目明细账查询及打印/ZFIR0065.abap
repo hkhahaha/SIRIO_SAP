@@ -333,7 +333,19 @@ FORM getdata.
     APPEND ls_out TO lt_out.
     CLEAR ls_out.
     "接下来插入本期明细
-
+    LOOP AT lt_all2 INTO ls_all2.
+      
+      "借贷标识
+      IF ls_all-wsl = 0.
+        ls_all-type = '平'.
+      ELSEIF ls_all-wsl > 0.
+        ls_all-type = '借'.
+      ELSE.
+        ls_all-type = '贷'.
+      ENDIF.
+      MOVE-CORRESPONDING ls_all2 TO ls_out.
+      CLEAR ls_all2.
+    ENDLOOP.
 
 
 

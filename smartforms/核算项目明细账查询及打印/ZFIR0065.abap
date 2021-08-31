@@ -48,6 +48,7 @@ TYPES:BEGIN OF ty_all,
 DATA:lt_all   TYPE TABLE OF ty_all,
      ls_all   LIKE LINE OF lt_all,
      ls_all2  LIKE LINE OF lt_all,
+     ls_all3  LIKE LINE OF lt_all,
      ls_all4  LIKE LINE OF lt_all,
      ls_all4c LIKE LINE OF lt_all,
      lt_all_t TYPE TABLE OF ty_all, "期初余额缓存表
@@ -62,6 +63,7 @@ DATA:lt_all   TYPE TABLE OF ty_all,
 
 DATA:lt_out  TYPE TABLE OF ty_all, "ALV输出
      ls_out  LIKE LINE OF lt_out,
+     ls_out2 LIKE LINE OF lt_out,
      lt_out1 TYPE TABLE OF ty_all,
      lt_out2 TYPE TABLE OF ty_all,
      lt_out3 TYPE TABLE OF ty_all,
@@ -69,6 +71,12 @@ DATA:lt_out  TYPE TABLE OF ty_all, "ALV输出
 
 DATA lv_gjahr TYPE acdoca-gjahr.
 DATA lv_budat TYPE acdoca-budat.
+DATA lv_budat2 TYPE acdoca-budat.
+"本期发生额
+DATA:g_wsl1 TYPE acdoca-wsl, "借方交易货币
+     g_hsl1 TYPE acdoca-hsl, "借方本位币
+     g_wsl2 TYPE acdoca-wsl, "贷方交易货币
+     g_hsl2 TYPE acdoca-hsl. "贷方本位币
 TABLES:bkpf,acdoca.
 
 SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001."定义屏幕
@@ -166,8 +174,11 @@ FORM getdata.
 
 
   "本年累计发生额
+  DATA p_year2 LIKE p_year.
   lv_gjahr = p_year+0(4)."会计年度
   lv_budat = p_year+0(4) && p_year+5(2) && '01'.
+  p_year2 = p_year + 1.
+  lv_budat2 = p_year+0(4) && p_year2+5(2)  && '01'.
   "(1)借方数据
   SELECT
       rbukrs,
@@ -331,27 +342,79 @@ FORM getdata.
     ls_all-style = '期初余额'.
     MOVE-CORRESPONDING ls_all TO ls_out.
     APPEND ls_out TO lt_out.
-    CLEAR ls_out.
-    "接下来插入本期明细
-    LOOP AT lt_all2 INTO ls_all2.
-      
-      "借贷标识
-      IF ls_all-wsl = 0.
-        ls_all-type = '平'.
-      ELSEIF ls_all-wsl > 0.
-        ls_all-type = '借'.
-      ELSE.
-        ls_all-type = '贷'.
-      ENDIF.
-      MOVE-CORRESPONDING ls_all2 TO ls_out.
-      CLEAR ls_all2.
-    ENDLOOP.
 
+    "接下来插入本期明细
+    CLEAR:g_wsl1,g_wsl2,g_hsl1,g_hsl2.
+    LOOP AT lt_all2 INTO ls_all2 WHERE rbukrs = ls_all-rbukrs
+                                   AND racct = ls_all-racct.
+
+      IF ls_all2-drcrk = 'S'."借方
+        ls_all2-hsl1 = ls_all2-hsl.
+        ls_all2-wsl1 = ls_all2-wsl.
+      ELSE."贷方
+        ls_all2-wsl2 = ls_all2-wsl.
+        ls_all2-hsl2 = ls_all2-hsl.
+      ENDIF.
+      "借贷标识
+      IF ls_all2-wsl = 0.
+        ls_all2-type = '平'.
+      ELSEIF ls_all2-wsl > 0.
+        ls_all2-type = '借'.
+      ELSE.
+        ls_all2-type = '贷'.
+      ENDIF.
+      ls_all2-wsl = ls_out-wsl + ls_all2-wsl1 - ls_all2-wsl2."交易货币余额
+      ls_all2-hsl = ls_out-hsl + ls_all2-hsl1 - ls_all2-hsl2."本位币余额
+      MOVE-CORRESPONDING ls_all2 TO ls_out2.
+      APPEND ls_out2 TO lt_out.
+      "赋值本期发生额
+      g_wsl1 = g_wsl1 + ls_all2-wsl1.
+      g_wsl2 = g_wsl2 + ls_all2-wsl2.
+      g_hsl1 = g_hsl1 + ls_all2-hsl1.
+      g_hsl2 = g_hsl2 + ls_all2-hsl2.
+      CLEAR:ls_all2,ls_all2.
+    ENDLOOP.
+    CLEAR ls_out.
 
 
 
     "本期发生额
 
+    MOVE-CORRESPONDING ls_all TO ls_out.
+    ls_out-style = '本期发生额'.
+    ls_out-wsl1 = g_wsl1.
+    ls_out-wsl2 = g_wsl2.
+    ls_out-hsl1 = g_hsl1.
+    ls_out-hsl2 = g_hsl2.
+    SELECT SINGLE
+      rbukrs,
+      racct,
+      rtcur,
+      gvtyp,
+      SUM( wsl ) AS wsl,
+      SUM( hsl ) AS hsl
+   	FROM acdoca
+    INNER JOIN ska1
+    ON ska1~ktopl = acdoca~ktopl
+    AND ska1~saknr = acdoca~racct
+    WHERE rbukrs = @ls_all-rbukrs
+      AND racct = @ls_all-racct
+      AND budat >= @lv_budat
+      AND budat < @lv_budat2
+    GROUP BY rbukrs,racct,rtcur,gvtyp
+    INTO CORRESPONDING FIELDS OF  @ls_all3.
+    ls_out-hsl = ls_all3-hsl.
+    ls_out-wsl = ls_all3-wsl.
+    CLEAR:ls_out-budat,ls_out-belnr,ls_out-sgtxt.
+    "借贷标识
+    IF ls_out-wsl = 0.
+      ls_out-type = '平'.
+    ELSEIF ls_out-wsl > 0.
+      ls_out-type = '借'.
+    ELSE.
+      ls_out-type = '贷'.
+    ENDIF.
+    APPEND ls_out TO lt_out.
 
 
     "本年累计
@@ -377,19 +440,105 @@ FORM getdata.
 
 
 
-
-  IF lt_all2 IS NOT INITIAL.
-    READ TABLE lt_all1 INTO ls_all INDEX 1.
-    IF sy-subrc = 0.
-      APPEND ls_all TO lt_all.
-    ENDIF.
-  ENDIF.
 ENDFORM.
 
 FORM catalog.
+  w_repid = sy-repid.
+  CLEAR fieldcat.
+
+  DEFINE fieldcatset."宏定义
+    fieldcat-just = 'C'."字段居中显示
+    fieldcat-fieldname = &1."透明表字段名
+    fieldcat-seltext_l = &2."ALV列名
+    fieldcat-col_pos = &3."列位置
+    APPEND fieldcat.
+  END-OF-DEFINITION.
+
+  fieldcatset 'STYLE' ' ' sy-tabix.
+  fieldcatset 'RBUKRS' '公司代码' sy-tabix.
+  fieldcatset 'RACCT'  '科目号' sy-tabix.
+  fieldcatset 'TXT20' '科目描述' sy-tabix.
+  fieldcatset 'BUDAT' '过账日期' sy-tabix.
+  fieldcatset 'BELNR' '凭证编号' sy-tabix.
+  fieldcatset 'SGTXT' '凭证行项目文本' sy-tabix.
+  fieldcatset 'RCNTR' '成本中心' sy-tabix.
+  fieldcatset 'RFAREA' '功能范围' sy-tabix.
+  fieldcatset 'RFAREAT' '功能范围描述' sy-tabix.
+  fieldcatset 'KUNNR' '客户编码' sy-tabix.
+  fieldcatset 'KUNNRT' '客户描述' sy-tabix.
+  fieldcatset 'LIFNR' '供应商编码' sy-tabix.
+  fieldcatset 'LIFNRT' '供应商描述' sy-tabix.
+  fieldcatset 'HBKID' '开户银行' sy-tabix.
+  fieldcatset 'HKTID' '账户标识' sy-tabix.
+  fieldcatset 'RTCUR' '交易货币' sy-tabix.
+  fieldcatset 'KURSF' '汇率' sy-tabix.
+  fieldcatset 'WSL1' '借方交易货币' sy-tabix.
+  fieldcatset 'HSL1' '借方本位币' sy-tabix.
+  fieldcatset 'WSL2' '贷方交易货币' sy-tabix.
+  fieldcatset 'HSL2' '贷方本位币' sy-tabix.
+  fieldcatset 'WSL' '交易货币余额' sy-tabix.
+  fieldcatset 'HSL' '本位币余额' sy-tabix.
+
+  layout-colwidth_optimize = 'X'.
+  layout-zebra = 'X'."斑马线的样式
 
 ENDFORM.
 
 FORM alvshow.
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+*     I_INTERFACE_CHECK        = ' '
+*     I_BYPASSING_BUFFER       = ' '
+*     I_BUFFER_ACTIVE          = ' '
+      i_callback_program       = w_repid "程序名称
+      i_callback_pf_status_set = 'FRM_SET_PF_STATUS'
+*     i_callback_user_command  = 'ALV_USER_COMMAND' "对ALV操作的时候触发所定义的子程序
+*     I_CALLBACK_TOP_OF_PAGE   = ' '
+*     I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
+*     I_CALLBACK_HTML_END_OF_LIST       = ' '
+*     I_STRUCTURE_NAME         =
+*     I_BACKGROUND_ID          = ' '
+*     i_grid_title             = '会计凭证' "标题名
+*     I_GRID_SETTINGS          =
+      is_layout                = layout "程序所定义的layout名称
+      it_fieldcat              = fieldcat[] "定义fieldcat数据
+*     IT_EXCLUDING             =
+*     IT_SPECIAL_GROUPS        =
+*     IT_SORT                  =
+*     IT_FILTER                =
+*     IS_SEL_HIDE              =
+*     I_DEFAULT                = 'X'
+*     I_SAVE                   = ' '
+*     IS_VARIANT               =
+*     IT_EVENTS                =
+*     IT_EVENT_EXIT            =
+*     IS_PRINT                 =
+*     IS_REPREP_ID             =
+*     I_SCREEN_START_COLUMN    = 0
+*     I_SCREEN_START_LINE      = 0
+*     I_SCREEN_END_COLUMN      = 0
+*     I_SCREEN_END_LINE        = 0
+*     I_HTML_HEIGHT_TOP        = 0
+*     I_HTML_HEIGHT_END        = 0
+*     IT_ALV_GRAPHICS          =
+*     IT_HYPERLINK             =
+*     IT_ADD_FIELDCAT          =
+*     IT_EXCEPT_QINFO          =
+*     IR_SALV_FULLSCREEN_ADAPTER        =
+* IMPORTING
+*     E_EXIT_CAUSED_BY_CALLER  =
+*     ES_EXIT_CAUSED_BY_USER   =
+    TABLES
+      t_outtab                 = lt_out
+    EXCEPTIONS "下面都是默认的
+      program_error            = 1
+      OTHERS                   = 2.
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+ENDFORM.
 
+FORM frm_set_pf_status USING pt_extab TYPE slis_t_extab.
+  SET PF-STATUS 'ZHKALV1'.
 ENDFORM.

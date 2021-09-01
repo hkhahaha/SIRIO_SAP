@@ -3,7 +3,7 @@
 *&---------------------------------------------------------------------*
 *&核算项目明细账查询及打印
 *&---------------------------------------------------------------------*
-REPORT zfir0065.
+REPORT ZFIR0119.
 TYPE-POOLS:slis."调用系统存在的类型池
 *在调用ALV之前，需要先定义Layout和Fieldcat，他们属于slis类型池
 DATA:fieldcat TYPE slis_t_fieldcat_alv WITH HEADER LINE,
@@ -478,6 +478,7 @@ FORM catalog.
   fieldcatset 'HSL2' '贷方本位币' sy-tabix.
   fieldcatset 'WSL' '交易货币余额' sy-tabix.
   fieldcatset 'HSL' '本位币余额' sy-tabix.
+  fieldcatset 'TYPE' '借贷标识' sy-tabix.
 
   layout-colwidth_optimize = 'X'.
   layout-zebra = 'X'."斑马线的样式

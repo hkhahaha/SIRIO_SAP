@@ -3,7 +3,7 @@
 *&---------------------------------------------------------------------*
 *&核算项目明细账查询及打印
 *&---------------------------------------------------------------------*
-REPORT ZFIR0119.
+REPORT zfir0119.
 TYPE-POOLS:slis."调用系统存在的类型池
 *在调用ALV之前，需要先定义Layout和Fieldcat，他们属于slis类型池
 DATA:fieldcat TYPE slis_t_fieldcat_alv WITH HEADER LINE,
@@ -43,31 +43,32 @@ TYPES:BEGIN OF ty_all,
         drcrk       TYPE acdoca-drcrk, "借贷标识
         type(5),"借贷标识
         gvtyp       TYPE ska1-gvtyp, "损益科目
+        fiscyearper TYPE acdoca-fiscyearper, "期间
       END OF ty_all.
 
-DATA:lt_all   TYPE TABLE OF ty_all,
-     ls_all   LIKE LINE OF lt_all,
-     ls_all2  LIKE LINE OF lt_all,
-     ls_all3  LIKE LINE OF lt_all,
-     ls_all4  LIKE LINE OF lt_all,
-     ls_all4c LIKE LINE OF lt_all,
-     lt_all_t TYPE TABLE OF ty_all, "期初余额缓存表
-     lt_all1  TYPE TABLE OF ty_all, "期初余额
-     lt_all3a TYPE TABLE OF ty_all, "本期发生额
-     lt_all3b TYPE TABLE OF ty_all, "本期发生额
-     lt_all4  TYPE TABLE OF ty_all, "本年累计发生额
-     lt_all4a TYPE TABLE OF ty_all, "本年累计发生额,借方数据
-     lt_all4b TYPE TABLE OF ty_all, "本年累计发生额，贷方数据
-     lt_all4c TYPE TABLE OF ty_all, "本年累计发生额，贷方数据
-     lt_all2  TYPE TABLE OF ty_all. "本期明细
+DATA:lt_all      TYPE TABLE OF ty_all,
+     ls_all      LIKE LINE OF lt_all,
+     lt_alla1    TYPE TABLE OF ty_all,
+     lt_alla1a   TYPE TABLE OF ty_all,
+     lt_alla1b   TYPE TABLE OF ty_all,
+     lt_alla2    TYPE TABLE OF ty_all,
+     lt_alla3    TYPE TABLE OF ty_all,
+     lt_alla4    TYPE TABLE OF ty_all,
+     lt_alld1    TYPE TABLE OF ty_all,
+     lt_alld1a   TYPE TABLE OF ty_all,
+     lt_alld1b   TYPE TABLE OF ty_all,
+     lt_all_temp TYPE TABLE OF ty_all,
+     lt_detail   TYPE TABLE OF ty_all,
+     ls_alla1    LIKE LINE OF lt_alla1,
+     ls_alla1a   LIKE LINE OF lt_alla1,
+     ls_alla1b   LIKE LINE OF lt_alla1,
+     ls_alld1    LIKE LINE OF lt_alla1,
+     ls_alld1a   LIKE LINE OF lt_alla1,
+     ls_alld1b   LIKE LINE OF lt_alla1.
 
-DATA:lt_out  TYPE TABLE OF ty_all, "ALV输出
-     ls_out  LIKE LINE OF lt_out,
-     ls_out2 LIKE LINE OF lt_out,
-     lt_out1 TYPE TABLE OF ty_all,
-     lt_out2 TYPE TABLE OF ty_all,
-     lt_out3 TYPE TABLE OF ty_all,
-     lt_out4 TYPE TABLE OF ty_all.
+DATA:lt_out   TYPE TABLE OF ty_all, "ALV输出
+     ls_out   LIKE LINE OF lt_out,
+     ls_out_t LIKE LINE OF lt_out.
 
 DATA lv_gjahr TYPE acdoca-gjahr.
 DATA lv_budat TYPE acdoca-budat.
@@ -97,341 +98,418 @@ START-OF-SELECTION.
   PERFORM alvshow.
 
 FORM getdata.
-  "获取全部的相关数据于表ACDOCA中
-  "期初余额，支持多个科目进行计算
-  SELECT
-      rbukrs,
-      racct,
-      rtcur,
-      gvtyp,
-      SUM( wsl ) AS wsl,
-      SUM( hsl ) AS hsl
-    FROM acdoca
-    INNER JOIN ska1
-    ON ska1~ktopl = acdoca~ktopl
-    AND ska1~saknr = acdoca~racct
-    WHERE rbukrs = @p_rbukrs
-      AND fiscyearper < @p_year
-      AND racct IN @s_racct
-      AND rfarea IN @p_rfarea
-      AND kunnr IN @s_kunnr
-      AND lifnr IN @s_lifnr
-      AND racct BETWEEN 1001010000 AND 6910999999
-    GROUP BY rbukrs,racct,rtcur,gvtyp
-    INTO CORRESPONDING FIELDS OF TABLE @lt_all1.
-  SORT lt_all1 BY racct rbukrs DESCENDING.
-  "汇总相关的数据
-  LOOP AT lt_all1 INTO ls_all.
-    COLLECT ls_all INTO lt_all_t.
-    CLEAR ls_all.
-  ENDLOOP.
-  "获取相关的科目描述、借贷标识为借方
-  SELECT
-    *
-  FROM skat
-  FOR ALL ENTRIES IN @lt_all_t
-  WHERE saknr = @lt_all_t-racct
-    AND spras = '1'
-  INTO TABLE @DATA(lt_skat).
-  "上面的期初余额相关数据已经确认无误，下面进行本期明细的数据获取
-
-
-  "本期明细
-  SELECT
-    rbukrs    "公司代码
-    racct     "科目号
-    budat     "过账日期
-    belnr
-    sgtxt
-    rcntr
-    rfarea
-    kunnr
-    lifnr
+  "获取年度
+  lv_gjahr = p_year+0(4).
+  "首先，先获取所需要的科目，作为基底
+  "(1)如果科目编码SKA1-SAKNR=1001010000-1012999999,按照科目+开户银行+账号标识汇总数据
+  "[1]获得基础数据，包含的是（1）类别下的所有科目、公司代码，不区分借贷方
+  SELECT DISTINCT
+    rbukrs
+    racct
     hbkid
     hktid
     rtcur
-    wsl
-    hsl
-    drcrk
   FROM acdoca
-  INTO CORRESPONDING FIELDS OF TABLE lt_all2
-  WHERE rbukrs = p_rbukrs
-  AND fiscyearper = p_year
-  AND racct IN s_racct
+  INTO  CORRESPONDING FIELDS OF TABLE lt_alla1
+  WHERE racct BETWEEN 1001010000 AND 1012999999
+    AND rbukrs = p_rbukrs
+    AND fiscyearper < p_year
+    AND rfarea IN p_rfarea
+    AND kunnr IN s_kunnr
+    AND lifnr IN s_lifnr
+    AND racct IN s_racct
+    AND blart <> ''
+  GROUP BY racct hbkid hktid rbukrs rtcur.
+
+  "[2]获得借方的数据，保存在lt_alla1a表中
+  SELECT
+    rbukrs
+    racct
+    hbkid
+    hktid
+    rtcur
+    SUM( wsl ) AS wsl
+    SUM( hsl ) AS hsl
+  FROM acdoca
+  INTO  CORRESPONDING FIELDS OF TABLE lt_alla1a
+  WHERE racct BETWEEN 1001010000 AND 1012999999
+    AND rbukrs = p_rbukrs
+    AND fiscyearper < p_year
+    AND rfarea IN p_rfarea
+    AND kunnr IN s_kunnr
+    AND lifnr IN s_lifnr
+    AND racct IN s_racct
+    AND blart <> ''
+    AND drcrk = 'S'
+  GROUP BY racct hbkid hktid rbukrs rtcur.
+
+  "本年累计相关，获取（1）类数据的本年累计借方数据
+  SELECT
+   rbukrs
+   racct
+   hbkid
+   hktid
+   rtcur
+   SUM( wsl ) AS wsl
+   SUM( hsl ) AS hsl
+ FROM acdoca
+ INTO  CORRESPONDING FIELDS OF TABLE lt_alld1a
+ WHERE racct BETWEEN 1001010000 AND 1012999999
+   AND rbukrs = p_rbukrs
+   AND fiscyearper <= p_year
+   AND rfarea IN p_rfarea
+   AND kunnr IN s_kunnr
+   AND lifnr IN s_lifnr
+   AND racct IN s_racct
+   AND blart <> ''
+   AND drcrk = 'S'
+   AND gjahr = lv_gjahr
+ GROUP BY racct hbkid hktid rbukrs rtcur.
+  "[3]获取贷方数据，保存在LT_ALLA1B表中
+  SELECT
+    rbukrs
+    racct
+    hbkid
+    hktid
+    rtcur
+    SUM( wsl ) AS wsl
+    SUM( hsl ) AS hsl
+  FROM acdoca
+  INTO  CORRESPONDING FIELDS OF TABLE lt_alla1b
+  WHERE racct BETWEEN 1001010000 AND 1012999999
+    AND rbukrs = p_rbukrs
+    AND fiscyearper < p_year
+    AND rfarea IN p_rfarea
+    AND kunnr IN s_kunnr
+    AND lifnr IN s_lifnr
+    AND racct IN s_racct
+    AND blart <> ''
+    AND drcrk = 'H'
+  GROUP BY racct hbkid hktid rbukrs rtcur.
+  "本年累计相关，获取（1）类数据的本年累计贷方数据
+  SELECT
+  rbukrs
+  racct
+  hbkid
+  hktid
+  rtcur
+  SUM( wsl ) AS wsl
+  SUM( hsl ) AS hsl
+FROM acdoca
+INTO  CORRESPONDING FIELDS OF TABLE lt_alld1b
+WHERE racct BETWEEN 1001010000 AND 1012999999
+  AND rbukrs = p_rbukrs
+  AND fiscyearper <= p_year
   AND rfarea IN p_rfarea
   AND kunnr IN s_kunnr
   AND lifnr IN s_lifnr
-  AND racct BETWEEN 1001010000 AND 6910999999.
-  "上面的本期明细相关数据已经确认无误，下面进行本期发生额的数据获取
+  AND racct IN s_racct
+  AND blart <> ''
+  AND drcrk = 'H'
+  AND gjahr = lv_gjahr
+GROUP BY racct hbkid hktid rbukrs rtcur.
 
-
-
-
-  "本期发生额,后面处理数据的时候根据本期明细去计算
-  "（1）借方，金额正数
-
-  "（2）贷方，金额负数
-
-
-  "本年累计发生额
-  DATA p_year2 LIKE p_year.
-  lv_gjahr = p_year+0(4)."会计年度
-  lv_budat = p_year+0(4) && p_year+5(2) && '01'.
-  p_year2 = p_year + 1.
-  lv_budat2 = p_year+0(4) && p_year2+5(2)  && '01'.
-  "(1)借方数据
+  "(2)如果科目编码SKA1-SAKNR不等于1001010000-1012999999，且SKA1-GVTYP（损益）=X，按照科目+功能范围汇总数据
   SELECT
-      rbukrs,
-      racct,
-      rtcur,
-      gvtyp,
-      SUM( wsl ) AS wsla,
-      SUM( hsl ) AS hsla
-    FROM acdoca
-    INNER JOIN ska1
-    ON ska1~ktopl = acdoca~ktopl
-    AND ska1~saknr = acdoca~racct
-    WHERE rbukrs = @p_rbukrs
-      AND fiscyearper < @p_year
-      AND racct IN @s_racct
-      AND rfarea IN @p_rfarea
-      AND kunnr IN @s_kunnr
-      AND lifnr IN @s_lifnr
-      AND drcrk = 'S'
-      AND racct BETWEEN 1001010000 AND 6910999999
-    GROUP BY rbukrs,racct,rtcur,gvtyp
-    INTO CORRESPONDING FIELDS OF TABLE @lt_all4a.
-
-  " (2)贷方数据
-  SELECT
-      rbukrs,
-      racct,
-      rtcur,
-      gvtyp,
-      rfarea,
-      SUM( wsl ) AS wslb,
-      SUM( hsl ) AS hslb
-    FROM acdoca
-    INNER JOIN ska1
-    ON ska1~ktopl = acdoca~ktopl
-    AND ska1~saknr = acdoca~racct
-    WHERE rbukrs = @p_rbukrs
-      AND fiscyearper < @p_year
-      AND racct IN @s_racct
-      AND rfarea IN @p_rfarea
-      AND kunnr IN @s_kunnr
-      AND lifnr IN @s_lifnr
-      AND drcrk = 'H'
-      AND racct BETWEEN 1001010000 AND 6910999999
-    GROUP BY rbukrs,racct,rtcur,gvtyp,rfarea
-    INTO CORRESPONDING FIELDS OF TABLE @lt_all4b.
-  "总的数据
-  SELECT
-    rbukrs,
-    racct,
-    rtcur,
-    gvtyp,
-    SUM( wsl ) AS wsla,
-    SUM( hsl ) AS hsla
+  racct,
+  rfarea,
+  SUM( wsl ) AS wsl,
+  SUM( hsl ) AS hsl
   FROM acdoca
-  INNER JOIN ska1
-  ON ska1~ktopl = acdoca~ktopl
-  AND ska1~saknr = acdoca~racct
-  WHERE rbukrs = @p_rbukrs
+  LEFT JOIN ska1
+  ON ska1~saknr = acdoca~racct
+  AND ska1~ktopl = acdoca~ktopl
+  WHERE racct NOT BETWEEN 1001010000 AND 1012999999
+    AND rbukrs = @p_rbukrs
     AND fiscyearper < @p_year
-    AND racct IN @s_racct
     AND rfarea IN @p_rfarea
     AND kunnr IN @s_kunnr
     AND lifnr IN @s_lifnr
-    AND racct BETWEEN 1001010000 AND 6910999999
-  GROUP BY rbukrs,racct,rtcur,gvtyp
-  INTO CORRESPONDING FIELDS OF TABLE @lt_all4c.
+    AND racct IN @s_racct
+    AND gvtyp = 'X'
+    AND blart <> ''
+  GROUP BY racct,rfarea
+  INTO  CORRESPONDING FIELDS OF TABLE @lt_alla2.
+  "(3)如果科目编码SKA1-SAKNR不等于1001010000-1012999999，且SKA1-GVTYP（损益）不等于X，且统御标识SKB1-MITKZ=K/D,按照科目+客户+供应商汇总数据
+  SELECT
+  racct,
+  rfarea,
+  SUM( wsl ) AS wsl,
+  SUM( hsl ) AS hsl
+  FROM acdoca
+  LEFT JOIN ska1
+  ON ska1~saknr = acdoca~racct
+  AND ska1~ktopl = acdoca~ktopl
+  INNER JOIN skb1
+  ON skb1~saknr = acdoca~racct
+  AND skb1~bukrs = acdoca~rbukrs
+  WHERE racct NOT BETWEEN 1001010000 AND 1012999999
+    AND rbukrs = @p_rbukrs
+    AND fiscyearper < @p_year
+    AND rfarea IN @p_rfarea
+    AND kunnr IN @s_kunnr
+    AND lifnr IN @s_lifnr
+    AND racct IN @s_racct
+    AND gvtyp <> 'X'
+    AND blart <> ''
+    AND mitkz IN ('K','D')
+  GROUP BY racct,rfarea
+  INTO  CORRESPONDING FIELDS OF TABLE @lt_alla3.
+  "(4)如果科目编码SKA1-SAKNR不等于1001010000-1012999999，且SKA1-GVTYP（损益）不等于X，且统御标识SKB1-MITKZ不等于K/D,按照科目汇总数据
+  SELECT
+  racct,
+  SUM( wsl ) AS wsl,
+  SUM( hsl ) AS hsl
+  FROM acdoca
+  LEFT JOIN ska1
+  ON ska1~saknr = acdoca~racct
+  AND ska1~ktopl = acdoca~ktopl
+  INNER JOIN skb1
+  ON skb1~saknr = acdoca~racct
+  AND skb1~bukrs = acdoca~rbukrs
+  WHERE racct NOT BETWEEN 1001010000 AND 1012999999
+    AND rbukrs = @p_rbukrs
+    AND fiscyearper < @p_year
+    AND rfarea IN @p_rfarea
+    AND kunnr IN @s_kunnr
+    AND lifnr IN @s_lifnr
+    AND racct IN @s_racct
+    AND gvtyp <> 'X'
+    AND mitkz NOT IN ('K','D')
+    AND blart <> ''
+  GROUP BY racct
+  INTO  CORRESPONDING FIELDS OF TABLE @lt_alla4.
 
-  "(1)+(2)合并
-  LOOP AT lt_all4c INTO ls_all.
-    READ TABLE lt_all4b INTO ls_all2 WITH KEY racct = ls_all-racct
-                                             rbukrs = ls_all-rbukrs
-                                             rtcur = ls_all-rtcur.
-    IF sy-subrc = 0.
-      ls_all-hsl2 = ls_all2-hslb.
-      ls_all-wsl2 = ls_all2-wslb.
-    ENDIF.
-    CLEAR ls_all2.
-    READ TABLE lt_all4a INTO ls_all2 WITH KEY racct = ls_all-racct
-                                             rbukrs = ls_all-rbukrs
-                                             rtcur = ls_all-rtcur.
-    IF sy-subrc = 0.
-      ls_all-hsl1 = ls_all2-hslb.
-      ls_all-wsl1 = ls_all2-wslb.
-    ENDIF.
-    ls_all-hsl1 = ls_all-hsla.
-    ls_all-wsl1 = ls_all-wsla.
+  "上面是期初余额的基底数据，接下来首先取出所有相关的全部明细行数据
+  SELECT
+   rbukrs,
+   racct,
+   acdoca~budat,
+   acdoca~belnr,
+   sgtxt,
+   rcntr,
+   rfarea,
+   kunnr,
+   lifnr,
+   hbkid,
+   hktid,
+   rtcur,
+   wsl,
+   hsl,
+   txt20,
+   kursf,
+   drcrk,
+   fiscyearper
+   FROM acdoca
+   LEFT JOIN skat
+   ON skat~saknr = acdoca~racct
+   AND skat~ktopl = acdoca~ktopl
+   LEFT JOIN bkpf
+   ON bkpf~bukrs = acdoca~rbukrs
+   AND bkpf~belnr = acdoca~belnr
+   AND bkpf~gjahr = acdoca~gjahr
+   WHERE  rbukrs = @p_rbukrs
+     AND fiscyearper = @p_year
+     AND rfarea IN @p_rfarea
+     AND kunnr IN @s_kunnr
+     AND lifnr IN @s_lifnr
+     AND racct IN @s_racct
+     AND acdoca~blart <> ''
+     AND spras = '1'
+     AND acdoca~ktopl = '1000'
+   INTO  CORRESPONDING FIELDS OF TABLE @lt_all.
+  SORT LT_ALL BY racct rbukrs budat."根据过账日期进行排序
+  "获取其他相关联的数据
+  "获取功能范围描述文本
+  SELECT
+    fkber AS rfarea,
+    fkbtx AS rfareat
+  INTO TABLE @DATA(lt_tfkbt)
+  FROM tfkbt
+  WHERE spras = '1'.
+  "客户供应商描述
+  SELECT
+    partner,
+    name_org1,
+    name_org2,
+    name_org3,
+    name_org4
+  INTO TABLE @DATA(lt_but000)
+  FROM but000.
+  "账户描述
+  SELECT
+   bukrs,
+   hbkid,
+   hktid,
+   text1
+  FROM t012t
+  INTO TABLE @DATA(lt_t012t)
+  WHERE spras = '1'.
+  "科目描述
+  SELECT
+    saknr,
+    txt20
+  FROM skat
+  INTO TABLE @DATA(lt_skat)
+  WHERE spras = '1'
+    AND ktopl = '1000'.
 
-*    1.根据选择界面输入的日期，如果该科目为损益科目（SKA1-GVTYP）=X,按照科目+功能范围+货币汇总会计年度GJAHR=选择界面输入会计年度汇总交易货币余额、本位币余额
-*    2.根据选择界面输入的日期，如果该科目为损益科目（SKA1-GVTYP）不等于X，按照科目+客户+供应商+开户银行+货币汇总过账日期<选择界面输入日期汇总交易货币余额、本位币余额
-    IF ls_all-gvtyp = 'X'.
-      SELECT SINGLE
-        rbukrs,
-        racct,
-        rtcur,
-        SUM( wsl ) AS wsl,
-        SUM( hsl ) AS hsl
-      FROM acdoca
-      WHERE racct = @ls_all-racct
-        AND gjahr = @lv_gjahr
-        AND rtcur = @ls_all-rtcur
-        AND rfarea = @ls_all-rfarea
-      GROUP BY rbukrs,racct,rtcur
-      INTO @DATA(ls_tempa).
-      ls_all-hsl = ls_tempa-hsl.
-      ls_all-wsl = ls_tempa-wsl.
-    ELSE.
-      SELECT SINGLE
-        rbukrs,
-        racct,
-        rtcur,
-        SUM( wsl ) AS wsl,
-        SUM( hsl ) AS hsl
-      FROM acdoca
-      WHERE racct = @ls_all-racct
-        AND budat < @lv_budat
-        AND rtcur = @ls_all-rtcur
-      GROUP BY rbukrs,racct,rtcur
-      INTO @ls_tempa.
-      ls_all-hsl = ls_tempa-hsl.
-      ls_all-wsl = ls_tempa-wsl.
+
+
+  "本年发生相关
+
+
+  "(1)类型，外层为基础数据
+  LOOP AT lt_alla1 INTO ls_alla1.
+
+    "根据相应条件对内部数据做计算
+    "借方
+    READ TABLE lt_alla1a INTO ls_alla1a WITH KEY rbukrs = ls_alla1-rbukrs
+                                                 racct = ls_alla1-racct
+                                                 hbkid = ls_alla1-hbkid
+                                                 hktid = ls_alla1-hktid.
+    IF sy-subrc = 0.
+      ls_alla1-wsl1 = ls_alla1a-wsl.
+      ls_alla1-hsl1 = ls_alla1a-hsl.
+    ENDIF.
+    "贷方
+    READ TABLE lt_alla1b INTO ls_alla1b WITH KEY rbukrs = ls_alla1-rbukrs
+                                                       racct = ls_alla1-racct
+                                                       hbkid = ls_alla1-hbkid
+                                                       hktid = ls_alla1-hktid.
+    IF sy-subrc = 0.
+      ls_alla1-wsl2 = ls_alla1b-wsl.
+      ls_alla1-hsl2 = ls_alla1b-hsl.
+    ENDIF.
+
+    IF ls_alla1-gvtyp = 'X'.
+      ls_alla1-wsl = 0.
+      ls_alla1-hsl = 0.
     ENDIF.
 
     "科目描述
-    READ TABLE lt_skat INTO DATA(ls_skat) WITH KEY saknr = ls_all-racct.
-    IF sy-subrc = 0.
-      ls_all-txt20 = ls_skat-txt20.
+    READ TABLE lt_skat INTO DATA(ls_skat) WITH KEY saknr = ls_alla1-racct.
+    IF sy-subrc  = 0.
+      ls_alla1-txt20 = ls_skat-txt20.
     ENDIF.
-    IF ls_all-wsl = 0.
-      ls_all-type = '平'.
-    ELSEIF ls_all-wsl > 0.
-      ls_all-type = '借'.
-    ELSE.
-      ls_all-type = '贷'.
-    ENDIF.
-    APPEND ls_all TO lt_all4.
-    CLEAR:ls_all,ls_all2,ls_tempa.
-  ENDLOOP.
+    CLEAR ls_skat.
 
-  "开始对数据进行处理,以LT_ALL1作为基底，然后循环处理数据
-  LOOP AT lt_all1 INTO ls_all.
-    "第一行处理的是期初余额
-    IF ls_all-gvtyp = 'X'.
-      ls_all-hsl = 0.
-      ls_all-wsl = 0.
-    ENDIF.
-    "科目描述
-    READ TABLE lt_skat INTO ls_skat WITH KEY saknr = ls_all-racct.
-    IF sy-subrc = 0.
-      ls_all-txt20 = ls_skat-txt20.
-    ENDIF.
-    "借贷标识
-    IF ls_all-wsl = 0.
-      ls_all-type = '平'.
-    ELSEIF ls_all-wsl > 0.
-      ls_all-type = '借'.
-    ELSE.
-      ls_all-type = '贷'.
-    ENDIF.
+    ls_alla1-wsl = ls_alla1-wsl1 + ls_alla1-wsl2.
+    ls_alla1-hsl = ls_alla1-hsl1 + ls_alla1-hsl2.
+    CLEAR:ls_alla1-wsl1,ls_alla1-wsl2,ls_alla1-hsl1,ls_alla1-hsl2.
 
-    ls_all-style = '期初余额'.
-    MOVE-CORRESPONDING ls_all TO ls_out.
+    IF ls_alla1-wsl > 0.
+      ls_alla1-type = '借'.
+    ELSEIF ls_alla1-wsl = 0.
+      ls_alla1-type = '平'.
+    ELSEIF ls_alla1-wsl < 0.
+      ls_alla1-type = '贷'.
+    ENDIF.
+    ls_alla1-hsl = ls_alla1-hsl.
+    MOVE-CORRESPONDING ls_alla1 TO ls_out.
+    ls_out-style = '期初余额'.
     APPEND ls_out TO lt_out.
+    MOVE-CORRESPONDING ls_out TO ls_out_t."本期发生额相关
 
-    "接下来插入本期明细
-    CLEAR:g_wsl1,g_wsl2,g_hsl1,g_hsl2.
-    LOOP AT lt_all2 INTO ls_all2 WHERE rbukrs = ls_all-rbukrs
-                                   AND racct = ls_all-racct.
+    CLEAR ls_out.
 
-      IF ls_all2-drcrk = 'S'."借方
-        ls_all2-hsl1 = ls_all2-hsl.
-        ls_all2-wsl1 = ls_all2-wsl.
-      ELSE."贷方
-        ls_all2-wsl2 = ls_all2-wsl.
-        ls_all2-hsl2 = ls_all2-hsl.
+    "开始获取（1）类的本期明细
+    LOOP AT lt_all INTO ls_all WHERE rbukrs = ls_alla1-rbukrs AND racct = ls_alla1-racct
+                                  AND rtcur = ls_alla1-rtcur AND hbkid = ls_alla1-hbkid
+                                  AND hktid = ls_alla1-hktid AND fiscyearper = p_year.
+
+      "科目描述
+      READ TABLE lt_skat INTO ls_skat WITH KEY saknr = ls_all-racct.
+      IF sy-subrc  = 0.
+        ls_all-txt20 = ls_skat-txt20.
       ENDIF.
-      "借贷标识
-      IF ls_all2-wsl = 0.
-        ls_all2-type = '平'.
-      ELSEIF ls_all2-wsl > 0.
-        ls_all2-type = '借'.
-      ELSE.
-        ls_all2-type = '贷'.
+      CLEAR ls_skat.
+
+      IF ls_all-drcrk = 'S'.
+        ls_all-wsl1 = ls_all-wsl.
+        ls_all-hsl1 = ls_all-hsl.
+      ELSEIF ls_all-drcrk = 'H'.
+        ls_all-hsl2 = ls_all-hsl .
+        ls_all-wsl2 = ls_all-wsl.
       ENDIF.
-      ls_all2-wsl = ls_out-wsl + ls_all2-wsl1 - ls_all2-wsl2."交易货币余额
-      ls_all2-hsl = ls_out-hsl + ls_all2-hsl1 - ls_all2-hsl2."本位币余额
-      MOVE-CORRESPONDING ls_all2 TO ls_out2.
-      APPEND ls_out2 TO lt_out.
-      "赋值本期发生额
-      g_wsl1 = g_wsl1 + ls_all2-wsl1.
-      g_wsl2 = g_wsl2 + ls_all2-wsl2.
-      g_hsl1 = g_hsl1 + ls_all2-hsl1.
-      g_hsl2 = g_hsl2 + ls_all2-hsl2.
-      CLEAR:ls_all2,ls_all2.
+
+      ls_out_t-hsl1 = ls_out_t-hsl1 + ls_all-hsl1.
+      ls_out_t-hsl2 = ls_out_t-hsl2 + ls_all-hsl2.
+      ls_out_t-wsl1 = ls_out_t-wsl1 + ls_all-wsl1.
+      ls_out_t-wsl2 = ls_out_t-wsl2 + ls_all-wsl2.
+
+      ls_out_t-hsl = ls_out_t-hsl + ls_all-hsl1 - ls_all-hsl2.
+      ls_out_t-wsl = ls_out_t-wsl + ls_all-wsl1 - ls_all-wsl2.
+
+      ls_all-hsl = ls_out_t-hsl.
+      ls_all-wsl = ls_out_t-wsl.
+
+      "获取相关的描述
+      IF ls_all-rfarea IS NOT INITIAL.
+        READ TABLE lt_tfkbt INTO DATA(ls_tfkbt) WITH KEY rfarea = ls_all-rfarea.
+        IF sy-subrc = 0..
+          ls_all-rfareat = ls_tfkbt-rfareat.
+        ENDIF.
+      ENDIF.
+
+      IF ls_all-lifnr IS NOT INITIAL.
+        READ TABLE lt_but000 INTO DATA(ls_but000) WITH KEY partner = ls_all-lifnr.
+        IF sy-subrc = 0.
+          ls_all-lifnrt = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
+        ENDIF.
+      ENDIF.
+
+      IF ls_all-kunnr IS NOT INITIAL.
+        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-lifnr.
+        IF sy-subrc = 0.
+          ls_all-kunnrt = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
+        ENDIF.
+      ENDIF.
+      IF ls_all-wsl > 0.
+        ls_all-type = '借'.
+      ELSEIF ls_all-wsl = 0.
+        ls_all-type = '平'.
+      ELSEIF ls_all-wsl < 0.
+        ls_all-type = '贷'.
+      ENDIF.
+
+      MOVE-CORRESPONDING ls_all TO ls_out.
+      APPEND ls_out TO lt_out.
+      CLEAR:ls_all,ls_out.
     ENDLOOP.
-    CLEAR ls_out.
 
-
-
-    "本期发生额
-
-    MOVE-CORRESPONDING ls_all TO ls_out.
-    ls_out-style = '本期发生额'.
-    ls_out-wsl1 = g_wsl1.
-    ls_out-wsl2 = g_wsl2.
-    ls_out-hsl1 = g_hsl1.
-    ls_out-hsl2 = g_hsl2.
-    SELECT SINGLE
-      rbukrs,
-      racct,
-      rtcur,
-      gvtyp,
-      SUM( wsl ) AS wsl,
-      SUM( hsl ) AS hsl
-   	FROM acdoca
-    INNER JOIN ska1
-    ON ska1~ktopl = acdoca~ktopl
-    AND ska1~saknr = acdoca~racct
-    WHERE rbukrs = @ls_all-rbukrs
-      AND racct = @ls_all-racct
-      AND budat >= @lv_budat
-      AND budat < @lv_budat2
-    GROUP BY rbukrs,racct,rtcur,gvtyp
-    INTO CORRESPONDING FIELDS OF  @ls_all3.
-    ls_out-hsl = ls_all3-hsl.
-    ls_out-wsl = ls_all3-wsl.
-    CLEAR:ls_out-budat,ls_out-belnr,ls_out-sgtxt.
-    "借贷标识
-    IF ls_out-wsl = 0.
-      ls_out-type = '平'.
-    ELSEIF ls_out-wsl > 0.
-      ls_out-type = '借'.
-    ELSE.
-      ls_out-type = '贷'.
+    "（1）类型的本期发生额
+    ls_out_t-style = '本期发生额'.
+    ls_out_t-wsl = ls_out_t-wsl1 + ls_out_t-wsl2.
+    ls_out_t-hsl = ls_out_t-hsl1 + ls_out_t-hsl2.
+    IF ls_out_t-wsl > 0.
+      ls_out_t-type = '借'.
+    ELSEIF ls_out_t-wsl = 0.
+      ls_out_t-type = '平'.
+    ELSEIF ls_out_t-wsl < 0.
+      ls_out_t-type = '贷'.
     ENDIF.
-    APPEND ls_out TO lt_out.
-
-
-    "本年累计
-    READ TABLE lt_all4 INTO ls_all4 WITH KEY rbukrs = ls_all-rbukrs
-                                             racct = ls_all-racct
-                                             rtcur = ls_all-rtcur.
-    CLEAR ls_out.
-    MOVE-CORRESPONDING ls_all4 TO ls_out.
-    READ TABLE lt_skat INTO ls_skat WITH KEY saknr = ls_all4-racct.
+    APPEND ls_out_t TO lt_out.
+    "（1）类型的本年发生额
+    ls_out_t-style = '本年发生额'.
+    READ TABLE lt_alld1a INTO ls_alld1a WITH KEY racct = ls_out_t-racct
+                                                 rbukrs = ls_out_t-rbukrs
+                                                 rtcur = ls_out_t-rtcur.
+    READ TABLE lt_alld1b INTO ls_alld1b WITH KEY racct = ls_out_t-racct
+                                               rbukrs = ls_out_t-rbukrs
+                                               rtcur = ls_out_t-rtcur.
     IF sy-subrc = 0.
-      ls_out-txt20 = ls_skat-txt20.
+      ls_alld1b-wsl = ls_alld1b-wsl.
+      ls_alld1b-hsl = ls_alld1b-hsl.
     ENDIF.
-    ls_out-style = '本年累计发生额'.
-    APPEND ls_out TO lt_out.
-    CLEAR ls_out.
-
-    CLEAR ls_all.
+    ls_out_t-wsl1 = ls_alld1a-wsl.
+    ls_out_t-wsl2 = ls_alld1b-wsl.
+    ls_out_t-hsl1 = ls_alld1a-hsl.
+    ls_out_t-hsl2 = ls_alld1b-hsl.
+    ls_out_t-wsl = ls_out_t-wsl1 + ls_out_t-wsl2.
+    ls_out_t-hsl = ls_out_t-hsl1 + ls_out_t-hsl2.
+    APPEND ls_out_t TO lt_out.
+    CLEAR ls_out_t.
   ENDLOOP.
 
 

@@ -11,8 +11,19 @@ DATA lv_gjahr TYPE acdoca-gjahr.
 DATA ls_zfir0019b_head TYPE zfir0019b_head.
 DATA ls_zfir0019b_detail TYPE zfir0019b_detail.
 DATA lt_zfir0019b_detail TYPE TABLE OF zfir0019b_detail.
-DATA lv_flag(2).
-DATA lv_count(2) TYPE i VALUE '1'.
+DATA:lv_flag(2),
+     lv_count(2) TYPE i VALUE '1',
+     lv_suma     LIKE zfir0019b_detail-sum1,
+     lv_sumb     LIKE zfir0019b_detail-sum1.
+
+DATA: fm_name TYPE rs38l_fnam.
+DATA ls_output_info TYPE ssfcrescl.
+DATA ls_output_option TYPE ssfcompop.
+DATA ls_control TYPE ssfctrlop.
+DATA:document_output_info TYPE  ssfcrespd,
+     job_output_info      TYPE  ssfcrescl,
+     job_output_options   TYPE  ssfcresop.
+
 
 
 SELECTION-SCREEN BEGIN OF BLOCK blk WITH FRAME TITLE TEXT-001.
@@ -22,8 +33,8 @@ SELECTION-SCREEN END OF BLOCK blk.
 
 SELECTION-SCREEN BEGIN OF BLOCK blk1 WITH FRAME TITLE TEXT-002.
 
-PARAMETERS:p_rbukrs LIKE acdoca-rbukrs,
-           p_year   LIKE acdoca-fiscyearper.
+PARAMETERS:p_rbukrs LIKE acdoca-rbukrs OBLIGATORY,
+           p_year   LIKE acdoca-fiscyearper OBLIGATORY.
 SELECT-OPTIONS:
            p_rfarea FOR acdoca-rfarea NO INTERVALS.
 SELECT-OPTIONS:s_kunnr FOR acdoca-kunnr,
@@ -189,29 +200,10 @@ FORM get_data .
      AND rfarea IN @p_rfarea
      AND rbukrs = @p_rbukrs
      AND gjahr = @lv_gjahr
-     AND poper BETWEEN '001' AND '012'
-     AND drcrk = 'S'
+     AND poper BETWEEN '001' AND '014'
    GROUP BY racct,rfarea,rhcur,rbukrs,poper
    ORDER BY racct,rfarea,rhcur,rbukrs,poper.
-  "贷方
-  SELECT
-   racct,
-   rfarea,
-   rhcur,
-   rbukrs,
-   poper,
-   SUM( wsl ) AS wsl,
-   SUM( hsl ) AS hsl
-   INTO TABLE @DATA(lt_allb2)
-   FROM acdoca
-   WHERE racct IN @s_racct
-     AND rfarea IN @p_rfarea
-     AND rbukrs = @p_rbukrs
-     AND gjahr = @lv_gjahr
-     AND poper BETWEEN '001' AND '012'
-     AND drcrk = 'H'
-   GROUP BY racct,rfarea,rhcur,rbukrs,poper
-   ORDER BY racct,rfarea,rhcur,rbukrs,poper.
+
   "总数
   SELECT
    racct,
@@ -227,9 +219,13 @@ FORM get_data .
      AND rfarea IN @p_rfarea
      AND rbukrs = @p_rbukrs
      AND gjahr = @lv_gjahr
-     AND poper BETWEEN '001' AND '012'
+     AND poper BETWEEN '001' AND '014'
+     AND fiscyearper <= @p_year
    GROUP BY racct,rfarea,rhcur,rbukrs,poper
    ORDER BY racct,rfarea,rhcur,rbukrs,poper.
+
+  DATA:ls_allb3 LIKE LINE OF lt_allb3.
+  DATA:ls_allb1 LIKE LINE OF lt_allb1.
   "处理数据
   DATA lt_allb_temp LIKE  lt_allb1.
   LOOP AT lt_head INTO DATA(ls_head).
@@ -273,23 +269,115 @@ FORM get_data .
 
 
 
-    "其他的明细项
-    LOOP AT lt_allb3 INTO DATA(ls_allb3) WHERE racct = ls_head-racct
-                                          AND rfarea = ls_head-rfarea
-                                          AND rbukrs = ls_head-rbukrs.
-      APPEND ls_allb3 TO lt_allb_temp.
-      CLEAR ls_allb3.
-    ENDLOOP.
-    "计算行项目数量
-    DESCRIBE TABLE lt_allb_temp LINES DATA(lv_rows).
-    LOOP AT lt_allb_temp INTO ls_allb3.
+    LOOP AT lt_allb1 INTO ls_allb1 WHERE racct = ls_head-racct AND rfarea = ls_head-rfarea AND rbukrs = ls_head-rbukrs.
       "本期合计
-      "期间
-      ls_zfir0019b_detail-month = ls_allb3-poper.
-
-      lv_count = lv_count + 1.
-      CLEAR ls_allb3.
+      ls_zfir0019b_detail-wsl1 = ls_allb1-wsl.
+      ls_zfir0019b_detail-hsl1 = ls_allb1-hsl.
+      ls_zfir0019b_detail-sum1 = ls_allb1-hsl + ls_allb1-wsl.
+      "借贷标识
+      IF ls_zfir0019b_detail-sum1 = 0.
+        ls_zfir0019b_head-flag = '平'.
+      ELSEIF ls_zfir0019b_detail-sum1 > 0.
+        ls_zfir0019b_head-flag = '借'.
+      ELSE.
+        ls_zfir0019b_head-flag = '贷'.
+      ENDIF.
+      "本年累计
+      ls_zfir0019b_detail-wsl2 = ls_zfir0019b_detail-wsl2 + ls_zfir0019b_detail-wsl1.
+      ls_zfir0019b_detail-hsl2 = ls_zfir0019b_detail-hsl2 + ls_zfir0019b_detail-hsl1.
+      ls_zfir0019b_detail-sum2 = ls_zfir0019b_detail-wsl2 + ls_zfir0019b_detail-hsl2.
+      "借贷标识
+      IF ls_zfir0019b_detail-sum2 = 0.
+        ls_zfir0019b_head-flag = '平'.
+      ELSEIF ls_zfir0019b_detail-sum2 > 0.
+        ls_zfir0019b_head-flag = '借'.
+      ELSE.
+        ls_zfir0019b_head-flag = '贷'.
+      ENDIF.
+      APPEND ls_zfir0019b_detail TO lt_zfir0019b_detail.
+      CLEAR:ls_zfir0019b_detail-wsl1,ls_zfir0019b_detail-hsl1,ls_zfir0019b_detail-sum1.
+      CLEAR ls_allb1.
     ENDLOOP.
-    CLEAR lt_allb_temp.
+
+    DESCRIBE TABLE lt_zfir0019b_detail LINES DATA(lv_rows).
+    IF lv_rows < 14.
+      lv_rows = 14 - lv_rows.
+      DO lv_rows TIMES.
+        APPEND INITIAL LINE TO lt_zfir0019b_detail.
+      ENDDO.
+    ENDIF.
+
+    "批量打印
+    "获取SMARTFOMRS函数
+    CALL FUNCTION 'SSF_FUNCTION_MODULE_NAME'
+      EXPORTING
+        formname           = 'ZFIR0119B' "Smart Form名称
+      IMPORTING
+        fm_name            = fm_name
+      EXCEPTIONS
+        no_form            = 1
+        no_function_module = 2
+        OTHERS             = 3.
+
+
+
+*    CALL FUNCTION 'SSF_OPEN'
+*      EXCEPTIONS
+*        formatting_error = 1
+*        internal_error   = 2
+*        send_error       = 3
+*        user_canceled    = 4
+*        OTHERS           = 5.
+*    IF sy-subrc <> 0.
+*      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+*              WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+*    ENDIF.
+    ls_control-no_dialog = ''.
+    ls_control-preview = 'X'.
+    ls_output_option-tddest = 'Z_AUTO'.
+    ls_output_option-RQPOSNAME = 'SIRIO-ST-Printer_PCL'.
+    ls_output_option-tdimmed = 'X'.
+    ls_output_option-tddelete = 'X'.
+
+    CALL FUNCTION fm_name
+      EXPORTING
+*       ARCHIVE_INDEX        =
+*       ARCHIVE_INDEX_TAB    =
+*       ARCHIVE_PARAMETERS   =
+        control_parameters   = ls_control
+*       MAIL_APPL_OBJ        =
+*       MAIL_RECIPIENT       =
+*       MAIL_SENDER          =
+        output_options       = ls_output_option
+        user_settings        = 'X'
+*       gs_line              = '14'
+        gs_head              = ls_zfir0019b_head
+      IMPORTING
+        document_output_info = document_output_info
+        job_output_info      = job_output_info
+        job_output_options   = job_output_options
+      TABLES
+        gt_detail            = lt_zfir0019b_detail
+      EXCEPTIONS
+        formatting_error     = 1
+        internal_error       = 2
+        send_error           = 3
+        user_canceled        = 4
+        OTHERS               = 5.
+    IF sy-subrc <> 0.
+      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+                  WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
+
+*
+*    CALL FUNCTION 'SSF_CLOSE'
+*      IMPORTING
+*        job_output_info  = lw_ssfcrescl
+*      EXCEPTIONS
+*        formatting_error = 1
+*        internal_error   = 2
+*        send_error       = 3
+*        OTHERS           = 4.
+    CLEAR:ls_output_option,ls_control.
   ENDLOOP.
 ENDFORM.

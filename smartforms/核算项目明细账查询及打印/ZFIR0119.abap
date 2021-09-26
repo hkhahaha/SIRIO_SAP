@@ -708,10 +708,14 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
     ls_out_t-style = '本年发生额'.
     READ TABLE lt_alld1a INTO ls_alld1a WITH KEY racct = ls_out_t-racct
                                                  rbukrs = ls_out_t-rbukrs
-                                                 rwcur = ls_out_t-rwcur.
+                                                 rwcur = ls_out_t-rwcur
+                                                 hbkid = ls_out_t-hbkid
+                                                 hktid = ls_out_t-hktid.
     READ TABLE lt_alld1b INTO ls_alld1b WITH KEY racct = ls_out_t-racct
                                                rbukrs = ls_out_t-rbukrs
-                                               rwcur = ls_out_t-rwcur.
+                                               rwcur = ls_out_t-rwcur
+                                               hbkid = ls_out_t-hbkid
+                                               hktid = ls_out_t-hktid.
 *    IF sy-subrc = 0.
 *      ls_alld1b-wsl = ls_alld1b-wsl.
 *      ls_alld1b-hsl = ls_alld1b-hsl.

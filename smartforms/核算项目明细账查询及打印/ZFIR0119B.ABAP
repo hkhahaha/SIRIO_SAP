@@ -17,12 +17,10 @@ DATA:lv_flag(2),
      lv_sumb     LIKE zfir0019b_detail-sum1.
 
 DATA: fm_name TYPE rs38l_fnam.
-DATA ls_output_info TYPE ssfcrescl.
-DATA ls_output_option TYPE ssfcompop.
-DATA ls_control TYPE ssfctrlop.
-DATA:document_output_info TYPE  ssfcrespd,
-     job_output_info      TYPE  ssfcrescl,
-     job_output_options   TYPE  ssfcresop.
+DATA:
+  lw_output  TYPE ssfcompop,
+  lw_control TYPE ssfctrlop.
+
 
 
 
@@ -39,6 +37,7 @@ SELECT-OPTIONS:
            p_rfarea FOR acdoca-rfarea NO INTERVALS.
 SELECT-OPTIONS:s_kunnr FOR acdoca-kunnr,
                s_lifnr FOR acdoca-lifnr.
+PARAMETERS:p_test TYPE acdoca-racct.
 PARAMETERS:p_racct1(4) MODIF ID m1.
 PARAMETERS:p_racct2(6) MODIF ID m2.
 
@@ -93,14 +92,16 @@ FORM get_data .
           MESSAGE '会计科目范围错误' TYPE 'E'.
         ENDIF.
         s_racct-sign = 'I'.
-        s_racct-option = 'EQ'.
+        s_racct-option = 'BT'.
         s_racct-low = p_racct1 && '000001'.
         s_racct-high = p_racct1 && '999999'.
+        APPEND s_racct.
       ELSE.
         s_racct-sign = 'I'.
-        s_racct-option = 'EQ'.
+        s_racct-option = 'BT'.
         s_racct-low = '1001010000'.
         s_racct-high = '6901999999'.
+        APPEND s_racct.
       ENDIF.
     WHEN r_02.
       IF p_racct2 IS NOT INITIAL.
@@ -108,14 +109,16 @@ FORM get_data .
           MESSAGE '会计科目范围错误' TYPE 'E'.
         ENDIF.
         s_racct-sign = 'I'.
-        s_racct-option = 'EQ'.
+        s_racct-option = 'BT'.
         s_racct-low = p_racct2 && '0001'.
         s_racct-high = p_racct2 && '9999'.
+        APPEND s_racct.
       ELSE.
         s_racct-sign = 'I'.
-        s_racct-option = 'EQ'.
+        s_racct-option = 'BT'.
         s_racct-low = '6910010100'.
         s_racct-high = '6910999999'.
+        APPEND s_racct.
       ENDIF.
   ENDCASE.
 
@@ -134,8 +137,10 @@ FORM get_data .
     AND rfarea IN @p_rfarea
     AND rbukrs = @p_rbukrs
     AND kunnr IN @s_kunnr
-    AND lifnr IN @s_lifnr.
-
+    AND lifnr IN @s_lifnr
+    AND racct = @p_test.
+  SORT lt_head by racct rfarea rhcur fiscyearper.
+  DELETE ADJACENT DUPLICATES FROM lt_head COMPARING racct rfarea rhcur.
   SELECT
     saknr,
     gvtyp
@@ -180,6 +185,7 @@ FORM get_data .
     AND rfarea IN @p_rfarea
     AND rbukrs = @p_rbukrs
     AND gjahr < @lv_gjahr
+    AND racct = @p_test
   GROUP BY racct,rfarea,rhcur,rbukrs
   ORDER BY racct,rfarea,rhcur,rbukrs.
 
@@ -200,6 +206,7 @@ FORM get_data .
      AND rfarea IN @p_rfarea
      AND rbukrs = @p_rbukrs
      AND gjahr = @lv_gjahr
+     AND racct = @p_test
      AND poper BETWEEN '001' AND '014'
    GROUP BY racct,rfarea,rhcur,rbukrs,poper
    ORDER BY racct,rfarea,rhcur,rbukrs,poper.
@@ -221,6 +228,7 @@ FORM get_data .
      AND gjahr = @lv_gjahr
      AND poper BETWEEN '001' AND '014'
      AND fiscyearper <= @p_year
+     AND racct = @p_test
    GROUP BY racct,rfarea,rhcur,rbukrs,poper
    ORDER BY racct,rfarea,rhcur,rbukrs,poper.
 
@@ -228,6 +236,41 @@ FORM get_data .
   DATA:ls_allb1 LIKE LINE OF lt_allb1.
   "处理数据
   DATA lt_allb_temp LIKE  lt_allb1.
+
+
+  "批量打印
+  "获取SMARTFOMRS函数
+  CALL FUNCTION 'SSF_FUNCTION_MODULE_NAME'
+    EXPORTING
+      formname           = 'ZFIR0119B' "Smart Form名称
+    IMPORTING
+      fm_name            = fm_name
+    EXCEPTIONS
+      no_form            = 1
+      no_function_module = 2
+      OTHERS             = 3.
+
+  lw_control-preview       = 'X'.                 " 打印预览
+  lw_control-no_open       = 'X'.                 " 新的假脱机请求
+  lw_control-no_close      = 'X'.
+  lw_control-no_dialog     = 'X'.                 " 必须设置
+
+  CALL FUNCTION 'SSF_OPEN'
+    EXPORTING
+      output_options     = lw_output
+      control_parameters = lw_control
+      user_settings      = ' '
+    EXCEPTIONS
+      formatting_error   = 1
+      internal_error     = 2
+      send_error         = 3
+      user_canceled      = 4
+      OTHERS             = 5.
+
+
+
+
+
   LOOP AT lt_head INTO DATA(ls_head).
     READ TABLE lt_skat INTO DATA(ls_skat) WITH KEY saknr = ls_head-racct.
     IF sy-subrc = 0.
@@ -269,7 +312,7 @@ FORM get_data .
 
 
 
-    LOOP AT lt_allb1 INTO ls_allb1 WHERE racct = ls_head-racct AND rfarea = ls_head-rfarea AND rbukrs = ls_head-rbukrs.
+    LOOP AT lt_allb1 INTO ls_allb1 WHERE racct = ls_head-racct AND rfarea = ls_head-rfarea AND rbukrs = ls_head-rbukrs AND rhcur = ls_head-rhcur.
       "本期合计
       ls_zfir0019b_detail-wsl1 = ls_allb1-wsl.
       ls_zfir0019b_detail-hsl1 = ls_allb1-hsl.
@@ -307,77 +350,51 @@ FORM get_data .
       ENDDO.
     ENDIF.
 
-    "批量打印
-    "获取SMARTFOMRS函数
-    CALL FUNCTION 'SSF_FUNCTION_MODULE_NAME'
-      EXPORTING
-        formname           = 'ZFIR0119B' "Smart Form名称
-      IMPORTING
-        fm_name            = fm_name
-      EXCEPTIONS
-        no_form            = 1
-        no_function_module = 2
-        OTHERS             = 3.
 
 
-
-*    CALL FUNCTION 'SSF_OPEN'
-*      EXCEPTIONS
-*        formatting_error = 1
-*        internal_error   = 2
-*        send_error       = 3
-*        user_canceled    = 4
-*        OTHERS           = 5.
-*    IF sy-subrc <> 0.
-*      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
-*              WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
-*    ENDIF.
-    ls_control-no_dialog = ''.
-    ls_control-preview = 'X'.
-    ls_output_option-tddest = 'Z_AUTO'.
-    ls_output_option-RQPOSNAME = 'SIRIO-ST-Printer_PCL'.
-    ls_output_option-tdimmed = 'X'.
-    ls_output_option-tddelete = 'X'.
 
     CALL FUNCTION fm_name
       EXPORTING
-*       ARCHIVE_INDEX        =
-*       ARCHIVE_INDEX_TAB    =
-*       ARCHIVE_PARAMETERS   =
-        control_parameters   = ls_control
-*       MAIL_APPL_OBJ        =
-*       MAIL_RECIPIENT       =
-*       MAIL_SENDER          =
-        output_options       = ls_output_option
-        user_settings        = 'X'
-*       gs_line              = '14'
-        gs_head              = ls_zfir0019b_head
-      IMPORTING
-        document_output_info = document_output_info
-        job_output_info      = job_output_info
-        job_output_options   = job_output_options
+*       ARCHIVE_INDEX      =
+*       ARCHIVE_INDEX_TAB  =
+*       ARCHIVE_PARAMETERS =
+        control_parameters = lw_control
+*       MAIL_APPL_OBJ      =
+*       MAIL_RECIPIENT     =
+*       MAIL_SENDER        =
+        output_options     = lw_output
+*       user_settings      = 'X'
+*       gs_line            = '14'
+        gs_head            = ls_zfir0019b_head
+*      IMPORTING
+*       document_output_info = document_output_info
+*       job_output_info    = job_output_info
+*       job_output_options = job_output_options
       TABLES
-        gt_detail            = lt_zfir0019b_detail
+        gt_detail          = lt_zfir0019b_detail
       EXCEPTIONS
-        formatting_error     = 1
-        internal_error       = 2
-        send_error           = 3
-        user_canceled        = 4
-        OTHERS               = 5.
+        formatting_error   = 1
+        internal_error     = 2
+        send_error         = 3
+        user_canceled      = 4
+        OTHERS             = 5.
     IF sy-subrc <> 0.
       MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
                   WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
     ENDIF.
 
-*
-*    CALL FUNCTION 'SSF_CLOSE'
+  ENDLOOP.
+
+  CALL FUNCTION 'SSF_CLOSE'
 *      IMPORTING
 *        job_output_info  = lw_ssfcrescl
-*      EXCEPTIONS
-*        formatting_error = 1
-*        internal_error   = 2
-*        send_error       = 3
-*        OTHERS           = 4.
-    CLEAR:ls_output_option,ls_control.
-  ENDLOOP.
+    EXCEPTIONS
+      formatting_error = 1
+      internal_error   = 2
+      send_error       = 3
+      OTHERS           = 4.
+
+  CLEAR:lw_control,lw_output.
+
+
 ENDFORM.

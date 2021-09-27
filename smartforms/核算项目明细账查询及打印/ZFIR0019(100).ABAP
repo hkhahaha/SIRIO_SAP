@@ -44,6 +44,7 @@ TYPES:BEGIN OF ty_all,
         type(5),"借贷标识
         gvtyp       TYPE ska1-gvtyp, "损益科目
         fiscyearper TYPE acdoca-fiscyearper, "期间
+        bldat       TYPE acdoca-bldat, "凭证日期
       END OF ty_all.
 
 DATA:lt_all      TYPE TABLE OF ty_all,
@@ -206,7 +207,7 @@ FORM getdata.
   INTO  CORRESPONDING FIELDS OF TABLE lt_alla1b
   WHERE racct BETWEEN 1001010000 AND 1012999999
     AND rbukrs = p_rbukrs
-    AND fiscyearper < p_year
+    AND fiscyearper <= p_year
     AND rfarea IN p_rfarea
     AND kunnr IN s_kunnr
     AND lifnr IN s_lifnr
@@ -276,7 +277,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
  AND ska1~ktopl = acdoca~ktopl
  WHERE racct NOT BETWEEN 1001010000 AND 1012999999
    AND rbukrs = @p_rbukrs
-   AND fiscyearper < @p_year
+   AND fiscyearper <= @p_year
    AND rfarea IN @p_rfarea
    AND kunnr IN @s_kunnr
    AND lifnr IN @s_lifnr
@@ -303,7 +304,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
   AND ska1~ktopl = acdoca~ktopl
   WHERE racct NOT BETWEEN 1001010000 AND 1012999999
     AND rbukrs = @p_rbukrs
-    AND fiscyearper < @p_year
+    AND fiscyearper <= @p_year
     AND rfarea IN @p_rfarea
     AND kunnr IN @s_kunnr
     AND lifnr IN @s_lifnr
@@ -362,7 +363,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
   AND skb1~bukrs = acdoca~rbukrs
   WHERE racct NOT BETWEEN 1001010000 AND 1012999999
     AND rbukrs = @p_rbukrs
-    AND fiscyearper < @p_year
+    AND fiscyearper <= @p_year
     AND rfarea IN @p_rfarea
     AND kunnr IN @s_kunnr
     AND lifnr IN @s_lifnr
@@ -393,7 +394,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
   AND skb1~bukrs = acdoca~rbukrs
   WHERE racct NOT BETWEEN 1001010000 AND 1012999999
     AND rbukrs = @p_rbukrs
-    AND fiscyearper < @p_year
+    AND fiscyearper <= @p_year
     AND rfarea IN @p_rfarea
     AND kunnr IN @s_kunnr
     AND lifnr IN @s_lifnr
@@ -450,7 +451,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
   AND skb1~bukrs = acdoca~rbukrs
   WHERE racct NOT BETWEEN 1001010000 AND 1012999999
     AND rbukrs = @p_rbukrs
-    AND fiscyearper < @p_year
+    AND fiscyearper <= @p_year
     AND rfarea IN @p_rfarea
     AND kunnr IN @s_kunnr
     AND lifnr IN @s_lifnr
@@ -481,7 +482,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
   AND skb1~bukrs = acdoca~rbukrs
   WHERE racct NOT BETWEEN 1001010000 AND 1012999999
     AND rbukrs = @p_rbukrs
-    AND fiscyearper < @p_year
+    AND fiscyearper <= @p_year
     AND rfarea IN @p_rfarea
     AND kunnr IN @s_kunnr
     AND lifnr IN @s_lifnr
@@ -501,6 +502,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
    racct,
    acdoca~budat,
    acdoca~belnr,
+   acdoca~bldat,
    sgtxt,
    rcntr,
    rfarea,
@@ -533,7 +535,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
      AND spras = '1'
      AND acdoca~ktopl = '1000'
    INTO  CORRESPONDING FIELDS OF TABLE @lt_all.
-  SORT lt_all BY racct rbukrs budat."根据过账日期进行排序
+  SORT lt_all BY racct rbukrs bldat BELNR."根据凭证日期、编号进行排序
   "获取其他相关联的数据
   "获取功能范围描述文本
   SELECT
@@ -652,8 +654,8 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ls_out_t-wsl1 = ls_out_t-wsl1 + ls_all-wsl1.
       ls_out_t-wsl2 = ls_out_t-wsl2 + ls_all-wsl2.
 
-      ls_out_t-hsl = ls_out_t-hsl + ls_all-hsl1 - ls_all-hsl2.
-      ls_out_t-wsl = ls_out_t-wsl + ls_all-wsl1 - ls_all-wsl2.
+      ls_out_t-hsl = ls_out_t-hsl + ls_all-hsl1 + ls_all-hsl2.
+      ls_out_t-wsl = ls_out_t-wsl + ls_all-wsl1 + ls_all-wsl2.
 
       ls_all-hsl = ls_out_t-hsl.
       ls_all-wsl = ls_out_t-wsl.
@@ -771,8 +773,8 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ls_out_t-wsl1 = ls_out_t-wsl1 + ls_all-wsl1.
       ls_out_t-wsl2 = ls_out_t-wsl2 + ls_all-wsl2.
 
-      ls_out_t-hsl = ls_out_t-hsl + ls_all-hsl1 - ls_all-hsl2.
-      ls_out_t-wsl = ls_out_t-wsl + ls_all-wsl1 - ls_all-wsl2.
+      ls_out_t-hsl = ls_out_t-hsl + ls_all-hsl1 + ls_all-hsl2.
+      ls_out_t-wsl = ls_out_t-wsl + ls_all-wsl1 + ls_all-wsl2.
 
       ls_all-hsl = ls_out_t-hsl.
       ls_all-wsl = ls_out_t-wsl.
@@ -895,8 +897,8 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ls_out_t-wsl1 = ls_out_t-wsl1 + ls_all-wsl1.
       ls_out_t-wsl2 = ls_out_t-wsl2 + ls_all-wsl2.
 
-      ls_out_t-hsl = ls_out_t-hsl + ls_all-hsl1 - ls_all-hsl2.
-      ls_out_t-wsl = ls_out_t-wsl + ls_all-wsl1 - ls_all-wsl2.
+      ls_out_t-hsl = ls_out_t-hsl + ls_all-hsl1 + ls_all-hsl2.
+      ls_out_t-wsl = ls_out_t-wsl + ls_all-wsl1 + ls_all-wsl2.
 
       ls_all-hsl = ls_out_t-hsl.
       ls_all-wsl = ls_out_t-wsl.
@@ -1019,8 +1021,8 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ls_out_t-wsl1 = ls_out_t-wsl1 + ls_all-wsl1.
       ls_out_t-wsl2 = ls_out_t-wsl2 + ls_all-wsl2.
 
-      ls_out_t-hsl = ls_out_t-hsl + ls_all-hsl1 - ls_all-hsl2.
-      ls_out_t-wsl = ls_out_t-wsl + ls_all-wsl1 - ls_all-wsl2.
+      ls_out_t-hsl = ls_out_t-hsl + ls_all-hsl1 + ls_all-hsl2.
+      ls_out_t-wsl = ls_out_t-wsl + ls_all-wsl1 + ls_all-wsl2.
 
       ls_all-hsl = ls_out_t-hsl.
       ls_all-wsl = ls_out_t-wsl.

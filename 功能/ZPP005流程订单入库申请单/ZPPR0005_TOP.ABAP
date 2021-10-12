@@ -1,0 +1,160 @@
+*&---------------------------------------------------------------------*
+*& 包含               ZPPR0005_TOP
+*&---------------------------------------------------------------------*
+
+TABLES:AFPO,AFKO, ZPPT0003,ZSPP034_HEAD.
+TYPES:T_AUFNR TYPE TABLE OF AFPO-AUFNR.
+TYPES T_RSDSWHERE TYPE TABLE OF RSDSWHERE.
+CLASS ZCL_PRO_GRREQ DEFINITION DEFERRED.
+CLASS ZCL_PRO_GRREQ_BILL DEFINITION DEFERRED.
+CLASS ZCL_QR_OPER DEFINITION DEFERRED.
+CLASS ZCL_QRMAIL_OPER DEFINITION DEFERRED.
+DATA: OK_CODE               TYPE SY-UCOMM,
+      SAVE_CODE             TYPE SY-UCOMM,
+      GR_IDAT               TYPE RANGE OF AUFK-IDAT2, "技术完成日期
+      GR_ZDELFLG            TYPE RANGE OF ZPPT0003-ZDELFLG,
+      GS_ZSPP034_HEAD_OLD   TYPE ZSPP034_HEAD,
+      GT_ZPPT0003           TYPE TABLE OF ZPPT0003,
+      GT_ZPPT0003_OLD       TYPE TABLE OF ZPPT0003,
+      GV_MEINS              TYPE MEINS,
+      GS_PROGRAM            TYPE  SALV_S_LAYOUT_KEY,
+      GO_PRO_SALV           TYPE REF TO CL_SALV_TABLE,
+      GO_DOCKING            TYPE REF TO CL_GUI_DOCKING_CONTAINER,
+      GO_DOCKING_MAIL       TYPE REF TO CL_GUI_DOCKING_CONTAINER,
+      GT_ALV_FIDCAT         TYPE LVC_T_FCAT,
+      GT_ALV_FIDCAT_MAIL    TYPE LVC_T_FCAT,
+      GO_ALV_GRID_MAIL      TYPE REF TO CL_GUI_ALV_GRID,
+      GO_ALV_GRID_CREATE    TYPE REF TO CL_GUI_ALV_GRID,
+      GT_ROWID              TYPE SALV_T_ROW,
+      GO_ZCL_PRO_GRREQ      TYPE REF TO ZCL_PRO_GRREQ,
+      GO_ZCL_PRO_GRREQ_BILL TYPE REF TO ZCL_PRO_GRREQ_BILL,
+      GO_ZCL_QR_OPER        TYPE REF TO ZCL_QR_OPER,
+      GO_QRMAIL_OPER        TYPE REF TO ZCL_QRMAIL_OPER,
+      GS_LAYOUT_BILL        TYPE LVC_S_LAYO,
+      GS_STABLE             TYPE LVC_S_STBL,
+      GT_VRM_VALUES         TYPE VRM_VALUES,
+      GV_MSG                TYPE BAPI_MSG.
+DATA:BEGIN OF GS_ZPPT0003_LIST.
+       INCLUDE TYPE ZPPT0003.
+       DATA: MATKL  TYPE MARA-MATKL, "物料组
+       WGBEZ  TYPE T023T-WGBEZ, "物料组描述
+       ZSFXBZ TYPE VBAP-ZSFXBZ,
+       VTEXT  TYPE TVK1T-VTEXT,
+       UPD    TYPE FLAG. "修改标识
+DATA:END OF GS_ZPPT0003_LIST.
+"二维码扫描权限对象
+DATA:BEGIN OF GS_ZQRSCANAUTH,
+       QUERY_FLAG	 TYPE FLAG, "查询
+       UPLOAD_FLAG TYPE FLAG, "上传
+       AUDIT_FLAG  TYPE FLAG, "审核
+       EMPTY_FLAG  TYPE FLAG, "清空文本
+       HEGE_FLAG   TYPE FLAG, "检查放行
+       SAVE_FLAG   TYPE FLAG, "发送邮件及保存
+     END OF GS_ZQRSCANAUTH.
+TYPES TY_TAB_ZPPT0003_LIST LIKE TABLE OF GS_ZPPT0003_LIST.
+DATA GT_ZPPT0003_LIST      LIKE TABLE OF GS_ZPPT0003_LIST.
+FIELD-SYMBOLS:<FS_ZPPT0003_LIST> LIKE  GS_ZPPT0003_LIST.
+*流程订单列表ALV输出结构体
+DATA :BEGIN OF GS_PRO_OUTPUT,
+        EXCEPTION TYPE CHAR1,   "信号灯字段-处理结果
+        ERRTXT    TYPE BAPI_MSG, "错误消息文本
+        DWERK     TYPE AFPO-DWERK, " 工厂
+        DAUAT     TYPE AFPO-DAUAT, " 订单类型
+        AUFNR     TYPE AFPO-AUFNR, " 订单号
+        KTEXT     TYPE AUFK-KTEXT, " 描述
+*        rsnum     TYPE afko-rsnum, " 预留/相关需求的编号
+        MATNR     TYPE AFPO-MATNR, " 物料
+        MAKTX     TYPE MAKT-MAKTX, "物料描述
+        MATKL     TYPE MARA-MATKL, "物料组
+        WGBEZ     TYPE T023T-WGBEZ, "物料组描述
+        MTART     TYPE MARA-MTART, "物料类型
+        MEINS     TYPE AFPO-MEINS, " 基本计量单位
+        UNTTO     TYPE AFPO-UNTTO, "交货不足限度
+        UEBTO     TYPE AFPO-UEBTO, "过量交货限度
+        PSMNG     TYPE AFPO-PSMNG, " 订单数量
+        IGMNG     TYPE AFKO-IGMNG, " 确认的产量
+        WEMNG     TYPE AFPO-WEMNG, " 收货数量
+        LGORT     TYPE AFPO-LGORT,  "仓库
+        LGOBE     TYPE T001L-LGOBE, "仓库描述
+        KDAUF     TYPE AFPO-KDAUF, " 销售凭证
+        KDPOS     TYPE AFPO-KDPOS, " 销售凭证项目
+        ZYPSL     TYPE VBAP-ZYPSL,  "取样量
+        ELIKZ     TYPE AFPO-ELIKZ, " 交货已完成
+        GSTRP     TYPE AFKO-GSTRP, " 基本开始日期
+        GLTRP     TYPE AFKO-GLTRP, " 基本完成日期
+        FTRMI     TYPE AFKO-FTRMI, " 实际下达日期
+        IDAT2     TYPE AUFK-IDAT2, "技术关闭日期
+        CHARG     TYPE AFPO-CHARG, " 批次
+        WEMPF     TYPE AFPO-WEMPF, " 交货日期
+        ABLAD     TYPE AFPO-ABLAD, " 车间
+        DISPO     TYPE AFKO-DISPO, " MRP控制者
+        FEVOR     TYPE AFKO-FEVOR, " 生产管理员
+        OBJNR     TYPE AUFK-OBJNR, " 对象号
+        STTXT     TYPE CAUFVD-STTXT, " 订单状态
+*add S4DK904849 start
+*        ZJINTGEW  TYPE ZPPT0003-ZJINTGEW, " 净净重
+*        ZNTGEW    TYPE ZPPT0003-ZNTGEW, " 净重
+*        ZBRGEW    TYPE ZPPT0003-ZBRGEW, " 毛重
+*        ZWJNTGEW  TYPE ZPPT0003-ZWJNTGEW, " 尾数箱净净重
+*        ZWNTGEW   TYPE ZPPT0003-ZWNTGEW, " 尾数箱净重
+*        ZWBRGEW   TYPE ZPPT0003-ZWBRGEW, " 尾数箱毛重
+        GEWEI     TYPE MARA-GEWEI, " 重量单位
+*add S4DK904849	end
+      END OF GS_PRO_OUTPUT.
+
+DATA :BEGIN OF GS_CHARG,
+        AUFNR TYPE AFPO-AUFNR, " 订单号
+        MATNR TYPE AFPO-MATNR,
+        CHARG TYPE AFPO-CHARG, " 批次
+        HSDAT TYPE MCHA-HSDAT,  "生产日期
+        XCHPF TYPE MARC-XCHPF,  "物料批次管理(工厂)
+      END OF GS_CHARG.
+
+DATA:BEGIN OF GS_MATNR,
+       MATNR TYPE MARA-MATNR,
+       MEINS TYPE MARA-MEINS, " 基本计量单位
+     END OF GS_MATNR.
+DATA:BEGIN OF GS_ZPSPE,
+       MATNR  TYPE MARA-MATNR,
+       ZPSPE  TYPE ZPPT0003-ZPSPE,
+       ZUMREN TYPE ZPPT0003-ZUMREN,
+     END OF    GS_ZPSPE.
+
+DATA:BEGIN OF GS_LGORT,
+       LGORT TYPE T001L-LGORT,
+       LGOBE TYPE T001L-LGOBE,
+     END OF GS_LGORT.
+
+DATA:BEGIN OF GS_KDAUF,
+       KDAUF TYPE AFPO-KDAUF, " 销售凭证
+       KDPOS TYPE AFPO-KDPOS, " 销售凭证项目
+     END OF GS_KDAUF.
+DATA:BEGIN OF GS_QRMAIL.
+       INCLUDE TYPE ZPPT0009.
+       DATA:ZUPD TYPE ZUPD.
+DATA END OF GS_QRMAIL.
+
+DATA: GT_PRO_OUTPUT    LIKE TABLE OF GS_PRO_OUTPUT,
+      GT_MATNR         LIKE TABLE OF GS_MATNR,
+      GT_T001L         LIKE TABLE OF GS_LGORT,
+      GT_KDAUF         LIKE TABLE OF GS_KDAUF,
+      GT_CHARG         LIKE TABLE OF GS_CHARG,
+      GT_ZPPT0009_SAVE TYPE TABLE OF ZPPT0009,
+      GT_QRMAIL        LIKE TABLE OF GS_QRMAIL,
+      GT_SQLWHERE      TYPE TABLE OF RSDSWHERE.
+FIELD-SYMBOLS <FS_QRMAIL> LIKE GS_QRMAIL.
+FIELD-SYMBOLS <FS_ZPPT0003> TYPE ZPPT0003.
+
+"下发LIMS请求消息结构
+*DATA:BEGIN OF gs_lims_request,
+*       prueflos TYPE qals-prueflos, "检验批次
+*       aufnr    TYPE qals-aufnr, "流程订单号
+*       wempf    TYPE zppt0003-wempf, "批结信息
+*       zwmsmng  TYPE zppt0003-zwmsmng, "WMS收货数量
+*       zmeins_t TYPE zppt0003-meins,
+*     END OF gs_lims_request.
+*"下发LIMS返回消息结构
+*DATA:BEGIN OF gs_lims_response,
+*       ret_code TYPE char1, "标记 S-成功，E-失败
+*       ret_msg  TYPE char200, "消息文本
+*     END OF gs_lims_response.

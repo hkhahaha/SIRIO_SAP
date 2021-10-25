@@ -3,44 +3,45 @@
 *&---------------------------------------------------------------------*
 
 
-TYPE-POOLS :slis.
+TYPE-POOLS :SLIS.
 " 使用ALV显示
-DATA: i_fieldcat_alv TYPE slis_t_fieldcat_alv,
-      wa_alv_field   TYPE slis_fieldcat_alv.
-DATA: it_layout TYPE slis_layout_alv,
-      wa_layout TYPE lvc_s_layo.
+DATA: I_FIELDCAT_ALV TYPE SLIS_T_FIELDCAT_ALV,
+      WA_ALV_FIELD   TYPE SLIS_FIELDCAT_ALV.
+DATA: IT_LAYOUT TYPE SLIS_LAYOUT_ALV,
+      WA_LAYOUT TYPE LVC_S_LAYO.
 
-DATA: ok_code TYPE sy-ucomm,
-      save_ok TYPE sy-ucomm.
+DATA: OK_CODE TYPE SY-UCOMM,
+      SAVE_OK TYPE SY-UCOMM.
 
-TABLES: resb,ekko.
+TABLES: RESB,EKKO.
 
 "打印
-DATA: wa_control_parameters TYPE ssfctrlop,
-      wa_out_option         TYPE ssfcompop,
-      i_lastobjky(30)       TYPE c,  "最后一行的凭证号
-      i_firstobjky(30)      TYPE c  "第一行的凭证号
+DATA: WA_CONTROL_PARAMETERS TYPE SSFCTRLOP,
+      WA_OUT_OPTION         TYPE SSFCOMPOP,
+      I_LASTOBJKY(30)       TYPE C,  "最后一行的凭证号
+      I_FIRSTOBJKY(30)      TYPE C  "第一行的凭证号
       .
 
 *定义输出内表
 
-TYPES: BEGIN OF ls_ebeln,
-         ebeln LIKE ekko-ebeln, "凭证编号
-         lifnr LIKE ekko-lifnr, "供应商
-         name1 LIKE lfa1-name1, "供应商名称
-         ekgrp LIKE ekko-ekgrp, "采购组
-         bedat LIKE ekko-bedat, "凭证日期
-         sel   TYPE c, "选择
-       END OF ls_ebeln.
+TYPES: BEGIN OF LS_EBELN,
+         EBELN LIKE EKKO-EBELN, "凭证编号
+         LIFNR LIKE EKKO-LIFNR, "供应商
+         NAME1 LIKE LFA1-NAME1, "供应商名称
+         EKGRP LIKE EKKO-EKGRP, "采购组
+         BEDAT LIKE EKKO-BEDAT, "凭证日期
+         SEL   TYPE C, "选择
+       END OF LS_EBELN.
 
-DATA:zucomm TYPE sy-ucomm.
+DATA:ZUCOMM TYPE SY-UCOMM.
 
 "生产订单
-DATA lt_ebeln TYPE STANDARD TABLE OF ls_ebeln .
+DATA LT_EBELN TYPE STANDARD TABLE OF LS_EBELN .
 *DATA lt_ebeln_tmp LIKE TABLE OF ls_ebeln WITH HEADER LINE .
 
-DATA: gt_head   TYPE TABLE OF zmms_zmmr0017_head,
-      gs_head   LIKE zmms_zmmr0017_head,
-      gt_detail TYPE TABLE OF zmms_zmmr0017_detail,
-      gs_detail LIKE zmms_zmmr0017_detail,
-      gs_line   TYPE i.
+DATA: GT_HEAD   TYPE TABLE OF ZMMS_ZMMR0017_HEAD,
+      GS_HEAD   LIKE ZMMS_ZMMR0017_HEAD,
+      GT_DETAIL TYPE TABLE OF ZMMS_ZMMR0017_DETAIL,
+      GS_DETAIL LIKE ZMMS_ZMMR0017_DETAIL,
+      GS_LINE   TYPE I.
+DATA : GV_TDSFNAME TYPE TDSFNAME .

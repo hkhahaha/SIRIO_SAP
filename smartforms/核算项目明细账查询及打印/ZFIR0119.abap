@@ -98,11 +98,11 @@ DATA:lt_all      TYPE TABLE OF ty_all,
      ls_alld4a   LIKE LINE OF lt_alla2,
      ls_alld4b   LIKE LINE OF lt_alla2.
 
-DATA:lt_out    TYPE TABLE OF ty_all, "ALV输出
-     lt_print  TYPE TABLE OF ty_all,
-     ls_out    LIKE LINE OF lt_out,
-     ls_print  LIKE LINE OF lt_out,
-     ls_out_t  LIKE LINE OF lt_out,
+DATA:lt_out   TYPE TABLE OF ty_all, "ALV输出
+     lt_print TYPE TABLE OF ty_all,
+     ls_out   LIKE LINE OF lt_out,
+     ls_print LIKE LINE OF lt_out,
+     ls_out_t LIKE LINE OF lt_out,
      ls_out_t2 LIKE LINE OF lt_out.
 
 DATA lv_gjahr TYPE acdoca-gjahr.
@@ -116,9 +116,9 @@ DATA:
   lw_output  TYPE ssfcompop,
   lw_control TYPE ssfctrlop.
 
-*DATA: ls_zfir0019a_head   LIKE zfir0019a_head,
-*      lt_zfir0019a_detail LIKE TABLE OF zfir0019a_detail,
-*      ls_zfir0019a_detail LIKE LINE OF lt_zfir0019a_detail.
+DATA: ls_zfir0019a_head   LIKE zfir0019a_head,
+      lt_zfir0019a_detail LIKE TABLE OF zfir0019a_detail,
+      ls_zfir0019a_detail LIKE LINE OF lt_zfir0019a_detail.
 "本期发生额
 DATA:g_wsl1 TYPE acdoca-wsl, "借方交易货币
      g_hsl1 TYPE acdoca-hsl, "借方本位币
@@ -340,8 +340,6 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
   rwcur,
   racct,
   rfarea,
-  lifnr,
-  kunnr,
   SUM( wsl ) AS wsl,
   SUM( hsl ) AS hsl
   FROM acdoca
@@ -362,7 +360,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
     AND blart <> ''
     AND mitkz IN ('K','D')
     AND acdoca~ktopl = '1000'
-  GROUP BY racct,rfarea,rbukrs,rwcur,lifnr,kunnr
+  GROUP BY racct,rfarea,rbukrs,rwcur
   INTO  CORRESPONDING FIELDS OF TABLE @lt_alla3.
 
   "[1]本年累计相关，获取(3)类的本年累计借方数据
@@ -371,8 +369,6 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
   rwcur,
   racct,
   rfarea,
-  lifnr,
-  kunnr,
   SUM( wsl ) AS wsl,
   SUM( hsl ) AS hsl
   FROM acdoca
@@ -395,7 +391,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
     AND mitkz IN ('K','D')
     AND acdoca~ktopl = '1000'
     AND gjahr = @lv_gjahr
-  GROUP BY racct,rfarea,rbukrs,rwcur,lifnr,kunnr
+  GROUP BY racct,rfarea,rbukrs,rwcur
   INTO  CORRESPONDING FIELDS OF TABLE @lt_alld3a.
 
   "[2]本年累计相关，获取(3)类的本年累计贷方数据
@@ -404,8 +400,6 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
   rwcur,
   racct,
   rfarea,
-  lifnr,
-  kunnr,
   SUM( wsl ) AS wsl,
   SUM( hsl ) AS hsl
   FROM acdoca
@@ -428,7 +422,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
     AND mitkz IN ('K','D')
     AND acdoca~ktopl = '1000'
     AND gjahr = @lv_gjahr
-  GROUP BY racct,rfarea,rbukrs,rwcur,lifnr,kunnr
+  GROUP BY racct,rfarea,rbukrs,rwcur
   INTO  CORRESPONDING FIELDS OF TABLE @lt_alld3b.
   "(4)如果科目编码SKA1-SAKNR不等于1001010000-1012999999，且SKA1-GVTYP（损益）不等于X，且统御标识SKB1-MITKZ不等于K/D,按照科目汇总数据
   SELECT
@@ -703,7 +697,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ENDIF.
 
       IF ls_all-kunnr IS NOT INITIAL.
-        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-kunnr.
+        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-lifnr.
         IF sy-subrc = 0.
           ls_all-kunnrt = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
         ENDIF.
@@ -829,7 +823,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ENDIF.
 
       IF ls_all-kunnr IS NOT INITIAL.
-        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-kunnr.
+        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-lifnr.
         IF sy-subrc = 0.
           ls_all-kunnrt = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
         ENDIF.
@@ -911,28 +905,12 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
 
     lv_id = zcl_bc_public=>get_guid( ).
     ls_alla3-id = lv_id.
-
-    IF ls_alla3-lifnr IS NOT INITIAL.
-      READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_alla3-lifnr.
-      IF sy-subrc = 0.
-        ls_alla3-lifnrt = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
-      ENDIF.
-    ENDIF.
-
-    IF ls_alla3-kunnr IS NOT INITIAL.
-      READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_alla3-kunnr.
-      IF sy-subrc = 0.
-        ls_alla3-kunnrt = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
-      ENDIF.
-    ENDIF.
-
     MOVE-CORRESPONDING ls_alla3 TO ls_out.
     APPEND ls_out TO lt_out.
     MOVE-CORRESPONDING ls_out TO ls_out_t."本期发生额相关
     "根据（3）外层的期初余额来读取内层的本期明细
     LOOP AT lt_all INTO ls_all WHERE rbukrs = ls_alla3-rbukrs AND racct = ls_alla3-racct
-                                  AND rwcur = ls_alla3-rwcur AND rfarea = ls_alla3-rfarea
-                                  AND lifnr = ls_alla3-lifnr AND kunnr = ls_alla3-kunnr.
+                                  AND rwcur = ls_alla3-rwcur AND rfarea = ls_alla3-rfarea.
       "科目描述
       READ TABLE lt_skat INTO ls_skat WITH KEY saknr = ls_all-racct.
       IF sy-subrc = 0.
@@ -975,7 +953,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ENDIF.
 
       IF ls_all-kunnr IS NOT INITIAL.
-        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-kunnr.
+        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-lifnr.
         IF sy-subrc = 0.
           ls_all-kunnrt = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
         ENDIF.
@@ -1103,7 +1081,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ENDIF.
 
       IF ls_all-kunnr IS NOT INITIAL.
-        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-kunnr.
+        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-lifnr.
         IF sy-subrc = 0.
           ls_all-kunnrt = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
         ENDIF.
@@ -1223,7 +1201,7 @@ FORM alvshow.
 *     I_BUFFER_ACTIVE          = ' '
       i_callback_program       = w_repid "程序名称
       i_callback_pf_status_set = 'FRM_SET_PF_STATUS'
-*     i_callback_user_command  = 'FRM_USER_COMMAND' "对ALV操作的时候触发所定义的子程序
+      i_callback_user_command  = 'FRM_USER_COMMAND' "对ALV操作的时候触发所定义的子程序
 *     I_CALLBACK_TOP_OF_PAGE   = ' '
 *     I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
 *     I_CALLBACK_HTML_END_OF_LIST       = ' '
@@ -1275,160 +1253,163 @@ FORM frm_set_pf_status USING pt_extab TYPE slis_t_extab.
 ENDFORM.
 
 
-*FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
-*      i_wa_selfield TYPE slis_selfield.
-*  DATA:
-*    ls_layout TYPE lvc_s_layo,
-*    lv_grid   TYPE REF TO cl_gui_alv_grid.
-*  DATA ls_stable TYPE lvc_s_stbl.
-*
-*  CASE i_ucomm.
-*    WHEN 'POP'.
-*
-*      "批量打印
-*      "获取SMARTFOMRS函数
-*      CALL FUNCTION 'SSF_FUNCTION_MODULE_NAME'
-*        EXPORTING
-*          formname           = 'ZFIR0119A' "Smart Form名称
-*        IMPORTING
-*          fm_name            = fm_name
-*        EXCEPTIONS
-*          no_form            = 1
-*          no_function_module = 2
-*          OTHERS             = 3.
-*
-*      lw_control-preview       = 'X'.                 " 打印预览
-*      lw_control-no_open       = 'X'.                 " 新的假脱机请求
-*      lw_control-no_close      = 'X'.
-*      lw_control-no_dialog     = 'X'.                 " 必须设置
-*
-*      CALL FUNCTION 'SSF_OPEN'
-*        EXPORTING
-*          output_options     = lw_output
-*          control_parameters = lw_control
-*          user_settings      = ' '
-*        EXCEPTIONS
-*          formatting_error   = 1
-*          internal_error     = 2
-*          send_error         = 3
-*          user_canceled      = 4
-*          OTHERS             = 5.
-*
-*
-*      LOOP AT lt_out INTO ls_out WHERE sel = 'X' AND style = '期初余额'.
-*        "科目范围
-*        IF ls_out-txt20 IS NOT INITIAL.
-*          SEARCH  ls_out-txt20 FOR '-'.
-*          IF sy-subrc = 0.
-*            lv_flag = sy-fdpos.
-*            ls_zfir0019a_head-racct_area = ls_out-racct && ls_out-txt20+0(lv_flag).
-*          ENDIF.
-*        ENDIF.
-*        "核算项目
-*        ls_zfir0019a_head-hsxm = ls_out-rfarea && ls_out-rfareat.
-*        "期间
-*        ls_zfir0019a_head-fiscyearper = p_year+0(4) && '年' && p_year+5(2) && '月'.
-*        "币别（获取的是公司货币）
-*        SELECT SINGLE
-*          rhcur
-*        INTO ls_zfir0019a_head-rtcur
-*        FROM acdoca
-*        WHERE acdoca~racct = ls_out-racct
-*          AND acdoca~rbukrs = p_rbukrs.
-*        "获取明细数据
-*        LOOP AT lt_out INTO ls_print WHERE id = ls_out-id.
-*          "日期
-*          IF ls_print-budat IS NOT INITIAL.
-*            ls_zfir0019a_detail-date = ls_print-budat.
-*          ENDIF.
-*
-*          "凭证
-*          ls_zfir0019a_detail-belnr = ls_print-belnr.
-*          "摘要
-*          IF ls_print-style IS NOT INITIAL.
-*            ls_zfir0019a_detail-content = ls_print-style.
-*          ELSE.
-*            ls_zfir0019a_detail-content = ls_print-sgtxt.
-*          ENDIF.
-*          "汇率
-*          IF ls_print-kursf IS NOT INITIAL.
-*            ls_zfir0019a_detail-kursf = ls_print-kursf.
-*          ENDIF.
-*
-*          "借方
-*          ls_zfir0019a_detail-wsl1 = ls_print-wsl1.
-*          ls_zfir0019a_detail-hsl1 = ls_print-hsl1.
-*
-*          "贷方
-*          ls_zfir0019a_detail-wsl2 = ls_print-wsl2.
-*          ls_zfir0019a_detail-hsl2 = ls_print-hsl2.
-*
-*          "余额
-*          ls_zfir0019a_detail-wsl = ls_print-wsl.
-*          ls_zfir0019a_detail-hsl = ls_print-hsl.
-*
-*          ls_zfir0019a_detail-flag = ls_print-type.
-*          APPEND ls_zfir0019a_detail TO lt_zfir0019a_detail.
-*
-*
-*
-*          CLEAR:ls_zfir0019a_detail,ls_print.
-*        ENDLOOP.
-*
-*        DESCRIBE TABLE lt_zfir0019a_detail LINES DATA(lv_line).
-*        lv_line = 15 - lv_line MOD 15.
-*        DO lv_line TIMES.
-*          APPEND INITIAL LINE TO lt_zfir0019a_detail.
-*        ENDDO.
-*
-*
-*        CALL FUNCTION fm_name
-*          EXPORTING
-**           ARCHIVE_INDEX      =
-**           ARCHIVE_INDEX_TAB  =
-**           ARCHIVE_PARAMETERS =
-*            control_parameters = lw_control
-**           MAIL_APPL_OBJ      =
-**           MAIL_RECIPIENT     =
-**           MAIL_SENDER        =
-*            output_options     = lw_output
-**           USER_SETTINGS      = 'X'
-*            gs_head            = ls_zfir0019a_head
-**           IMPORTING
-**           DOCUMENT_OUTPUT_INFO       =
-**           JOB_OUTPUT_INFO    =
-**           JOB_OUTPUT_OPTIONS =
-*          TABLES
-*            gt_detail          = lt_zfir0019a_detail
-*          EXCEPTIONS
-*            formatting_error   = 1
-*            internal_error     = 2
-*            send_error         = 3
-*            user_canceled      = 4
-*            OTHERS             = 5.
-*        IF sy-subrc <> 0.
-*          MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
-*                      WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
-*        ENDIF.
-*
-**        CLEAR:lw_control,lw_output.
-*        CLEAR:ls_out,ls_zfir0019a_head,ls_zfir0019a_detail,lt_zfir0019a_detail.
-*      ENDLOOP.
-*
-*
-*
-*
-*      CALL FUNCTION 'SSF_CLOSE'
-**      IMPORTING
-**        job_output_info  = lw_ssfcrescl
-*        EXCEPTIONS
-*          formatting_error = 1
-*          internal_error   = 2
-*          send_error       = 3
-*          OTHERS           = 4.
-*
-*      CLEAR:lw_control,lw_output,lt_zfir0019a_detail.
-*  ENDCASE.
-*
-*
-*ENDFORM.
+FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
+      i_wa_selfield TYPE slis_selfield.
+  DATA:
+    ls_layout TYPE lvc_s_layo,
+    lv_grid   TYPE REF TO cl_gui_alv_grid.
+  DATA ls_stable TYPE lvc_s_stbl.
+
+  CASE i_ucomm.
+    WHEN 'POP'.
+
+      "批量打印
+      "获取SMARTFOMRS函数
+      CALL FUNCTION 'SSF_FUNCTION_MODULE_NAME'
+        EXPORTING
+          formname           = 'ZFIR0119A' "Smart Form名称
+        IMPORTING
+          fm_name            = fm_name
+        EXCEPTIONS
+          no_form            = 1
+          no_function_module = 2
+          OTHERS             = 3.
+
+      lw_control-preview       = 'X'.                 " 打印预览
+      lw_control-no_open       = 'X'.                 " 新的假脱机请求
+      lw_control-no_close      = 'X'.
+      lw_control-no_dialog     = 'X'.                 " 必须设置
+
+      CALL FUNCTION 'SSF_OPEN'
+        EXPORTING
+          output_options     = lw_output
+          control_parameters = lw_control
+          user_settings      = ' '
+        EXCEPTIONS
+          formatting_error   = 1
+          internal_error     = 2
+          send_error         = 3
+          user_canceled      = 4
+          OTHERS             = 5.
+
+
+      LOOP AT lt_out INTO ls_out WHERE sel = 'X' AND style = '期初余额'.
+        "科目范围
+        IF ls_out-txt20 IS NOT INITIAL.
+          SEARCH  ls_out-txt20 FOR '-'.
+          IF sy-subrc = 0.
+            lv_flag = sy-fdpos.
+            ls_zfir0019a_head-racct_area = ls_out-racct && ls_out-txt20+0(lv_flag).
+          ENDIF.
+        ENDIF.
+        "核算项目
+        ls_zfir0019a_head-hsxm = ls_out-rfarea && ls_out-rfareat && ls_out-kunnr && LS_OUT-kunnrt && LS_OUT-lifnr && LS_OUT-lifnrt && LS_OUT-hbkid && LS_OUT-hktid.
+
+
+
+        "期间
+        ls_zfir0019a_head-fiscyearper = p_year+0(4) && '年' && p_year+5(2) && '月'.
+        "币别（获取的是公司货币）
+        SELECT SINGLE
+          rhcur
+        INTO ls_zfir0019a_head-rtcur
+        FROM acdoca
+        WHERE acdoca~racct = ls_out-racct
+          AND acdoca~rbukrs = p_rbukrs.
+        "获取明细数据
+        LOOP AT lt_out INTO ls_print WHERE id = ls_out-id.
+          "日期
+          IF ls_print-budat IS NOT INITIAL.
+            ls_zfir0019a_detail-date = ls_print-budat.
+          ENDIF.
+
+          "凭证
+          ls_zfir0019a_detail-belnr = ls_print-belnr.
+          "摘要
+          IF ls_print-style IS NOT INITIAL.
+            ls_zfir0019a_detail-content = ls_print-style.
+          ELSE.
+            ls_zfir0019a_detail-content = ls_print-sgtxt.
+          ENDIF.
+          "汇率
+          IF ls_print-kursf IS NOT INITIAL.
+            ls_zfir0019a_detail-kursf = ls_print-kursf.
+          ENDIF.
+
+          "借方
+          ls_zfir0019a_detail-wsl1 = ls_print-wsl1.
+          ls_zfir0019a_detail-hsl1 = ls_print-hsl1.
+
+          "贷方
+          ls_zfir0019a_detail-wsl2 = ls_print-wsl2.
+          ls_zfir0019a_detail-hsl2 = ls_print-hsl2.
+
+          "余额
+          ls_zfir0019a_detail-wsl = ls_print-wsl.
+          ls_zfir0019a_detail-hsl = ls_print-hsl.
+
+          ls_zfir0019a_detail-flag = ls_print-type.
+          APPEND ls_zfir0019a_detail TO lt_zfir0019a_detail.
+
+
+
+          CLEAR:ls_zfir0019a_detail,ls_print.
+        ENDLOOP.
+
+        DESCRIBE TABLE lt_zfir0019a_detail LINES DATA(lv_line).
+        lv_line = 15 - lv_line MOD 15.
+        DO lv_line TIMES.
+          APPEND INITIAL LINE TO lt_zfir0019a_detail.
+        ENDDO.
+
+
+        CALL FUNCTION fm_name
+          EXPORTING
+*           ARCHIVE_INDEX      =
+*           ARCHIVE_INDEX_TAB  =
+*           ARCHIVE_PARAMETERS =
+            control_parameters = lw_control
+*           MAIL_APPL_OBJ      =
+*           MAIL_RECIPIENT     =
+*           MAIL_SENDER        =
+            output_options     = lw_output
+*           USER_SETTINGS      = 'X'
+            gs_head            = ls_zfir0019a_head
+*           IMPORTING
+*           DOCUMENT_OUTPUT_INFO       =
+*           JOB_OUTPUT_INFO    =
+*           JOB_OUTPUT_OPTIONS =
+          TABLES
+            gt_detail          = lt_zfir0019a_detail
+          EXCEPTIONS
+            formatting_error   = 1
+            internal_error     = 2
+            send_error         = 3
+            user_canceled      = 4
+            OTHERS             = 5.
+        IF sy-subrc <> 0.
+          MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+                      WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+        ENDIF.
+
+*        CLEAR:lw_control,lw_output.
+        CLEAR:ls_out,ls_zfir0019a_head,ls_zfir0019a_detail,lt_zfir0019a_detail.
+      ENDLOOP.
+
+
+
+
+      CALL FUNCTION 'SSF_CLOSE'
+*      IMPORTING
+*        job_output_info  = lw_ssfcrescl
+        EXCEPTIONS
+          formatting_error = 1
+          internal_error   = 2
+          send_error       = 3
+          OTHERS           = 4.
+
+      CLEAR:lw_control,lw_output,lt_zfir0019a_detail.
+  ENDCASE.
+
+
+ENDFORM.

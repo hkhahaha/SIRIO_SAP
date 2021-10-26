@@ -37,7 +37,6 @@ SELECT-OPTIONS:
            p_rfarea FOR acdoca-rfarea NO INTERVALS.
 SELECT-OPTIONS:s_kunnr FOR acdoca-kunnr,
                s_lifnr FOR acdoca-lifnr.
-PARAMETERS:p_test TYPE acdoca-racct.
 PARAMETERS:p_racct1(4) MODIF ID m1.
 PARAMETERS:p_racct2(6) MODIF ID m2.
 
@@ -137,35 +136,44 @@ FORM get_data .
     AND rfarea IN @p_rfarea
     AND rbukrs = @p_rbukrs
     AND kunnr IN @s_kunnr
-    AND lifnr IN @s_lifnr
-    AND racct = @p_test.
-  SORT lt_head by racct rfarea rhcur fiscyearper.
+    AND lifnr IN @s_lifnr.
+  SORT lt_head BY racct rfarea rhcur fiscyearper.
   DELETE ADJACENT DUPLICATES FROM lt_head COMPARING racct rfarea rhcur.
-  SELECT
-    saknr,
-    gvtyp
-  FROM ska1
-  FOR ALL ENTRIES IN @lt_head
-  WHERE saknr = @lt_head-racct
-  INTO TABLE @DATA(lt_ska1).
 
-  SELECT
-    saknr,
-    txt20
-  FROM skat
-  FOR ALL ENTRIES IN @lt_head
-  WHERE spras = '1'
-    AND saknr = @lt_head-racct
-  INTO TABLE @DATA(lt_skat).
 
-  SELECT
-    fkber,
-    fkbtx
-  FROM tfkbt
-  FOR ALL ENTRIES IN @lt_head
-  WHERE spras = '1'
-    AND fkber = @lt_head-rfarea
- INTO TABLE @DATA(lt_tfkbt).
+  IF lt_head IS NOT INITIAL.
+    SELECT
+      saknr,
+      gvtyp
+    FROM ska1
+    FOR ALL ENTRIES IN @lt_head
+    WHERE saknr = @lt_head-racct
+    INTO TABLE @DATA(lt_ska1).
+
+    SELECT
+      saknr,
+      txt20
+    FROM skat
+    FOR ALL ENTRIES IN @lt_head
+    WHERE spras = '1'
+      AND saknr = @lt_head-racct
+    INTO TABLE @DATA(lt_skat).
+
+    SELECT
+      fkber,
+      fkbtx
+    FROM tfkbt
+    FOR ALL ENTRIES IN @lt_head
+    WHERE spras = '1'
+      AND fkber = @lt_head-rfarea
+   INTO TABLE @DATA(lt_tfkbt).
+  ENDIF.
+  "供应商
+
+
+  "客户
+
+
 
   "获取每个区间的数据
   "(1)获取年初数据
@@ -177,7 +185,6 @@ FORM get_data .
     rfarea,
     rhcur,
     rbukrs,
-    SUM( wsl ) AS wsl,
     SUM( hsl ) AS hsl
   INTO TABLE @DATA(lt_alla)
   FROM acdoca
@@ -185,7 +192,6 @@ FORM get_data .
     AND rfarea IN @p_rfarea
     AND rbukrs = @p_rbukrs
     AND gjahr < @lv_gjahr
-    AND racct = @p_test
   GROUP BY racct,rfarea,rhcur,rbukrs
   ORDER BY racct,rfarea,rhcur,rbukrs.
 
@@ -198,7 +204,6 @@ FORM get_data .
    rhcur,
    rbukrs,
    poper,
-   SUM( wsl ) AS wsl,
    SUM( hsl ) AS hsl
    INTO TABLE @DATA(lt_allb1)
    FROM acdoca
@@ -206,11 +211,31 @@ FORM get_data .
      AND rfarea IN @p_rfarea
      AND rbukrs = @p_rbukrs
      AND gjahr = @lv_gjahr
-     AND racct = @p_test
+     AND drcrk = 'S'
+    AND hsl <> 0
      AND poper BETWEEN '001' AND '014'
    GROUP BY racct,rfarea,rhcur,rbukrs,poper
    ORDER BY racct,rfarea,rhcur,rbukrs,poper.
 
+  "贷方
+  SELECT
+   racct,
+   rfarea,
+   rhcur,
+   rbukrs,
+   poper,
+   SUM( hsl ) AS hsl
+   INTO TABLE @DATA(lt_allb2)
+   FROM acdoca
+   WHERE racct IN @s_racct
+     AND rfarea IN @p_rfarea
+     AND rbukrs = @p_rbukrs
+     AND gjahr = @lv_gjahr
+     AND drcrk = 'H'
+     AND hsl <> 0
+     AND poper BETWEEN '001' AND '014'
+   GROUP BY racct,rfarea,rhcur,rbukrs,poper
+   ORDER BY racct,rfarea,rhcur,rbukrs,poper.
   "总数
   SELECT
    racct,
@@ -218,7 +243,6 @@ FORM get_data .
    rhcur,
    rbukrs,
    poper,
-   SUM( wsl ) AS wsl,
    SUM( hsl ) AS hsl
    INTO TABLE @DATA(lt_allb3)
    FROM acdoca
@@ -228,15 +252,18 @@ FORM get_data .
      AND gjahr = @lv_gjahr
      AND poper BETWEEN '001' AND '014'
      AND fiscyearper <= @p_year
-     AND racct = @p_test
+     AND hsl <> 0
    GROUP BY racct,rfarea,rhcur,rbukrs,poper
    ORDER BY racct,rfarea,rhcur,rbukrs,poper.
 
   DATA:ls_allb3 LIKE LINE OF lt_allb3.
   DATA:ls_allb1 LIKE LINE OF lt_allb1.
+  DATA:ls_allb2 LIKE LINE OF lt_allb2.
+
+
   "处理数据
   DATA lt_allb_temp LIKE  lt_allb1.
-
+  DATA lv_count TYPE acdoca-poper.
 
   "批量打印
   "获取SMARTFOMRS函数
@@ -287,10 +314,13 @@ FORM get_data .
     IF sy-subrc = 0.
       ls_zfir0019b_head-hsxm = ls_head-rfarea && ls_tfkbt-fkbtx.
     ENDIF.
+    IF ls_head-kunnr IS NOT INITIAL.
+
+    ENDIF.
     "币别
     ls_zfir0019b_head-rtcur = ls_head-rhcur.
     "期间
-    ls_zfir0019b_head-fiscyearper = ls_head-fiscyearper+0(4) && '年' && ls_head-fiscyearper+5(2) && '月'.
+    ls_zfir0019b_head-fiscyearper = p_year+0(4) && '年' && p_year+5(2) && '月'.
 
     "明细项
     "第一行为年初余额
@@ -299,7 +329,7 @@ FORM get_data .
                                                    rbukrs = ls_head-rbukrs
                                                    rhcur = ls_head-rhcur.
     IF sy-subrc = 0.
-      ls_zfir0019b_head-wsl = ls_alla-hsl + ls_alla-wsl.
+      ls_zfir0019b_head-wsl = ls_alla-hsl.
       "借贷标识
       IF ls_zfir0019b_head-wsl = 0.
         ls_zfir0019b_head-flag = '平'.
@@ -312,43 +342,76 @@ FORM get_data .
 
 
 
-    LOOP AT lt_allb1 INTO ls_allb1 WHERE racct = ls_head-racct AND rfarea = ls_head-rfarea AND rbukrs = ls_head-rbukrs AND rhcur = ls_head-rhcur.
-      "本期合计
-      ls_zfir0019b_detail-wsl1 = ls_allb1-wsl.
-      ls_zfir0019b_detail-hsl1 = ls_allb1-hsl.
-      ls_zfir0019b_detail-sum1 = ls_allb1-hsl + ls_allb1-wsl.
-      "借贷标识
-      IF ls_zfir0019b_detail-sum1 = 0.
-        ls_zfir0019b_head-flag = '平'.
-      ELSEIF ls_zfir0019b_detail-sum1 > 0.
-        ls_zfir0019b_head-flag = '借'.
-      ELSE.
-        ls_zfir0019b_head-flag = '贷'.
-      ENDIF.
-      "本年累计
-      ls_zfir0019b_detail-wsl2 = ls_zfir0019b_detail-wsl2 + ls_zfir0019b_detail-wsl1.
-      ls_zfir0019b_detail-hsl2 = ls_zfir0019b_detail-hsl2 + ls_zfir0019b_detail-hsl1.
-      ls_zfir0019b_detail-sum2 = ls_zfir0019b_detail-wsl2 + ls_zfir0019b_detail-hsl2.
-      "借贷标识
-      IF ls_zfir0019b_detail-sum2 = 0.
-        ls_zfir0019b_head-flag = '平'.
-      ELSEIF ls_zfir0019b_detail-sum2 > 0.
-        ls_zfir0019b_head-flag = '借'.
-      ELSE.
-        ls_zfir0019b_head-flag = '贷'.
-      ENDIF.
-      APPEND ls_zfir0019b_detail TO lt_zfir0019b_detail.
-      CLEAR:ls_zfir0019b_detail-wsl1,ls_zfir0019b_detail-hsl1,ls_zfir0019b_detail-sum1.
-      CLEAR ls_allb1.
-    ENDLOOP.
 
-    DESCRIBE TABLE lt_zfir0019b_detail LINES DATA(lv_rows).
-    IF lv_rows < 14.
-      lv_rows = 14 - lv_rows.
-      DO lv_rows TIMES.
+    lv_count = '001'.
+    IF lt_allb3 IS NOT INITIAL.
+      DO 14 TIMES.
+        LOOP AT lt_allb3 INTO ls_allb3 WHERE racct = ls_head-racct
+                                          AND rfarea = ls_head-rfarea
+                                          AND rbukrs = ls_head-rbukrs
+                                          AND rhcur = ls_head-rhcur
+                                          AND poper = lv_count.
+
+          "本期合计
+          "借方
+          READ TABLE lt_allb1 INTO ls_allb1 WITH KEY racct = ls_allb3-racct
+                                                     poper = ls_allb3-poper
+                                                     rhcur = ls_allb3-rhcur
+                                                     rfarea = ls_allb3-rfarea
+                                                     rbukrs = ls_allb3-rbukrs.
+          IF sy-subrc = 0.
+            ls_zfir0019b_detail-wsl1 = ls_allb1-hsl.
+          ENDIF.
+          "贷方
+          READ TABLE lt_allb2 INTO ls_allb2 WITH KEY racct = ls_allb3-racct
+                                                     poper = ls_allb3-poper
+                                                     rhcur = ls_allb3-rhcur
+                                                     rfarea = ls_allb3-rfarea
+                                                     rbukrs = ls_allb3-rbukrs.
+          IF sy-subrc = 0.
+            ls_zfir0019b_detail-hsl1 = ls_allb2-hsl.
+          ENDIF.
+          ls_zfir0019b_detail-sum1 = ls_allb1-hsl + ls_allb2-hsl.
+          "借贷标识
+          IF ls_zfir0019b_detail-sum1 = 0.
+            ls_zfir0019b_detail-flaga = '平'.
+          ELSEIF ls_zfir0019b_detail-sum1 > 0.
+            ls_zfir0019b_detail-flaga = '借'.
+          ELSE.
+            ls_zfir0019b_detail-flaga = '贷'.
+          ENDIF.
+          "本年累计
+          ls_zfir0019b_detail-wsl2 = ls_zfir0019b_detail-wsl2 + ls_zfir0019b_detail-wsl1.
+          ls_zfir0019b_detail-hsl2 = ls_zfir0019b_detail-hsl2 + ls_zfir0019b_detail-hsl1.
+          ls_zfir0019b_detail-sum2 = ls_zfir0019b_detail-wsl2 + ls_zfir0019b_detail-hsl2.
+          "借贷标识
+          IF ls_zfir0019b_detail-sum2 = 0.
+            ls_zfir0019b_detail-flagb = '平'.
+          ELSEIF ls_zfir0019b_detail-sum2 > 0.
+            ls_zfir0019b_detail-flagb = '借'.
+          ELSE.
+            ls_zfir0019b_detail-flagb = '贷'.
+          ENDIF.
+          APPEND ls_zfir0019b_detail TO lt_zfir0019b_detail.
+          CLEAR:ls_zfir0019b_detail-wsl1,ls_zfir0019b_detail-hsl1,ls_zfir0019b_detail-sum1.
+          CLEAR:ls_allb1,ls_allb2,ls_allb3.
+        ENDLOOP.
+        IF sy-subrc <> 0.
+          APPEND INITIAL LINE TO lt_zfir0019b_detail.
+        ENDIF.
+
+        lv_count = lv_count + 1.
+      ENDDO.
+      CLEAR ls_zfir0019b_detail.
+
+    ELSE.
+      DO 14 TIMES.
         APPEND INITIAL LINE TO lt_zfir0019b_detail.
       ENDDO.
     ENDIF.
+
+
+
 
 
 
@@ -382,7 +445,7 @@ FORM get_data .
       MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
                   WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
     ENDIF.
-
+    CLEAR:lt_zfir0019b_detail,ls_zfir0019b_head,ls_head.
   ENDLOOP.
 
   CALL FUNCTION 'SSF_CLOSE'

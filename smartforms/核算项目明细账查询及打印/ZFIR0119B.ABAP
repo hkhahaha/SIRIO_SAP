@@ -129,7 +129,9 @@ FORM get_data .
     rbukrs,
     fiscyearper,
     kunnr,
-    lifnr
+    lifnr,
+    hbkid,
+    hktid
   INTO TABLE @DATA(lt_head)
   FROM acdoca
   WHERE racct IN @s_racct
@@ -167,11 +169,38 @@ FORM get_data .
     WHERE spras = '1'
       AND fkber = @lt_head-rfarea
    INTO TABLE @DATA(lt_tfkbt).
+
+    "供应商
+    SELECT
+      partner,
+      name_org1
+    FROM but000
+    INTO TABLE @DATA(lt_but000_kunnr)
+    FOR ALL ENTRIES IN @lt_head
+    WHERE partner = @lt_head-kunnr.
+    "客户
+    SELECT
+      partner,
+      name_org1
+    FROM but000
+    INTO TABLE @DATA(lt_but000_lifnr)
+    FOR ALL ENTRIES IN @lt_head
+    WHERE partner = @lt_head-lifnr.
+
+    "账号描述
+    SELECT
+      bukrs,
+      hbkid,
+      hktid,
+      text1
+    INTO TABLE @DATA(lt_t012t)
+    FROM t012t
+    FOR ALL ENTRIES IN @lt_head
+    WHERE bukrs = @lt_head-rbukrs
+      AND hbkid = @lt_head-hbkid
+      AND hktid = @lt_head-hktid.
   ENDIF.
-  "供应商
 
-
-  "客户
 
 
 
@@ -314,9 +343,25 @@ FORM get_data .
     IF sy-subrc = 0.
       ls_zfir0019b_head-hsxm = ls_head-rfarea && ls_tfkbt-fkbtx.
     ENDIF.
-    IF ls_head-kunnr IS NOT INITIAL.
+*    IF ls_head-kunnr IS NOT INITIAL.
+*      READ TABLE lt_but000_kunnr INTO DATA(ls_but000_kunnr) WITH KEY partner = ls_head-kunnr.
+*      IF sy-subrc = 0.
+*        ls_zfir0019b_head-hsxm = ls_zfir0019b_head-hsxm && ls_head-kunnr && ls_but000_kunnr-name_org1.
+*      ENDIF.
+*      READ TABLE lt_but000_lifnr INTO DATA(ls_but000_lifnr) WITH KEY partner = ls_head-lifnr.
+*      IF sy-subrc = 0.
+*        ls_zfir0019b_head-hsxm = ls_zfir0019b_head-hsxm && ls_head-lifnr && ls_but000_lifnr-name_org1.
+*      ENDIF.
+*    ENDIF.
+*    ls_zfir0019b_head-hsxm = ls_zfir0019b_head-hsxm && ls_head-hbkid && ls_head-hktid.
+*
+*    READ TABLE lt_t012t INTO DATA(ls_t012t) WITH KEY bukrs = ls_head-rbukrs
+*                                                     hbkid = ls_head-hbkid
+*                                                     hktid = ls_head-hktid.
+*    IF sy-subrc = 0.
+*      ls_zfir0019b_head-hsxm = ls_zfir0019b_head-hsxm && ls_t012t-text1.
+*    ENDIF.
 
-    ENDIF.
     "币别
     ls_zfir0019b_head-rtcur = ls_head-rhcur.
     "期间
@@ -433,7 +478,7 @@ FORM get_data .
 *       document_output_info = document_output_info
 *       job_output_info    = job_output_info
 *       job_output_options = job_output_options
-      TABLES
+      TABLES 
         gt_detail          = lt_zfir0019b_detail
       EXCEPTIONS
         formatting_error   = 1

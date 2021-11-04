@@ -41,6 +41,8 @@ TYPES:BEGIN OF ty_all,
         hsla        TYPE    acdoca-hsl  , "  贷方本位币,
         wslb        TYPE    acdoca-wsl  , "  贷方交易货币
         hslb        TYPE    acdoca-hsl  , "  贷方本位币,
+        num1(14),"借方交易货币余额字符型
+        num2(14),"贷方交易货币余额字符型
         drcrk       TYPE acdoca-drcrk, "借贷标识
         type(5),"借贷标识
         gvtyp       TYPE ska1-gvtyp, "损益科目
@@ -98,11 +100,11 @@ DATA:lt_all      TYPE TABLE OF ty_all,
      ls_alld4a   LIKE LINE OF lt_alla2,
      ls_alld4b   LIKE LINE OF lt_alla2.
 
-DATA:lt_out   TYPE TABLE OF ty_all, "ALV输出
-     lt_print TYPE TABLE OF ty_all,
-     ls_out   LIKE LINE OF lt_out,
-     ls_print LIKE LINE OF lt_out,
-     ls_out_t LIKE LINE OF lt_out,
+DATA:lt_out    TYPE TABLE OF ty_all, "ALV输出
+     lt_print  TYPE TABLE OF ty_all,
+     ls_out    LIKE LINE OF lt_out,
+     ls_print  LIKE LINE OF lt_out,
+     ls_out_t  LIKE LINE OF lt_out,
      ls_out_t2 LIKE LINE OF lt_out.
 
 DATA lv_gjahr TYPE acdoca-gjahr.
@@ -166,6 +168,38 @@ FORM getdata.
     AND racct IN s_racct
     AND blart <> ''
   GROUP BY racct hbkid hktid rbukrs rwcur.
+  IF lt_alla1 IS NOT INITIAL.
+    SELECT DISTINCT
+      rbukrs,
+      rwcur,
+      racct,
+      lifnr,
+      name_org1
+    INTO TABLE @DATA(lt_alla1_lifnr)
+    FROM  acdoca
+    INNER JOIN but000
+    ON partner = acdoca~lifnr
+    FOR ALL ENTRIES IN @lt_alla1
+    WHERE rbukrs = @lt_alla1-rbukrs
+      AND rwcur = @lt_alla1-rwcur
+      AND racct = @lt_alla1-racct.
+    "客户
+    SELECT DISTINCT
+      rbukrs,
+      rwcur,
+      racct,
+      kunnr,
+      name_org1
+    INTO TABLE @DATA(lt_alla1_kunnr)
+    FROM  acdoca
+    INNER JOIN but000
+    ON partner = acdoca~kunnr
+    FOR ALL ENTRIES IN @lt_alla1
+    WHERE rbukrs = @lt_alla1-rbukrs
+      AND rwcur = @lt_alla1-rwcur
+      AND racct = @lt_alla1-racct.
+  ENDIF.
+
 
   "[2]获得借方的数据，保存在lt_alla1a表中
   SELECT
@@ -280,6 +314,39 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
     AND acdoca~ktopl = '1000'
   GROUP BY racct,rfarea,rbukrs,rwcur
   INTO  CORRESPONDING FIELDS OF TABLE @lt_alla2.
+
+  IF lt_alla2 IS NOT INITIAL.
+    SELECT DISTINCT
+      rbukrs,
+      rwcur,
+      racct,
+      lifnr,
+      name_org1
+    INTO TABLE @DATA(lt_alla2_lifnr)
+    FROM  acdoca
+    INNER JOIN but000
+    ON partner = acdoca~lifnr
+    FOR ALL ENTRIES IN @lt_alla2
+    WHERE rbukrs = @lt_alla2-rbukrs
+      AND rwcur = @lt_alla2-rwcur
+      AND racct = @lt_alla2-racct.
+    "客户
+    SELECT DISTINCT
+      rbukrs,
+      rwcur,
+      racct,
+      kunnr,
+      name_org1
+    INTO TABLE @DATA(lt_alla2_kunnr)
+    FROM  acdoca
+    INNER JOIN but000
+    ON partner = acdoca~kunnr
+    FOR ALL ENTRIES IN @lt_alla2
+    WHERE rbukrs = @lt_alla2-rbukrs
+      AND rwcur = @lt_alla2-rwcur
+      AND racct = @lt_alla2-racct.
+  ENDIF.
+
   "[1]本年累计相关，获取(2)类的本年累计借方数据
   SELECT
  rbukrs,
@@ -362,6 +429,40 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
     AND acdoca~ktopl = '1000'
   GROUP BY racct,rfarea,rbukrs,rwcur
   INTO  CORRESPONDING FIELDS OF TABLE @lt_alla3.
+
+  "取出（3）类型的客户、供应商
+  "供应商
+  IF lt_alla3 IS NOT INITIAL.
+    SELECT DISTINCT
+      rbukrs,
+      rwcur,
+      racct,
+      lifnr,
+      name_org1
+    INTO TABLE @DATA(lt_alla3_lifnr)
+    FROM  acdoca
+    INNER JOIN but000
+    ON partner = acdoca~lifnr
+    FOR ALL ENTRIES IN @lt_alla3
+    WHERE rbukrs = @lt_alla3-rbukrs
+      AND rwcur = @lt_alla3-rwcur
+      AND racct = @lt_alla3-racct.
+    "客户
+    SELECT DISTINCT
+      rbukrs,
+      rwcur,
+      racct,
+      kunnr,
+      name_org1
+    INTO TABLE @DATA(lt_alla3_kunnr)
+    FROM  acdoca
+    INNER JOIN but000
+    ON partner = acdoca~kunnr
+    FOR ALL ENTRIES IN @lt_alla3
+    WHERE rbukrs = @lt_alla3-rbukrs
+      AND rwcur = @lt_alla3-rwcur
+      AND racct = @lt_alla3-racct.
+  ENDIF.
 
   "[1]本年累计相关，获取(3)类的本年累计借方数据
   SELECT
@@ -513,6 +614,44 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
   GROUP BY racct,rbukrs,rwcur
   INTO  CORRESPONDING FIELDS OF TABLE @lt_alld4b.
 
+  "取出（4）类型的客户、供应商
+  "供应商
+  IF lt_alla4 IS NOT INITIAL.
+    SELECT DISTINCT
+      rbukrs,
+      rwcur,
+      racct,
+      lifnr,
+      name_org1
+    INTO TABLE @DATA(lt_alla4_lifnr)
+    FROM  acdoca
+    INNER JOIN but000
+    ON partner = acdoca~lifnr
+    FOR ALL ENTRIES IN @lt_alla4
+    WHERE rbukrs = @lt_alla4-rbukrs
+      AND rwcur = @lt_alla4-rwcur
+      AND racct = @lt_alla4-racct.
+    "客户
+    SELECT DISTINCT
+      rbukrs,
+      rwcur,
+      racct,
+      kunnr,
+      name_org1
+    INTO TABLE @DATA(lt_alla4_kunnr)
+    FROM  acdoca
+    INNER JOIN but000
+    ON partner = acdoca~kunnr
+    FOR ALL ENTRIES IN @lt_alla4
+    WHERE rbukrs = @lt_alla4-rbukrs
+      AND rwcur = @lt_alla4-rwcur
+      AND racct = @lt_alla4-racct.
+  ENDIF.
+
+
+
+
+
   "上面是期初余额的基底数据，接下来首先取出所有相关的全部明细行数据
   SELECT
    rbukrs,
@@ -535,10 +674,10 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
    drcrk,
    fiscyearper
    FROM acdoca
-   LEFT JOIN skat
+   LEFT OUTER JOIN skat
    ON skat~saknr = acdoca~racct
    AND skat~ktopl = acdoca~ktopl
-   LEFT JOIN bkpf
+   LEFT OUTER JOIN bkpf
    ON bkpf~bukrs = acdoca~rbukrs
    AND bkpf~belnr = acdoca~belnr
    AND bkpf~gjahr = acdoca~gjahr
@@ -570,15 +709,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
     name_org4
   INTO TABLE @DATA(lt_but000)
   FROM but000.
-  "账户描述
-  SELECT
-   bukrs,
-   hbkid,
-   hktid,
-   text1
-  FROM t012t
-  INTO TABLE @DATA(lt_t012t)
-  WHERE spras = '1'.
+
   "科目描述
   SELECT
     saknr,
@@ -590,10 +721,27 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
 
 
 
+
   "本年发生相关
 
   "(1)类型，外层为基础数据
   LOOP AT lt_alla1 INTO ls_alla1.
+    "供应商跟客户
+    READ TABLE lt_alla1_lifnr INTO DATA(ls_alla1_lifnr) WITH KEY rbukrs = ls_alla1-rbukrs
+                                                                 rwcur = ls_alla1-rwcur
+                                                                 racct = ls_alla1-racct.
+    IF sy-subrc = 0.
+      ls_alla1-lifnr = ls_alla1_lifnr-lifnr.
+      ls_alla1-lifnrt = ls_alla1_lifnr-name_org1.
+
+    ENDIF.
+    READ TABLE lt_alla1_kunnr INTO DATA(ls_alla1_kunnr) WITH KEY rbukrs = ls_alla1-rbukrs
+                                                                 rwcur = ls_alla1-rwcur
+                                                                 racct = ls_alla1-racct.
+    IF sy-subrc = 0.
+      ls_alla1-kunnr = ls_alla1_kunnr-kunnr.
+      ls_alla1-kunnrt = ls_alla1_kunnr-name_org1.
+    ENDIF.
 
     "根据相应条件对内部数据做计算
     "借方
@@ -644,6 +792,9 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
 
     lv_id = zcl_bc_public=>get_guid( ).
     ls_out-id = lv_id.
+
+    ls_out-lifnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-lifnr i_out = 'X' ).
+    ls_out-kunnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-kunnr i_out = 'X' ).
     APPEND ls_out TO lt_out.
     MOVE-CORRESPONDING ls_out TO ls_out_t."本期发生额相关
     MOVE-CORRESPONDING ls_out TO ls_out_t2."本年发生额相关
@@ -697,7 +848,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ENDIF.
 
       IF ls_all-kunnr IS NOT INITIAL.
-        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-lifnr.
+        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-kunnr.
         IF sy-subrc = 0.
           ls_all-kunnrt = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
         ENDIF.
@@ -711,6 +862,8 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ENDIF.
       ls_all-id = lv_id.
       MOVE-CORRESPONDING ls_all TO ls_out.
+      ls_out-lifnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-lifnr i_out = 'X' ).
+      ls_out-kunnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-kunnr i_out = 'X' ).
       APPEND ls_out TO lt_out.
       CLEAR:ls_all,ls_out.
     ENDLOOP.
@@ -759,6 +912,23 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
 
   "（2）类型
   LOOP AT lt_alla2 INTO ls_alla2.
+    "供应商跟客户
+    READ TABLE lt_alla2_lifnr INTO DATA(ls_alla2_lifnr) WITH KEY rbukrs = ls_alla2-rbukrs
+                                                                 rwcur = ls_alla2-rwcur
+                                                                 racct = ls_alla2-racct.
+    IF sy-subrc = 0.
+      ls_alla2-lifnr = ls_alla2_lifnr-lifnr.
+      ls_alla2-lifnrt = ls_alla2_lifnr-name_org1.
+
+    ENDIF.
+    READ TABLE lt_alla2_kunnr INTO DATA(ls_alla2_kunnr) WITH KEY rbukrs = ls_alla2-rbukrs
+                                                                 rwcur = ls_alla2-rwcur
+                                                                 racct = ls_alla2-racct.
+    IF sy-subrc = 0.
+      ls_alla2-kunnr = ls_alla2_kunnr-kunnr.
+      ls_alla2-kunnrt = ls_alla2_kunnr-name_org1.
+    ENDIF.
+
     ls_alla2-style = '期初余额'.
     READ TABLE lt_skat INTO ls_skat WITH KEY saknr = ls_alla2-racct.
     IF sy-subrc = 0.
@@ -775,6 +945,8 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
     lv_id = zcl_bc_public=>get_guid( ).
     ls_alla2-id = lv_id.
     MOVE-CORRESPONDING ls_alla2 TO ls_out.
+    ls_out-lifnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-lifnr i_out = 'X' ).
+    ls_out-kunnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-kunnr i_out = 'X' ).
     APPEND ls_out TO lt_out.
     MOVE-CORRESPONDING ls_out TO ls_out_t."本期发生额相关
     MOVE-CORRESPONDING ls_out TO ls_out_t2."本年发生额相关
@@ -823,7 +995,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ENDIF.
 
       IF ls_all-kunnr IS NOT INITIAL.
-        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-lifnr.
+        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-kunnr.
         IF sy-subrc = 0.
           ls_all-kunnrt = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
         ENDIF.
@@ -838,6 +1010,8 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ENDIF.
       ls_all-id = lv_id.
       MOVE-CORRESPONDING ls_all TO ls_out.
+      ls_out-lifnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-lifnr i_out = 'X' ).
+      ls_out-kunnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-kunnr i_out = 'X' ).
       APPEND ls_out TO lt_out.
       CLEAR:ls_all,ls_out.
     ENDLOOP.
@@ -889,7 +1063,24 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
   ENDLOOP.
 
   "(3)类型
-  LOOP AT lt_alla3 INTO ls_alla3..
+  LOOP AT lt_alla3 INTO ls_alla3.
+    "供应商跟客户
+    READ TABLE lt_alla3_lifnr INTO DATA(ls_alla3_lifnr) WITH KEY rbukrs = ls_alla3-rbukrs
+                                                                 rwcur = ls_alla3-rwcur
+                                                                 racct = ls_alla3-racct.
+    IF sy-subrc = 0.
+      ls_alla3-lifnr = ls_alla3_lifnr-lifnr.
+      ls_alla3-lifnrt = ls_alla3_lifnr-name_org1.
+
+    ENDIF.
+    READ TABLE lt_alla3_kunnr INTO DATA(ls_alla3_kunnr) WITH KEY rbukrs = ls_alla3-rbukrs
+                                                                 rwcur = ls_alla3-rwcur
+                                                                 racct = ls_alla3-racct.
+    IF sy-subrc = 0.
+      ls_alla3-kunnr = ls_alla3_kunnr-kunnr.
+      ls_alla3-kunnrt = ls_alla3_kunnr-name_org1.
+    ENDIF.
+
     ls_alla3-style = '期初余额'.
     READ TABLE lt_skat INTO ls_skat WITH KEY saknr = ls_alla3-racct.
     IF sy-subrc = 0.
@@ -906,6 +1097,8 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
     lv_id = zcl_bc_public=>get_guid( ).
     ls_alla3-id = lv_id.
     MOVE-CORRESPONDING ls_alla3 TO ls_out.
+    ls_out-lifnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-lifnr i_out = 'X' ).
+    ls_out-kunnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-kunnr i_out = 'X' ).
     APPEND ls_out TO lt_out.
     MOVE-CORRESPONDING ls_out TO ls_out_t."本期发生额相关
     "根据（3）外层的期初余额来读取内层的本期明细
@@ -953,7 +1146,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ENDIF.
 
       IF ls_all-kunnr IS NOT INITIAL.
-        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-lifnr.
+        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-kunnr.
         IF sy-subrc = 0.
           ls_all-kunnrt = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
         ENDIF.
@@ -968,6 +1161,8 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ENDIF.
       ls_all-id = lv_id.
       MOVE-CORRESPONDING ls_all TO ls_out.
+      ls_out-lifnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-lifnr i_out = 'X' ).
+      ls_out-kunnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-kunnr i_out = 'X' ).
       APPEND ls_out TO lt_out.
       CLEAR:ls_all,ls_out.
     ENDLOOP.
@@ -1019,6 +1214,21 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
 
   "（4）类型
   LOOP AT lt_alla4 INTO ls_alla4..
+    "供应商跟客户
+    READ TABLE lt_alla4_lifnr INTO DATA(ls_alla4_lifnr) WITH KEY rbukrs = ls_alla4-rbukrs
+                                                                 rwcur = ls_alla4-rwcur
+                                                                 racct = ls_alla4-racct.
+    IF sy-subrc = 0.
+      ls_alla4-lifnr = ls_alla4_lifnr-lifnr.
+      ls_alla4-lifnrt = ls_alla4_lifnr-name_org1.
+    ENDIF.
+    READ TABLE lt_alla4_kunnr INTO DATA(ls_alla4_kunnr) WITH KEY rbukrs = ls_alla4-rbukrs
+                                                                 rwcur = ls_alla4-rwcur
+                                                                 racct = ls_alla4-racct.
+    IF sy-subrc = 0.
+      ls_alla4-kunnr = ls_alla4_kunnr-kunnr.
+      ls_alla4-kunnrt = ls_alla4_kunnr-name_org1.
+    ENDIF.
     ls_alla4-style = '期初余额'.
     READ TABLE lt_skat INTO ls_skat WITH KEY saknr = ls_alla4-racct.
     IF sy-subrc = 0.
@@ -1034,6 +1244,8 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
     lv_id = zcl_bc_public=>get_guid( ).
     ls_alla4-id = lv_id.
     MOVE-CORRESPONDING ls_alla4 TO ls_out.
+    ls_out-lifnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-lifnr i_out = 'X' ).
+    ls_out-kunnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-kunnr i_out = 'X' ).
     APPEND ls_out TO lt_out.
     MOVE-CORRESPONDING ls_out TO ls_out_t."本期发生额相关
     "根据（4）外层的期初余额来读取内层的本期明细
@@ -1081,7 +1293,7 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ENDIF.
 
       IF ls_all-kunnr IS NOT INITIAL.
-        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-lifnr.
+        READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-kunnr.
         IF sy-subrc = 0.
           ls_all-kunnrt = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
         ENDIF.
@@ -1096,6 +1308,8 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
       ENDIF.
       ls_all-id = lv_id.
       MOVE-CORRESPONDING ls_all TO ls_out.
+      ls_out-lifnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-lifnr i_out = 'X' ).
+      ls_out-kunnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-kunnr i_out = 'X' ).
       APPEND ls_out TO lt_out.
       CLEAR:ls_all,ls_out.
     ENDLOOP.
@@ -1145,6 +1359,32 @@ GROUP BY racct hbkid hktid rbukrs rwcur.
     CLEAR:ls_alla4,ls_out,lv_id..
   ENDLOOP.
 
+  "对数据进行处理
+  CLEAR sy-tabix.
+  LOOP AT lt_out INTO ls_out.
+
+    IF ls_out-wsl2 < 0.
+      ls_out-wsl2 = ls_out-wsl2 * -1.
+    ENDIF.
+    IF ls_out-hsl2 < 0.
+      ls_out-hsl2 = ls_out-hsl2 * -1.
+    ENDIF.
+    ls_out-num2 = ls_out-hsl.
+    ls_out-num1 = ls_out-wsl.
+    IF ls_out-hsl < 0.
+      CALL FUNCTION 'CLOI_PUT_SIGN_IN_FRONT'
+        CHANGING
+          value = ls_out-num2.
+    ENDIF.
+    IF ls_out-wsl < 0.
+      CALL FUNCTION 'CLOI_PUT_SIGN_IN_FRONT'
+        CHANGING
+          value = ls_out-num1.
+    ENDIF.
+
+    MODIFY lt_out FROM ls_out INDEX sy-tabix.
+    CLEAR ls_out.
+  ENDLOOP.
 
 ENDFORM.
 
@@ -1260,6 +1500,16 @@ FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
     lv_grid   TYPE REF TO cl_gui_alv_grid.
   DATA ls_stable TYPE lvc_s_stbl.
 
+  "账户描述
+  SELECT
+   bukrs,
+   hbkid,
+   hktid,
+   text1
+  FROM t012t
+  INTO TABLE @DATA(lt_t012t)
+  WHERE spras = '1'.
+
   CASE i_ucomm.
     WHEN 'POP'.
 
@@ -1303,9 +1553,13 @@ FORM frm_user_command USING i_ucomm       TYPE sy-ucomm
           ENDIF.
         ENDIF.
         "核算项目
-        ls_zfir0019a_head-hsxm = ls_out-rfarea && ls_out-rfareat && ls_out-kunnr && LS_OUT-kunnrt && LS_OUT-lifnr && LS_OUT-lifnrt && LS_OUT-hbkid && LS_OUT-hktid.
-
-
+        ls_zfir0019a_head-hsxm = ls_out-rfarea && ls_out-rfareat && ls_out-kunnr && ls_out-kunnrt && ls_out-lifnr && ls_out-lifnrt && ls_out-hbkid && ls_out-hktid.
+        IF ls_out-hbkid IS NOT INITIAL OR ls_out-hktid IS NOT INITIAL.
+          READ TABLE lt_t012t INTO DATA(ls_t012t) WITH KEY hbkid = ls_out-hbkid hktid = ls_out-hktid bukrs = ls_out-rbukrs.
+          IF sy-subrc = 0.
+            ls_zfir0019a_head-hsxm = ls_zfir0019a_head-hsxm && ls_t012t-text1.
+          ENDIF.
+        ENDIF.
 
         "期间
         ls_zfir0019a_head-fiscyearper = p_year+0(4) && '年' && p_year+5(2) && '月'.

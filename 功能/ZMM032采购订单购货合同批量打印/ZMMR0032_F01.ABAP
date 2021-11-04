@@ -17,30 +17,30 @@
 *& <--  p2        text
 *&---------------------------------------------------------------------*
 
-FORM FRM_GET_DATA.
+FORM frm_get_data.
 
   SELECT
-    E~EBELN "凭证编号
-    E~LIFNR "供应商
-    L~NAME1 "供应商名称
-    E~EKGRP "采购组
-    E~BEDAT "凭证日期
-    INTO CORRESPONDING FIELDS OF TABLE LT_EBELN
-    FROM EKKO AS E
-    LEFT JOIN LFA1 AS L ON E~LIFNR = L~LIFNR
-    INNER JOIN EKPO AS A
-    ON A~EBELN = E~EBELN
+    e~ebeln "凭证编号
+    e~lifnr "供应商
+    l~name1 "供应商名称
+    e~ekgrp "采购组
+    e~bedat "凭证日期
+    INTO CORRESPONDING FIELDS OF TABLE lt_ebeln
+    FROM ekko AS e
+    LEFT JOIN lfa1 AS l ON e~lifnr = l~lifnr
+    INNER JOIN ekpo AS a
+    ON a~ebeln = e~ebeln
     "LEFT JOIN EKPO as t2 on ( t1~EBELN = t2~EBELN )
-    WHERE E~EBELN IN S_EBELN
-      AND E~LIFNR IN S_LIFNR
-      AND A~WERKS = P_WERKS
-      AND E~EKGRP IN S_EKGRP
-      AND E~BSART IN S_BSART
-      AND E~BEDAT IN S_BEDAT
-    AND A~LOEKZ = ''
-      AND ( E~FRGKE = ' ' OR E~FRGKE = 'R' OR E~FRGKE = 'Z').
+    WHERE e~ebeln IN s_ebeln
+      AND e~lifnr IN s_lifnr
+      AND a~werks = p_werks
+      AND e~ekgrp IN s_ekgrp
+      AND e~bsart IN s_bsart
+      AND e~bedat IN s_bedat
+    AND a~loekz = ''
+      AND ( e~frgke = ' ' OR e~frgke = 'R' OR e~frgke = 'Z').
 
-  IF LT_EBELN[] IS INITIAL .
+  IF lt_ebeln[] IS INITIAL .
     MESSAGE '没有符合输入条件的数据，请检查！'  TYPE 'E' .
     STOP.
   ENDIF.
@@ -50,8 +50,8 @@ ENDFORM .
 *&---------------------------------------------------------------------*
 *&      2.Form  layout_build 设置alv显示格式和属性
 *&---------------------------------------------------------------------*
-FORM LAYOUT_BUILD .
-  IT_LAYOUT-INFO_FIELDNAME           = 'COLOR'.  "带有简单行彩色代码的字段名称
+FORM layout_build .
+  it_layout-info_fieldname           = 'COLOR'.  "带有简单行彩色代码的字段名称
 ENDFORM.                    "layout_build
 
 *&---------------------------------------------------------------------*
@@ -62,9 +62,9 @@ ENDFORM.                    "layout_build
 *  -->  p1        text
 *  <--  p2        text
 *----------------------------------------------------------------------*
-FORM FRM_DISPLAY_DATA .
-  PERFORM FRM_GET_FIELD.
-  PERFORM FRM_SHOW_ALV.
+FORM frm_display_data .
+  PERFORM frm_get_field.
+  PERFORM frm_show_alv.
 ENDFORM. " frm_display_data
 
 
@@ -78,8 +78,8 @@ ENDFORM. " frm_display_data
 *----------------------------------------------------------------------*
 
 
-FORM FRM_GET_FIELD .
-  DEFINE GET_FIELD.
+FORM frm_get_field .
+  DEFINE get_field.
 
     ADD 1 TO wa_alv_field-col_pos.
     wa_alv_field-tabname = &1.
@@ -100,12 +100,12 @@ FORM FRM_GET_FIELD .
     CLEAR wa_alv_field.
   END-OF-DEFINITION.
 
-  GET_FIELD 'lt_ebeln' 'SEL' '选择'.
-  GET_FIELD 'lt_ebeln' 'EBELN' '采购凭证'.
-  GET_FIELD 'lt_ebeln' 'LIFNR' '供应商'.
-  GET_FIELD 'lt_ebeln' 'NAME1' '供应商名称'.
-  GET_FIELD 'lt_ebeln' 'EKGRP' '采购组'.
-  GET_FIELD 'lt_ebeln' 'BEDAT' '凭证日期'.
+  get_field 'lt_ebeln' 'SEL' '选择'.
+  get_field 'lt_ebeln' 'EBELN' '采购凭证'.
+  get_field 'lt_ebeln' 'LIFNR' '供应商'.
+  get_field 'lt_ebeln' 'NAME1' '供应商名称'.
+  get_field 'lt_ebeln' 'EKGRP' '采购组'.
+  get_field 'lt_ebeln' 'BEDAT' '凭证日期'.
 
 ENDFORM. " FRM_GET_FIELD
 
@@ -118,24 +118,24 @@ ENDFORM. " FRM_GET_FIELD
 *  <--  p2        text
 *----------------------------------------------------------------------*
 
-FORM FRM_SHOW_ALV .
-  DATA L_REPID TYPE SY-REPID.
-  L_REPID = SY-REPID.
-  IT_LAYOUT-COLWIDTH_OPTIMIZE = 'X'. "列宽度自动根据内容优化
+FORM frm_show_alv .
+  DATA l_repid TYPE sy-repid.
+  l_repid = sy-repid.
+  it_layout-colwidth_optimize = 'X'. "列宽度自动根据内容优化
   "it_layout-box_fieldname = 'SEL'. "选择行
 
   CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
     EXPORTING
-      I_CALLBACK_PROGRAM       = L_REPID
-      I_CALLBACK_PF_STATUS_SET = 'SET_PF_STATUS'
-      I_SAVE                   = 'U'
-      I_CALLBACK_USER_COMMAND  = 'FRM_UCOMM'
-      IS_LAYOUT                = IT_LAYOUT
-      IT_FIELDCAT              = I_FIELDCAT_ALV
-      I_DEFAULT                = 'X'
+      i_callback_program       = l_repid
+      i_callback_pf_status_set = 'SET_PF_STATUS'
+      i_save                   = 'U'
+      i_callback_user_command  = 'FRM_UCOMM'
+      is_layout                = it_layout
+      it_fieldcat              = i_fieldcat_alv
+      i_default                = 'X'
     TABLES
-      T_OUTTAB                 = LT_EBELN.
-  IF SY-SUBRC <> 0.
+      t_outtab                 = lt_ebeln.
+  IF sy-subrc <> 0.
 
 * MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
 *  *         WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
@@ -151,16 +151,16 @@ ENDFORM. " FRM_SHOW_ALV
 *&--------------------------------------------------------------------*
 *       text
 *---------------------------------------------------------------------*
-FORM SET_PF_STATUS USING RT_EXTAB TYPE SLIS_T_EXTAB.
-  DATA:WA_EXTAB TYPE LINE OF SLIS_T_EXTAB.
-  CLEAR:RT_EXTAB,RT_EXTAB[],WA_EXTAB.
+FORM set_pf_status USING rt_extab TYPE slis_t_extab.
+  DATA:wa_extab TYPE LINE OF slis_t_extab.
+  CLEAR:rt_extab,rt_extab[],wa_extab.
 
 *  IF p_dyfs8 IS INITIAL.
 *    wa_extab-fcode = 'ZPRINT2'.
 *    APPEND wa_extab TO rt_extab.
 *  ENDIF.
 
-  SET PF-STATUS 'ZPPR0032' EXCLUDING RT_EXTAB.
+  SET PF-STATUS 'ZPPR0032' EXCLUDING rt_extab.
 ENDFORM.                    "set_pf_status
 *&---------------------------------------------------------------------*
 *&      Form  frm_ucomm
@@ -170,32 +170,32 @@ ENDFORM.                    "set_pf_status
 *      -->R_UCOMM      text
 *      -->RS_SELFIELD  text
 *----------------------------------------------------------------------*
-FORM FRM_UCOMM USING R_UCOMM LIKE SY-UCOMM
-      RS_SELFIELD TYPE SLIS_SELFIELD.
+FORM frm_ucomm USING r_ucomm LIKE sy-ucomm
+      rs_selfield TYPE slis_selfield.
 
-  DATA: LR_GRID TYPE REF TO CL_GUI_ALV_GRID.
-  DATA: L_VALID TYPE C.
+  DATA: lr_grid TYPE REF TO cl_gui_alv_grid.
+  DATA: l_valid TYPE c.
 *  4此处代码将用户输入读入内表（这一步不可少）
   CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
     IMPORTING
-      E_GRID = LR_GRID.
-  CALL METHOD LR_GRID->CHECK_CHANGED_DATA.
+      e_grid = lr_grid.
+  CALL METHOD lr_grid->check_changed_data.
 
-  RS_SELFIELD-REFRESH = 'X'.
-  CLEAR:ZUCOMM.
-  ZUCOMM = SY-UCOMM.
+  rs_selfield-refresh = 'X'.
+  CLEAR:zucomm.
+  zucomm = sy-ucomm.
 
-  CASE SY-UCOMM.
+  CASE sy-ucomm.
     WHEN 'SAL_ALL'.
-      LOOP AT LT_EBELN ASSIGNING FIELD-SYMBOL(<FS_EBELN>).
-        <FS_EBELN>-SEL = 'X'.
+      LOOP AT lt_ebeln ASSIGNING FIELD-SYMBOL(<fs_ebeln>).
+        <fs_ebeln>-sel = 'X'.
       ENDLOOP.
     WHEN 'DES_ALL'.
-      LOOP AT LT_EBELN ASSIGNING <FS_EBELN>.
-        <FS_EBELN>-SEL = ''.
+      LOOP AT lt_ebeln ASSIGNING <fs_ebeln>.
+        <fs_ebeln>-sel = ''.
       ENDLOOP.
     WHEN 'PRINT'.
-      PERFORM FRM_PRINT.
+      PERFORM frm_print.
   ENDCASE.
 *取该行数据
   "READ TABLE lt_ebeln INTO wa_tab INDEX rs_selfield-tabindex.
@@ -221,27 +221,27 @@ ENDFORM.
 
 
 
-FORM FRM_PRINT_DATA TABLES GT_DETAIL STRUCTURE ZMMS_ZMMR0017_DETAIL
-        USING U_GS_HEAD LIKE ZMMS_ZMMR0017_HEAD
-        U_FORM_NAME TYPE TDSFNAME
-        S_EBELN .
+FORM frm_print_data TABLES gt_detail STRUCTURE zmms_zmmr0017_detail
+        USING u_gs_head LIKE zmms_zmmr0017_head
+        u_form_name TYPE tdsfname
+        s_ebeln .
 *        p_znum TYPE i.
-  DATA: FM_NAME TYPE RS38L_FNAM.
-  DATA LS_OUTPUT_INFO TYPE SSFCRESCL.
-  DATA LS_OUTPUT_OPTION TYPE SSFCOMPOP.
-  DATA LS_CONTROL TYPE SSFCTRLOP.
+  DATA: fm_name TYPE rs38l_fnam.
+  DATA ls_output_info TYPE ssfcrescl.
+  DATA ls_output_option TYPE ssfcompop.
+  DATA ls_control TYPE ssfctrlop.
 *  DATA p_znum TYPE i.
 
 
   "获取SMARTFOMRS函数
   CALL FUNCTION 'SSF_FUNCTION_MODULE_NAME'
     EXPORTING
-      FORMNAME           = U_FORM_NAME "Smart Form名称
+      formname           = u_form_name "Smart Form名称
     IMPORTING
-      FM_NAME            = FM_NAME
+      fm_name            = fm_name
     EXCEPTIONS
-      NO_FORM            = 1
-      NO_FUNCTION_MODULE = 2
+      no_form            = 1
+      no_function_module = 2
       OTHERS             = 3.
 
 *  CALL FUNCTION 'SSF_OPEN'
@@ -329,260 +329,260 @@ ENDFORM.
 *& -->  p1        text
 *& <--  p2        text
 *&---------------------------------------------------------------------*
-FORM FRM_PRINT .
-  DATA: FM_NAME  TYPE RS38L_FNAM.
-  DATA: IT_EBELN  TYPE STANDARD TABLE OF LS_EBELN,
-        IW_EBELN  LIKE LINE OF IT_EBELN,
-        LT_T007V  TYPE STANDARD TABLE OF T007V,
-        LS_T007V  TYPE T007V,
-        LT_EKPO   TYPE STANDARD TABLE OF EKPO,
-        LS_EKPO   TYPE EKPO,
-        LV_AMOUNT TYPE BRTWR,
-        LV_LTEXT  TYPE TDLINE.
+FORM frm_print .
+  DATA: fm_name  TYPE rs38l_fnam.
+  DATA: it_ebeln  TYPE STANDARD TABLE OF ls_ebeln,
+        iw_ebeln  LIKE LINE OF it_ebeln,
+        lt_t007v  TYPE STANDARD TABLE OF t007v,
+        ls_t007v  TYPE t007v,
+        lt_ekpo   TYPE STANDARD TABLE OF ekpo,
+        ls_ekpo   TYPE ekpo,
+        lv_amount TYPE brtwr,
+        lv_ltext  TYPE tdline.
 
-  CLEAR: IT_EBELN, IW_EBELN.
-  LOOP AT LT_EBELN INTO DATA(LW_EBELN) WHERE SEL = 'X'.
-    IW_EBELN = LW_EBELN.
-    APPEND IW_EBELN TO IT_EBELN.
-    CLEAR: IW_EBELN.
+  CLEAR: it_ebeln, iw_ebeln.
+  LOOP AT lt_ebeln INTO DATA(lw_ebeln) WHERE sel = 'X'.
+    iw_ebeln = lw_ebeln.
+    APPEND iw_ebeln TO it_ebeln.
+    CLEAR: iw_ebeln.
   ENDLOOP.
-  IF SY-SUBRC = 0.
+  IF sy-subrc = 0.
     " 订单和供应商信息
-    SELECT A~EBELN, A~FRGKE, A~BEDAT, A~BUKRS, A~EKORG, A~WAERS, A~ZTERM,A~BSART,
-           B~LIFNR, B~NAME1, B~TELFX, B~STRAS, B~ADRNR
-      ,A~KNUMV "ZZD 20200225
-      FROM EKKO AS A
-      INNER JOIN LFA1 AS B
-      ON B~LIFNR = A~LIFNR
-      INTO TABLE @DATA(LT_EKKO)
-      FOR ALL ENTRIES IN @IT_EBELN
-      WHERE A~EBELN = @IT_EBELN-EBELN.
-    IF SY-SUBRC = 0.
+    SELECT a~ebeln, a~frgke, a~bedat, a~bukrs, a~ekorg, a~waers, a~zterm,a~bsart,
+           b~lifnr, b~name1, b~telfx, b~stras, b~adrnr
+      ,a~knumv "ZZD 20200225
+      FROM ekko AS a
+      INNER JOIN lfa1 AS b
+      ON b~lifnr = a~lifnr
+      INTO TABLE @DATA(lt_ekko)
+      FOR ALL ENTRIES IN @it_ebeln
+      WHERE a~ebeln = @it_ebeln-ebeln.
+    IF sy-subrc = 0.
       " 电话
-      SELECT ADDRNUMBER, PERSNUMBER, DATE_FROM, CONSNUMBER, TEL_NUMBER
-        FROM ADR2
-        INTO TABLE @DATA(LT_ADR2)
-        FOR ALL ENTRIES IN @LT_EKKO
-        WHERE ADDRNUMBER = @LT_EKKO-ADRNR
-          AND CONSNUMBER = 1.
+      SELECT addrnumber, persnumber, date_from, consnumber, tel_number
+        FROM adr2
+        INTO TABLE @DATA(lt_adr2)
+        FOR ALL ENTRIES IN @lt_ekko
+        WHERE addrnumber = @lt_ekko-adrnr
+          AND consnumber = 1.
 
       " 供应商 联系人
-      SELECT LIFNR, EKORG, VERKF, ZTERM
-        FROM LFM1
-        INTO TABLE @DATA(LT_LFM1)
-        FOR ALL ENTRIES IN @LT_EKKO
-        WHERE LIFNR = @LT_EKKO-LIFNR
-          AND EKORG = @LT_EKKO-EKORG.
-      IF SY-SUBRC = 0.
+      SELECT lifnr, ekorg, verkf, zterm
+        FROM lfm1
+        INTO TABLE @DATA(lt_lfm1)
+        FOR ALL ENTRIES IN @lt_ekko
+        WHERE lifnr = @lt_ekko-lifnr
+          AND ekorg = @lt_ekko-ekorg.
+      IF sy-subrc = 0.
         " 结算方式
-        SELECT SPRAS, ZTERM, ZTAGG, TEXT1
-          FROM T052U
-          INTO TABLE @DATA(LT_T052U)
-          FOR ALL ENTRIES IN @LT_LFM1
-          WHERE ZTERM = @LT_LFM1-ZTERM
-            AND SPRAS = 1.
+        SELECT spras, zterm, ztagg, text1
+          FROM t052u
+          INTO TABLE @DATA(lt_t052u)
+          FOR ALL ENTRIES IN @lt_lfm1
+          WHERE zterm = @lt_lfm1-zterm
+            AND spras = 1.
       ENDIF.
 
       " 币别
-      SELECT SPRAS, WAERS, LTEXT, KTEXT
-        FROM TCURT
-        INTO TABLE @DATA(LT_TCURT)
-        FOR ALL ENTRIES IN @LT_EKKO
-        WHERE WAERS = @LT_EKKO-WAERS
-          AND SPRAS = 1.
+      SELECT spras, waers, ltext, ktext
+        FROM tcurt
+        INTO TABLE @DATA(lt_tcurt)
+        FOR ALL ENTRIES IN @lt_ekko
+        WHERE waers = @lt_ekko-waers
+          AND spras = 1.
 
       " 买方公司名称
-      SELECT BUKRS, BUTXT, ADRNR
-        FROM T001
-        INTO TABLE @DATA(LT_T001)
-        FOR ALL ENTRIES IN @LT_EKKO
-        WHERE BUKRS = @LT_EKKO-BUKRS.
-      IF SY-SUBRC = 0.
+      SELECT bukrs, butxt, adrnr
+        FROM t001
+        INTO TABLE @DATA(lt_t001)
+        FOR ALL ENTRIES IN @lt_ekko
+        WHERE bukrs = @lt_ekko-bukrs.
+      IF sy-subrc = 0.
         " 公司地址&传真&邮编
-        SELECT ADDRNUMBER, DATE_FROM, NATION, STREET, FAX_NUMBER, POST_CODE1
-          FROM ADRC
-          INTO TABLE @DATA(LT_ADRC)
-          FOR ALL ENTRIES IN @LT_T001
-          WHERE ADDRNUMBER = @LT_T001-ADRNR.
+        SELECT addrnumber, date_from, nation, street, fax_number, post_code1
+          FROM adrc
+          INTO TABLE @DATA(lt_adrc)
+          FOR ALL ENTRIES IN @lt_t001
+          WHERE addrnumber = @lt_t001-adrnr.
       ENDIF.
 
       " 卖方银行 基本户 银行账号
-      SELECT F~ACC_ID, F~REVISION, F~BUKRS, F~ACC_NUM, B~BANKA
-        FROM FCLM_BAM_AMD AS F
-        INNER JOIN BNKA AS B
-        ON B~BANKL = F~BANKL
-        INTO TABLE @DATA(LT_FCLM)
-        FOR ALL ENTRIES IN @LT_EKKO
-        WHERE F~BUKRS =  @LT_EKKO-BUKRS
-          AND F~ACC_TYPE_ID ='01'
-          AND F~STATUS ='02'.
+      SELECT f~acc_id, f~revision, f~bukrs, f~acc_num, b~banka
+        FROM fclm_bam_amd AS f
+        INNER JOIN bnka AS b
+        ON b~bankl = f~bankl
+        INTO TABLE @DATA(lt_fclm)
+        FOR ALL ENTRIES IN @lt_ekko
+        WHERE f~bukrs =  @lt_ekko-bukrs
+          AND f~acc_type_id ='01'
+          AND f~status ='02'.
 
       " 卖方 税号
       SELECT *
-        FROM ADRCTS2
-        INTO TABLE @DATA(LT_ADRCTS2).
+        FROM adrcts2
+        INTO TABLE @DATA(lt_adrcts2).
 
       " 文件编号
       SELECT *
-        FROM ZQMT007
-        INTO TABLE @DATA(LT_ZQMT007)
-        FOR ALL ENTRIES IN @LT_EKKO
-        WHERE WERKS = @LT_EKKO-BUKRS
-          AND ZBDDH ='ZMM017'.
+        FROM zqmt007
+        INTO TABLE @DATA(lt_zqmt007)
+        FOR ALL ENTRIES IN @lt_ekko
+        WHERE werks = @lt_ekko-bukrs
+          AND zbddh ='ZMM017'.
 
       " 供应商开户银行，银行账号
-      SELECT L~LIFNR, L~BANKS, L~BANKL, L~BANKN,
-             B~BANKA
-        FROM LFBK AS L
-        INNER JOIN BNKA AS B
-        ON B~BANKL = L~BANKL
-        INTO TABLE @DATA(LT_LFBK)
-        FOR ALL ENTRIES IN @LT_EKKO
-        WHERE L~LIFNR = @LT_EKKO-LIFNR
-          AND L~BVTYP = '0001'.
+      SELECT l~lifnr, l~banks, l~bankl, l~bankn,
+             b~banka
+        FROM lfbk AS l
+        INNER JOIN bnka AS b
+        ON b~bankl = l~bankl
+        INTO TABLE @DATA(lt_lfbk)
+        FOR ALL ENTRIES IN @lt_ekko
+        WHERE l~lifnr = @lt_ekko-lifnr
+          AND l~bvtyp = '0001'.
 
       " 供应商税号
       SELECT *
-        FROM DFKKBPTAXNUM
-        INTO TABLE @DATA(LT_DFKKBPTAXNUM)
-        FOR ALL ENTRIES IN @LT_EKKO
-        WHERE PARTNER = @LT_EKKO-LIFNR
-          AND TAXTYPE = 'CN0'.
+        FROM dfkkbptaxnum
+        INTO TABLE @DATA(lt_dfkkbptaxnum)
+        FOR ALL ENTRIES IN @lt_ekko
+        WHERE partner = @lt_ekko-lifnr
+          AND taxtype = 'CN0'.
 
       " 付款条件
       SELECT *
-        FROM T052U
-        INTO TABLE @DATA(LT_T052)
-        FOR ALL ENTRIES IN @LT_EKKO
-        WHERE ZTERM = @LT_EKKO-ZTERM
-          AND SPRAS = 1.
+        FROM t052u
+        INTO TABLE @DATA(lt_t052)
+        FOR ALL ENTRIES IN @lt_ekko
+        WHERE zterm = @lt_ekko-zterm
+          AND spras = 1.
 
-      CLEAR: GT_HEAD, GS_HEAD.
-      LOOP AT LT_EKKO INTO DATA(LS_EKKO).
-        GS_HEAD-EBELN = LS_EKKO-EBELN.
-        GS_HEAD-LIFNR_N = LS_EKKO-NAME1.
-        GS_HEAD-BUKRS = LS_EKKO-BUKRS.
-        GS_HEAD-BEDAT = LS_EKKO-BEDAT.
-        GS_HEAD-FRGKE = LS_EKKO-FRGKE.
-        GS_HEAD-STRAS = LS_EKKO-STRAS.
-        GS_HEAD-TELFX = LS_EKKO-TELFX.
-        GS_HEAD-BSART = LS_EKKO-BSART."modify by wwj
-        CASE GS_HEAD-BUKRS.
+      CLEAR: gt_head, gs_head.
+      LOOP AT lt_ekko INTO DATA(ls_ekko).
+        gs_head-ebeln = ls_ekko-ebeln.
+        gs_head-lifnr_n = ls_ekko-name1.
+        gs_head-bukrs = ls_ekko-bukrs.
+        gs_head-bedat = ls_ekko-bedat.
+        gs_head-frgke = ls_ekko-frgke.
+        gs_head-stras = ls_ekko-stras.
+        gs_head-telfx = ls_ekko-telfx.
+        gs_head-bsart = ls_ekko-bsart."modify by wwj
+        CASE gs_head-bukrs.
           WHEN '8100'.
-            GS_HEAD-ADRNR_T ='一厂：汕头市泰山路83号；二厂：汕头市黄山路珠业南街11号'.
+            gs_head-adrnr_t ='一厂：汕头市泰山路83号；二厂：汕头市黄山路珠业南街11号'.
           WHEN '8200'.
-            GS_HEAD-ADRNR_T ='马鞍山地址：安徽省马鞍山经济技术开发区红旗南路1980号'.
+            gs_head-adrnr_t ='马鞍山地址：安徽省马鞍山经济技术开发区红旗南路1980号'.
         ENDCASE.
-        READ TABLE LT_T052 INTO DATA(LS_T052) WITH KEY ZTERM = LS_EKKO-ZTERM.
-        IF SY-SUBRC = 0.
-          GS_HEAD-TEXT1 = LS_T052-TEXT1.
+        READ TABLE lt_t052 INTO DATA(ls_t052) WITH KEY zterm = ls_ekko-zterm.
+        IF sy-subrc = 0.
+          gs_head-text1 = ls_t052-text1.
         ENDIF.
-        READ TABLE LT_FCLM INTO DATA(LS_FCLM) WITH KEY BUKRS = LS_EKKO-BUKRS.
-        IF SY-SUBRC = 0.
-          GS_HEAD-BANKN = LS_FCLM-ACC_NUM.
-          GS_HEAD-BANKA = LS_FCLM-BANKA.
+        READ TABLE lt_fclm INTO DATA(ls_fclm) WITH KEY bukrs = ls_ekko-bukrs.
+        IF sy-subrc = 0.
+          gs_head-bankn = ls_fclm-acc_num.
+          gs_head-banka = ls_fclm-banka.
         ENDIF.
-        READ TABLE LT_ADRCTS2 INTO DATA(LS_ADRCTS2) WITH KEY OBJKEY+3(4) = LS_EKKO-BUKRS.
-        IF SY-SUBRC = 0.
-          GS_HEAD-TAXNUM = LS_ADRCTS2-REMARK.
+        READ TABLE lt_adrcts2 INTO DATA(ls_adrcts2) WITH KEY objkey+3(4) = ls_ekko-bukrs.
+        IF sy-subrc = 0.
+          gs_head-taxnum = ls_adrcts2-remark.
         ENDIF.
-        READ TABLE LT_ZQMT007 INTO DATA(LS_ZQMT007) WITH KEY WERKS = LS_EKKO-BUKRS.
-        IF SY-SUBRC = 0.
-          GS_HEAD-ZTXBH = LS_ZQMT007-ZTXBH.
+        READ TABLE lt_zqmt007 INTO DATA(ls_zqmt007) WITH KEY werks = ls_ekko-bukrs.
+        IF sy-subrc = 0.
+          gs_head-ztxbh = ls_zqmt007-ztxbh.
         ENDIF.
-        READ TABLE LT_LFBK INTO DATA(LS_LKBK) WITH KEY LIFNR = LS_EKKO-LIFNR.
-        IF SY-SUBRC = 0.
-          GS_HEAD-BANKA_N = LS_LKBK-BANKA.
-          GS_HEAD-BANKN_N = LS_LKBK-BANKN.
+        READ TABLE lt_lfbk INTO DATA(ls_lkbk) WITH KEY lifnr = ls_ekko-lifnr.
+        IF sy-subrc = 0.
+          gs_head-banka_n = ls_lkbk-banka.
+          gs_head-bankn_n = ls_lkbk-bankn.
         ENDIF.
-        READ TABLE LT_DFKKBPTAXNUM INTO DATA(LS_DFKKBPTAXNUM) WITH KEY PARTNER = LS_EKKO-LIFNR.
-        IF SY-SUBRC = 0.
-          GS_HEAD-TAXNUM_N = LS_DFKKBPTAXNUM-TAXNUM.
+        READ TABLE lt_dfkkbptaxnum INTO DATA(ls_dfkkbptaxnum) WITH KEY partner = ls_ekko-lifnr.
+        IF sy-subrc = 0.
+          gs_head-taxnum_n = ls_dfkkbptaxnum-taxnum.
         ENDIF.
-        READ TABLE LT_ADR2 INTO DATA(LS_ADR2) WITH KEY ADDRNUMBER = LS_EKKO-ADRNR.
-        IF SY-SUBRC = 0.
-          GS_HEAD-TELF1 = LS_ADR2-TEL_NUMBER.
+        READ TABLE lt_adr2 INTO DATA(ls_adr2) WITH KEY addrnumber = ls_ekko-adrnr.
+        IF sy-subrc = 0.
+          gs_head-telf1 = ls_adr2-tel_number.
         ENDIF.
-        READ TABLE LT_LFM1 INTO DATA(LS_LFM1) WITH KEY LIFNR = LS_EKKO-LIFNR EKORG = LS_EKKO-EKORG.
-        IF SY-SUBRC = 0.
-          GS_HEAD-VERKF = LS_LFM1-VERKF.
-          READ TABLE LT_T052U INTO DATA(LS_T052U) WITH KEY ZTERM = LS_LFM1-ZTERM.
-          IF SY-SUBRC = 0.
-            GS_HEAD-ZTERM_T = LS_T052U-TEXT1.
+        READ TABLE lt_lfm1 INTO DATA(ls_lfm1) WITH KEY lifnr = ls_ekko-lifnr ekorg = ls_ekko-ekorg.
+        IF sy-subrc = 0.
+          gs_head-verkf = ls_lfm1-verkf.
+          READ TABLE lt_t052u INTO DATA(ls_t052u) WITH KEY zterm = ls_lfm1-zterm.
+          IF sy-subrc = 0.
+            gs_head-zterm_t = ls_t052u-text1.
           ENDIF.
         ENDIF.
-        READ TABLE LT_TCURT INTO DATA(LS_TCURT) WITH KEY WAERS = LS_EKKO-WAERS.
-        IF SY-SUBRC = 0.
-          GS_HEAD-WAERS_K = LS_TCURT-KTEXT.
-          CASE LS_TCURT-KTEXT.
+        READ TABLE lt_tcurt INTO DATA(ls_tcurt) WITH KEY waers = ls_ekko-waers.
+        IF sy-subrc = 0.
+          gs_head-waers_k = ls_tcurt-ktext.
+          CASE ls_tcurt-ktext.
             WHEN '人民币'.
-              GS_HEAD-ZCURR ='￥'.
+              gs_head-zcurr ='￥'.
             WHEN '美元'.
-              GS_HEAD-ZCURR = '$'.
+              gs_head-zcurr = '$'.
           ENDCASE.
         ENDIF.
-        READ TABLE LT_T001 INTO DATA(LS_T001) WITH KEY BUKRS = LS_EKKO-BUKRS.
-        IF SY-SUBRC = 0.
-          GS_HEAD-BUTXT = LS_T001-BUTXT.
-          READ TABLE LT_ADRC INTO DATA(LS_ADRC) WITH KEY ADDRNUMBER = LS_T001-ADRNR.
-          IF SY-SUBRC = 0.
-            GS_HEAD-STREET = LS_ADRC-STREET.
-            GS_HEAD-FAX_NUMBER = LS_ADRC-FAX_NUMBER.
-            GS_HEAD-POST_CODE1 = LS_ADRC-POST_CODE1.
+        READ TABLE lt_t001 INTO DATA(ls_t001) WITH KEY bukrs = ls_ekko-bukrs.
+        IF sy-subrc = 0.
+          gs_head-butxt = ls_t001-butxt.
+          READ TABLE lt_adrc INTO DATA(ls_adrc) WITH KEY addrnumber = ls_t001-adrnr.
+          IF sy-subrc = 0.
+            gs_head-street = ls_adrc-street.
+            gs_head-fax_number = ls_adrc-fax_number.
+            gs_head-post_code1 = ls_adrc-post_code1.
 *            IF GS_HEAD-BUKRS = '8100'.
 *              CONCATENATE '一厂：' GS_HEAD-STREET INTO GS_HEAD-STREET.
 *            ENDIF.
           ENDIF.
         ENDIF.
-        APPEND GS_HEAD TO GT_HEAD.
-        CLEAR: GS_HEAD.
+        APPEND gs_head TO gt_head.
+        CLEAR: gs_head.
       ENDLOOP.
     ENDIF.
   ENDIF.
 
-  IF GT_HEAD IS NOT INITIAL.
-    CLEAR: LT_EKPO, LS_EKPO.
+  IF gt_head IS NOT INITIAL.
+    CLEAR: lt_ekpo, ls_ekpo.
     SELECT *
-      INTO TABLE @LT_EKPO
-      FROM EKPO
-      FOR ALL ENTRIES IN @GT_HEAD
-      WHERE EBELN =  @GT_HEAD-EBELN
-      AND LOEKZ = ''. "ZZD 20200224
-    IF SY-SUBRC = 0.
-      DATA: LR_MATNR TYPE RANGE OF MATNR,
-            LW_MATNR LIKE LINE OF LR_MATNR.
-      CLEAR: LR_MATNR, LW_MATNR.
-      LOOP AT LT_EKPO INTO LS_EKPO.
-        LW_MATNR-SIGN = 'I'.
-        LW_MATNR-OPTION = 'EQ'.
-        LW_MATNR-LOW = LS_EKPO-MATNR.
-        APPEND LW_MATNR TO LR_MATNR.
-        CLEAR: LW_MATNR.
-        LW_MATNR-SIGN = 'I'.
-        LW_MATNR-OPTION = 'EQ'.
-        LW_MATNR-LOW = LS_EKPO-EMATN.
-        APPEND LW_MATNR TO LR_MATNR.
-        CLEAR: LW_MATNR.
+      INTO TABLE @lt_ekpo
+      FROM ekpo
+      FOR ALL ENTRIES IN @gt_head
+      WHERE ebeln =  @gt_head-ebeln
+      AND loekz = ''. "ZZD 20200224
+    IF sy-subrc = 0.
+      DATA: lr_matnr TYPE RANGE OF matnr,
+            lw_matnr LIKE LINE OF lr_matnr.
+      CLEAR: lr_matnr, lw_matnr.
+      LOOP AT lt_ekpo INTO ls_ekpo.
+        lw_matnr-sign = 'I'.
+        lw_matnr-option = 'EQ'.
+        lw_matnr-low = ls_ekpo-matnr.
+        APPEND lw_matnr TO lr_matnr.
+        CLEAR: lw_matnr.
+        lw_matnr-sign = 'I'.
+        lw_matnr-option = 'EQ'.
+        lw_matnr-low = ls_ekpo-ematn.
+        APPEND lw_matnr TO lr_matnr.
+        CLEAR: lw_matnr.
       ENDLOOP.
-      SORT LR_MATNR BY LOW.
-      DELETE ADJACENT DUPLICATES FROM LR_MATNR COMPARING LOW.
-      SELECT M~MATNR, M~MAKTX, A~MATKL, A~GROES
-        INTO TABLE @DATA(LT_MATNR)
-        FROM MAKT AS M
-        LEFT JOIN MARA AS A
-        ON M~MATNR = A~MATNR
-        WHERE M~MATNR IN @LR_MATNR
-          AND M~SPRAS = 1.
+      SORT lr_matnr BY low.
+      DELETE ADJACENT DUPLICATES FROM lr_matnr COMPARING low.
+      SELECT m~matnr, m~maktx, a~matkl, a~groes
+        INTO TABLE @DATA(lt_matnr)
+        FROM makt AS m
+        LEFT JOIN mara AS a
+        ON m~matnr = a~matnr
+        WHERE m~matnr IN @lr_matnr
+          AND m~spras = 1.
 
-      SELECT T~EBELN, T~EBELP, T~ETENR, T~EINDT
-        INTO TABLE @DATA(LT_EKET)
-        FROM EKET AS T
-        INNER JOIN EKPO AS O
-        ON O~EBELN = T~EBELN AND O~EBELP = T~EBELP
-        FOR ALL ENTRIES IN @LT_EKPO
-        WHERE T~EBELN = @LT_EKPO-EBELN
-        AND  O~LOEKZ = ''  "20200221 ZZD
-          AND T~EBELP = @LT_EKPO-EBELP.
+      SELECT t~ebeln, t~ebelp, t~etenr, t~eindt
+        INTO TABLE @DATA(lt_eket)
+        FROM eket AS t
+        INNER JOIN ekpo AS o
+        ON o~ebeln = t~ebeln AND o~ebelp = t~ebelp
+        FOR ALL ENTRIES IN @lt_ekpo
+        WHERE t~ebeln = @lt_ekpo-ebeln
+        AND  o~loekz = ''  "20200221 ZZD
+          AND t~ebelp = @lt_ekpo-ebelp.
 
 *      SELECT K~KNUMH, K~KOPOS, K~MWSK1, K~KBETR,
 *             O~EBELN, O~EBELP, O~MWSKZ
@@ -594,61 +594,69 @@ FORM FRM_PRINT .
 *        WHERE O~EBELN = @LT_EKPO-EBELN
 *          AND O~EBELP = @LT_EKPO-EBELP
 *          AND K~KAPPL = 'TX'.
-      CLEAR: LT_T007V.
+      CLEAR: lt_t007v.
       SELECT *
-        FROM T007V
-        INTO TABLE LT_T007V
-        WHERE ALAND = 'CN'
-          AND DATAM <> '00000000'.
-      IF SY-SUBRC = 0.
-        SORT LT_T007V BY DATUM UZEIT DESCENDING.
+        FROM t007v
+        INTO TABLE lt_t007v
+        WHERE aland = 'CN'
+          AND datam <> '00000000'.
+      IF sy-subrc = 0.
+        SORT lt_t007v BY datum uzeit DESCENDING.
       ENDIF.
 
-      SELECT E~INFNR, E~EKORG, E~ESOKZ, E~WERKS,
-             E~NETPR, E~PEINH, E~MWSKZ, A~MATNR
-        INTO TABLE @DATA(LT_EINE)
-        FROM EINE AS E
-        INNER JOIN EINA AS A
-        ON E~INFNR = A~INFNR
-        FOR ALL ENTRIES IN @LT_EKPO
-        WHERE E~ESOKZ = '2'
-          AND E~INFNR = @LT_EKPO-INFNR .
+      SELECT e~infnr, e~ekorg, e~esokz, e~werks,
+             e~netpr, e~peinh, e~mwskz, a~matnr
+        INTO TABLE @DATA(lt_eine)
+        FROM eine AS e
+        INNER JOIN eina AS a
+        ON e~infnr = a~infnr
+        FOR ALL ENTRIES IN @lt_ekpo
+        WHERE e~esokz = '2'
+          AND e~infnr = @lt_ekpo-infnr .
 
-      SELECT A~KAPPL, A~KSCHL, A~LIFNR, A~MATNR, A~EKORG,
-             A~WERKS, A~ESOKZ, A~DATBI, A~DATAB,
-             B~KNUMH, B~KOPOS, B~KBETR, B~KPEIN
-        FROM A017 AS A
-        INNER JOIN KONP AS B
-        ON B~KNUMH = A~KNUMH
-        INTO TABLE @DATA(LT_A017)
-        FOR ALL ENTRIES IN @LT_EKPO
-        WHERE A~KAPPL = 'M'
-          AND A~ESOKZ = '2'
-          AND A~MATNR = @LT_EKPO-MATNR
-          AND A~WERKS = @LT_EKPO-WERKS.
+      SELECT a~kappl, a~kschl, a~lifnr, a~matnr, a~ekorg,
+             a~werks, a~esokz, a~datbi, a~datab,
+             b~knumh, b~kopos, b~kbetr, b~kpein
+        FROM a017 AS a
+        INNER JOIN konp AS b
+        ON b~knumh = a~knumh
+        INTO TABLE @DATA(lt_a017)
+        FOR ALL ENTRIES IN @lt_ekpo
+        WHERE a~kappl = 'M'
+          AND a~esokz = '2'
+          AND a~matnr = @lt_ekpo-matnr
+          AND a~werks = @lt_ekpo-werks.
 
-      " 生产厂家（制造商）
-      SELECT E~EBELN, E~EBELP, E~MATNR, E~EMATN,
-             B~PARTNER, B~NAME_ORG1
-        FROM EKPO AS E
-        INNER JOIN MARA AS M
-        ON E~MATNR = M~MATNR OR E~EMATN = M~MATNR
-        INNER JOIN BUT000 AS B
-        ON B~PARTNER = M~MFRNR "OR B~PARTNER = E~ZMFRNR  "waymon 2020.9.22 添加OR b~partner = e~zmfrnr.
-        INTO TABLE @DATA(LT_BUT000)
-        FOR ALL ENTRIES IN @LT_EKPO
-        WHERE E~EBELN =  @LT_EKPO-EBELN
-        AND  E~LOEKZ = '' "20200221 ZZD
-          AND E~EBELP = @LT_EKPO-EBELP .
+      " 生产厂家（制造商），Seashell 2021-10-25新增ZMFRNR生厂商字段，如果取不到的话就取自定义字段的生产商
+      SELECT e~ebeln, e~ebelp, e~matnr, e~ematn,
+             b~partner, b~name_org1,e~zmfrnr
+        FROM ekpo AS e
+        INNER JOIN mara AS m
+        ON e~matnr = m~matnr OR e~ematn = m~matnr
+        INNER JOIN but000 AS b
+        ON b~partner = m~mfrnr "OR B~PARTNER = E~ZMFRNR  "waymon 2020.9.22 添加OR b~partner = e~zmfrnr.
+        INTO TABLE @DATA(lt_but000)
+        FOR ALL ENTRIES IN @lt_ekpo
+        WHERE e~ebeln =  @lt_ekpo-ebeln
+        AND  e~loekz = '' "20200221 ZZD
+          AND e~ebelp = @lt_ekpo-ebelp .
+
+      SELECT
+        partner,
+        name_org1
+      FROM but000
+      FOR ALL ENTRIES IN @lt_ekpo
+      WHERE partner = @lt_ekpo-zmfrnr
+      INTO TABLE @DATA(lt_but000b).
 
 ***********************************************************ZZD 获取附加费 2020022
 
 *将小计1的值赋回订单值
-      LOOP AT LT_EKPO INTO LS_EKPO .
+      LOOP AT lt_ekpo INTO ls_ekpo .
 
-        LS_EKPO-BRTWR = LS_EKPO-KZWI1 .
-        MODIFY LT_EKPO FROM LS_EKPO .
-        CLEAR LS_EKPO.
+        ls_ekpo-brtwr = ls_ekpo-kzwi1 .
+        MODIFY lt_ekpo FROM ls_ekpo .
+        CLEAR ls_ekpo.
       ENDLOOP.
 
 *获取批次内码
@@ -656,203 +664,217 @@ FORM FRM_PRINT .
 *ZMATDET 材质明细
 
 
-      TYPES: BEGIN OF TY_TX,"存入物料特性
-               MATNR TYPE MARA-MATNR, "物料
-               OBJEK TYPE AUSP-OBJEK, "对象
-               ATINN TYPE AUSP-ATINN, "内码
-               ZGG   TYPE AUSP-ATWRT, "规格
-             END OF TY_TX.
+      TYPES: BEGIN OF ty_tx,"存入物料特性
+               matnr TYPE mara-matnr, "物料
+               objek TYPE ausp-objek, "对象
+               atinn TYPE ausp-atinn, "内码
+               zgg   TYPE ausp-atwrt, "规格
+             END OF ty_tx.
 
-      DATA: GT_CABN TYPE TABLE OF CABN,
-            GS_CABN TYPE CABN,
-            GT_WLTX TYPE TABLE OF TY_TX,
-            GS_WLTX TYPE TY_TX,
-            GT_AUSP TYPE TABLE OF AUSP,
-            GS_AUSP TYPE AUSP,
-            GT_MARA TYPE TABLE OF MARA,
-            GS_MARA TYPE MARA.
+      DATA: gt_cabn TYPE TABLE OF cabn,
+            gs_cabn TYPE cabn,
+            gt_wltx TYPE TABLE OF ty_tx,
+            gs_wltx TYPE ty_tx,
+            gt_ausp TYPE TABLE OF ausp,
+            gs_ausp TYPE ausp,
+            gt_mara TYPE TABLE OF mara,
+            gs_mara TYPE mara.
 
 *取特性内码
       SELECT
-        ATINN
-        ATNAM
-        INTO CORRESPONDING FIELDS OF TABLE GT_CABN
-        FROM CABN
-        WHERE ATNAM IN ('ZGROES','ZMATDET').
+        atinn
+        atnam
+        INTO CORRESPONDING FIELDS OF TABLE gt_cabn
+        FROM cabn
+        WHERE atnam IN ('ZGROES','ZMATDET').
 *取物料类型
       SELECT
-        MATNR
-        MTART
-        INTO CORRESPONDING FIELDS OF TABLE GT_MARA
-        FROM MARA
-        FOR ALL ENTRIES IN LT_EKPO
-        WHERE MATNR = LT_EKPO-MATNR.
+        matnr
+        mtart
+        INTO CORRESPONDING FIELDS OF TABLE gt_mara
+        FROM mara
+        FOR ALL ENTRIES IN lt_ekpo
+        WHERE matnr = lt_ekpo-matnr.
 
-      LOOP AT LT_EKPO INTO LS_EKPO.
-        GS_WLTX-MATNR = LS_EKPO-MATNR.
-        GS_WLTX-OBJEK = LS_EKPO-MATNR.
-        APPEND GS_WLTX TO GT_WLTX.
-        CLEAR GS_WLTX.
+      LOOP AT lt_ekpo INTO ls_ekpo.
+        gs_wltx-matnr = ls_ekpo-matnr.
+        gs_wltx-objek = ls_ekpo-matnr.
+        APPEND gs_wltx TO gt_wltx.
+        CLEAR gs_wltx.
       ENDLOOP.
 
-      LOOP AT GT_WLTX INTO GS_WLTX.
-        READ TABLE GT_MARA INTO GS_MARA WITH KEY MATNR = GS_WLTX-MATNR.
-        IF GS_MARA-MTART = 'Z010'.
-          READ TABLE GT_CABN INTO GS_CABN WITH KEY ATNAM = 'ZGROES'.
-          GS_WLTX-ATINN = GS_CABN-ATINN.
-        ELSEIF GS_MARA-MTART = 'Z020'.
-          READ TABLE GT_CABN INTO GS_CABN WITH KEY ATNAM = 'ZMATDET'.
-          GS_WLTX-ATINN = GS_CABN-ATINN.
+      LOOP AT gt_wltx INTO gs_wltx.
+        READ TABLE gt_mara INTO gs_mara WITH KEY matnr = gs_wltx-matnr.
+        IF gs_mara-mtart = 'Z010'.
+          READ TABLE gt_cabn INTO gs_cabn WITH KEY atnam = 'ZGROES'.
+          gs_wltx-atinn = gs_cabn-atinn.
+        ELSEIF gs_mara-mtart = 'Z020'.
+          READ TABLE gt_cabn INTO gs_cabn WITH KEY atnam = 'ZMATDET'.
+          gs_wltx-atinn = gs_cabn-atinn.
         ENDIF.
 
 
-        CLEAR GS_CABN.
-        MODIFY GT_WLTX FROM GS_WLTX.
-        CLEAR GS_WLTX.
+        CLEAR gs_cabn.
+        MODIFY gt_wltx FROM gs_wltx.
+        CLEAR gs_wltx.
       ENDLOOP.
 
       SELECT
-        OBJEK
-        ATINN
-        ATWRT
-        INTO CORRESPONDING FIELDS OF TABLE GT_AUSP
-        FROM AUSP
-        FOR ALL ENTRIES IN GT_WLTX
-        WHERE OBJEK = GT_WLTX-OBJEK
-        AND ATINN = GT_WLTX-ATINN.
+        objek
+        atinn
+        atwrt
+        INTO CORRESPONDING FIELDS OF TABLE gt_ausp
+        FROM ausp
+        FOR ALL ENTRIES IN gt_wltx
+        WHERE objek = gt_wltx-objek
+        AND atinn = gt_wltx-atinn.
 
-      LOOP AT GT_WLTX INTO GS_WLTX.
-        READ TABLE GT_AUSP INTO GS_AUSP WITH KEY OBJEK = GS_WLTX-OBJEK
-        ATINN = GS_WLTX-ATINN.
-        IF SY-SUBRC = 0.
-          GS_WLTX-ZGG = GS_AUSP-ATWRT.
+      LOOP AT gt_wltx INTO gs_wltx.
+        READ TABLE gt_ausp INTO gs_ausp WITH KEY objek = gs_wltx-objek
+        atinn = gs_wltx-atinn.
+        IF sy-subrc = 0.
+          gs_wltx-zgg = gs_ausp-atwrt.
         ENDIF.
-        MODIFY GT_WLTX FROM GS_WLTX.
-        CLEAR GS_WLTX.
+        MODIFY gt_wltx FROM gs_wltx.
+        CLEAR gs_wltx.
       ENDLOOP.
 
 
-      DATA LS_MATNR LIKE LINE OF LT_MATNR.
-      LOOP AT LT_MATNR INTO LS_MATNR.
-        READ TABLE GT_WLTX INTO GS_WLTX WITH KEY MATNR = LS_MATNR-MATNR.
-        IF SY-SUBRC = 0.
-          LS_MATNR-GROES = GS_WLTX-ZGG.
-          MODIFY LT_MATNR FROM LS_MATNR.
-          CLEAR LS_MATNR.
+      DATA ls_matnr LIKE LINE OF lt_matnr.
+      LOOP AT lt_matnr INTO ls_matnr.
+        READ TABLE gt_wltx INTO gs_wltx WITH KEY matnr = ls_matnr-matnr.
+        IF sy-subrc = 0.
+          ls_matnr-groes = gs_wltx-zgg.
+          MODIFY lt_matnr FROM ls_matnr.
+          CLEAR ls_matnr.
         ENDIF.
       ENDLOOP.
 ***********************************************************ZZD 获取附加费 20200225
 
 
 
-      LOOP AT LT_EKPO INTO LS_EKPO.
+      LOOP AT lt_ekpo INTO ls_ekpo.
         " EKPO- PSTYP EQ 2 寄售
         " 含税单价 不含税单价  税率
-        IF LS_EKPO-PSTYP EQ  '2' .
-          READ TABLE LT_EINE INTO DATA(LS_EINE) WITH KEY INFNR = LS_EKPO-INFNR.
-          IF SY-SUBRC = 0.
-            LS_EKPO-NETPR = LS_EINE-NETPR.
-            LS_EKPO-PEINH = LS_EINE-PEINH.
+        IF ls_ekpo-pstyp EQ  '2' .
+          READ TABLE lt_eine INTO DATA(ls_eine) WITH KEY infnr = ls_ekpo-infnr.
+          IF sy-subrc = 0.
+            ls_ekpo-netpr = ls_eine-netpr.
+            ls_ekpo-peinh = ls_eine-peinh.
           ENDIF.
         ENDIF.
-        MOVE-CORRESPONDING LS_EKPO TO GS_DETAIL.
-        READ TABLE LT_MATNR INTO LS_MATNR WITH KEY MATNR = LS_EKPO-MATNR.
-        IF SY-SUBRC = 0.
-          IF LS_MATNR-MATKL+0(1) = '1'.
-            GS_DETAIL-MATNR = LS_EKPO-EMATN.
+        MOVE-CORRESPONDING ls_ekpo TO gs_detail.
+        READ TABLE lt_matnr INTO ls_matnr WITH KEY matnr = ls_ekpo-matnr.
+        IF sy-subrc = 0.
+          IF ls_matnr-matkl+0(1) = '1'.
+            gs_detail-matnr = ls_ekpo-ematn.
             "Seashell Huang 2020.6.4 添加制造商的获取条件partner = ls_ekpo-mfrnr
-            READ TABLE LT_BUT000 INTO DATA(LS_BUT000) WITH KEY EBELN = LS_EKPO-EBELN EBELP = LS_EKPO-EBELP EMATN = LS_EKPO-EMATN PARTNER = LS_EKPO-MFRNR.
-            IF SY-SUBRC = 0.
-              GS_DETAIL-NAME_ORG1 = LS_BUT000-NAME_ORG1.
+            "Seashell Huang 2021-10-25 添加制造商为空的时候获取自定义字段的判断
+            IF ls_ekpo-mfrnr IS INITIAL.
+              ls_ekpo-mfrnr = ls_ekpo-zmfrnr.
+            ENDIF.
+            "END
+            READ TABLE lt_but000 INTO DATA(ls_but000) WITH KEY ebeln = ls_ekpo-ebeln ebelp = ls_ekpo-ebelp ematn = ls_ekpo-ematn partner = ls_ekpo-mfrnr.
+            IF sy-subrc = 0.
+              gs_detail-name_org1 = ls_but000-name_org1.
               "waymon 2020.9.22 添加制造商的获取条件partner = ls_ekpo-Zmfrnr TOP.
             ELSE.
-              READ TABLE LT_BUT000 INTO LS_BUT000 WITH KEY EBELN = LS_EKPO-EBELN EBELP = LS_EKPO-EBELP EMATN = LS_EKPO-EMATN. "PARTNER = LS_EKPO-ZMFRNR.
-              IF SY-SUBRC = 0.
-                GS_DETAIL-NAME_ORG1 = LS_BUT000-NAME_ORG1.
+              READ TABLE lt_but000 INTO ls_but000 WITH KEY ebeln = ls_ekpo-ebeln ebelp = ls_ekpo-ebelp ematn = ls_ekpo-ematn. "PARTNER = LS_EKPO-ZMFRNR.
+              IF sy-subrc = 0.
+                gs_detail-name_org1 = ls_but000-name_org1.
               ENDIF.
               "waymon 2020.9.22 添加制造商的获取条件partner = ls_ekpo-Zmfrnr END.
             ENDIF.
-            CLEAR: LS_MATNR.
+            "Seashell 如果生厂商（制造商）没哟找到的话取自定义字段ZMFRNR  2021.10.26
+            IF gs_detail-name_org1 IS INITIAL.
+              READ TABLE lt_but000b INTO DATA(ls_but000b) WITH KEY partner = ls_ekpo-zmfrnr.
+              IF sy-subrc = 0.
+                gs_detail-name_org1 = ls_but000b-name_org1.
+              ENDIF.
+            ENDIF.
+            "end
+
+            CLEAR: ls_matnr.
 *****************ZZD 20200227
 *           READ TABLE lt_matnr INTO ls_matnr WITH KEY matnr = ls_ekpo-ematn.
-            READ TABLE LT_MATNR INTO LS_MATNR WITH KEY MATNR = LS_EKPO-MATNR.
+            READ TABLE lt_matnr INTO ls_matnr WITH KEY matnr = ls_ekpo-matnr.
 *****************ZZD 20200227
-            IF SY-SUBRC = 0.
-              GS_DETAIL-MAKTX = LS_MATNR-MAKTX.
-              GS_DETAIL-GROES = LS_MATNR-GROES.
+            IF sy-subrc = 0.
+              gs_detail-maktx = ls_matnr-maktx.
+              gs_detail-groes = ls_matnr-groes.
             ENDIF.
           ELSE.
-            GS_DETAIL-MATNR = LS_EKPO-MATNR.
-            READ TABLE LT_BUT000 INTO LS_BUT000 WITH KEY EBELN = LS_EKPO-EBELN EBELP = LS_EKPO-EBELP MATNR = LS_EKPO-MATNR.
-            IF SY-SUBRC = 0.
-              GS_DETAIL-NAME_ORG1 = LS_BUT000-NAME_ORG1.
+            gs_detail-matnr = ls_ekpo-matnr.
+            READ TABLE lt_but000 INTO ls_but000 WITH KEY ebeln = ls_ekpo-ebeln ebelp = ls_ekpo-ebelp matnr = ls_ekpo-matnr.
+            IF sy-subrc = 0.
+              gs_detail-name_org1 = ls_but000-name_org1.
             ENDIF.
-            GS_DETAIL-MAKTX = LS_MATNR-MAKTX.
-            GS_DETAIL-GROES = LS_MATNR-GROES.
+            gs_detail-maktx = ls_matnr-maktx.
+            gs_detail-groes = ls_matnr-groes.
           ENDIF.
         ENDIF.
-        READ TABLE LT_EKET INTO DATA(LS_EKET) WITH KEY EBELN = LS_EKPO-EBELN EBELP = LS_EKPO-EBELP.
-        IF SY-SUBRC = 0.
-          GS_DETAIL-EINDT = LS_EKET-EINDT.
+        READ TABLE lt_eket INTO DATA(ls_eket) WITH KEY ebeln = ls_ekpo-ebeln ebelp = ls_ekpo-ebelp.
+        IF sy-subrc = 0.
+          gs_detail-eindt = ls_eket-eindt.
         ENDIF.
 *        READ TABLE LT_KONP INTO DATA(LS_KONP) WITH KEY EBELN = LS_EKPO-EBELN EBELP = LS_EKPO-EBELP.
 *        IF SY-SUBRC = 0.
 *          GS_DETAIL-KBETR = LS_KONP-KBETR.
 *        ENDIF.
         "寄售 含税金额  不含税金额
-        IF LS_EKPO-PSTYP EQ  '2'.
-          CLEAR: LS_EKKO.
-          READ TABLE LT_EKKO INTO LS_EKKO WITH KEY EBELN = LS_EKPO-EBELN.
-          IF SY-SUBRC = 0.
-            CLEAR: LS_EINE.
-            READ TABLE LT_EINE INTO LS_EINE
-              WITH KEY INFNR = LS_EKPO-INFNR MATNR = LS_EKPO-MATNR WERKS = LS_EKPO-WERKS EKORG = LS_EKKO-EKORG.
-            IF SY-SUBRC = 0.
-              CLEAR: LS_T007V.
-              READ TABLE LT_T007V INTO LS_T007V WITH KEY MWSKZ = LS_EINE-MWSKZ.
-              IF SY-SUBRC = 0.
-                GS_DETAIL-KBETR = LS_T007V-KBETR.
+        IF ls_ekpo-pstyp EQ  '2'.
+          CLEAR: ls_ekko.
+          READ TABLE lt_ekko INTO ls_ekko WITH KEY ebeln = ls_ekpo-ebeln.
+          IF sy-subrc = 0.
+            CLEAR: ls_eine.
+            READ TABLE lt_eine INTO ls_eine
+              WITH KEY infnr = ls_ekpo-infnr matnr = ls_ekpo-matnr werks = ls_ekpo-werks ekorg = ls_ekko-ekorg.
+            IF sy-subrc = 0.
+              CLEAR: ls_t007v.
+              READ TABLE lt_t007v INTO ls_t007v WITH KEY mwskz = ls_eine-mwskz.
+              IF sy-subrc = 0.
+                gs_detail-kbetr = ls_t007v-kbetr.
               ENDIF.
             ENDIF.
-            LOOP AT LT_A017 INTO DATA(LS_A017)
-              WHERE MATNR = LS_EKPO-MATNR AND WERKS = LS_EKPO-WERKS AND EKORG = LS_EKKO-EKORG
-                AND LIFNR = LS_EKKO-LIFNR AND DATAB <= LS_EKKO-BEDAT AND DATBI >= LS_EKKO-BEDAT.
+            LOOP AT lt_a017 INTO DATA(ls_a017)
+              WHERE matnr = ls_ekpo-matnr AND werks = ls_ekpo-werks AND ekorg = ls_ekko-ekorg
+                AND lifnr = ls_ekko-lifnr AND datab <= ls_ekko-bedat AND datbi >= ls_ekko-bedat.
               " 含税单价
-              GS_DETAIL-BSPRS = LS_A017-KBETR / LS_A017-KPEIN.
+              gs_detail-bsprs = ls_a017-kbetr / ls_a017-kpein.
               " 不含税单价
 
-              GS_DETAIL-NETPR = GS_DETAIL-BSPRS / ( 1 + GS_DETAIL-KBETR / 1000 ) .
-              GS_DETAIL-NETWR = GS_DETAIL-NETPR * LS_EKPO-MENGE.
-              GS_DETAIL-BRTWR = GS_DETAIL-BSPRS * LS_EKPO-MENGE. "ZZD 20200309.
+              gs_detail-netpr = gs_detail-bsprs / ( 1 + gs_detail-kbetr / 1000 ) .
+              gs_detail-netwr = gs_detail-netpr * ls_ekpo-menge.
+              gs_detail-brtwr = gs_detail-bsprs * ls_ekpo-menge. "ZZD 20200309.
               EXIT.
             ENDLOOP.
           ENDIF.
         ELSE.
-          CLEAR: LS_T007V.
-          READ TABLE LT_T007V INTO LS_T007V WITH KEY MWSKZ = LS_EKPO-MWSKZ.
-          IF SY-SUBRC = 0.
-            GS_DETAIL-KBETR = LS_T007V-KBETR.
+          CLEAR: ls_t007v.
+          READ TABLE lt_t007v INTO ls_t007v WITH KEY mwskz = ls_ekpo-mwskz.
+          IF sy-subrc = 0.
+            gs_detail-kbetr = ls_t007v-kbetr.
           ENDIF.
 *          " 含税单价
-          GS_DETAIL-BSPRS = LS_EKPO-BRTWR  / LS_EKPO-MENGE.
+          gs_detail-bsprs = ls_ekpo-brtwr  / ls_ekpo-menge.
 *          " 不含税单价
-          GS_DETAIL-NETPR = GS_DETAIL-BSPRS / ( 1 + GS_DETAIL-KBETR / 1000 ).
+          gs_detail-netpr = gs_detail-bsprs / ( 1 + gs_detail-kbetr / 1000 ).
 
 
 
 
         ENDIF.
         " 送货地址
-        CASE LS_EKPO-LGORT+0(1).
+        CASE ls_ekpo-lgort+0(1).
           WHEN '1'.
-            GS_DETAIL-ADRNR = '一厂'.
+            gs_detail-adrnr = '一厂'.
           WHEN '2'.
-            GS_DETAIL-ADRNR = '二厂'.
+            gs_detail-adrnr = '二厂'.
         ENDCASE.
         " 采购订单行项目文本
-        CLEAR: LV_LTEXT.
-        PERFORM FRM_READ_TXTL USING LS_EKPO-EBELN LS_EKPO-EBELP CHANGING LV_LTEXT.
-        GS_DETAIL-LTXTS = LV_LTEXT.
+        CLEAR: lv_ltext.
+        PERFORM frm_read_txtl USING ls_ekpo-ebeln ls_ekpo-ebelp CHANGING lv_ltext.
+        gs_detail-ltxts = lv_ltext.
 
         "UP BY LANJINGCUN 20201230 无物料号的处理-S857
 *        READ TABLE GT_HEAD INTO GS_HEAD WITH KEY EBELN = LS_EKPO-EBELN.
@@ -861,55 +883,55 @@ FORM FRM_PRINT .
 *            GS_DETAIL-MAKTX = LS_EKPO-TXZ01 .
 *          ENDIF.
 *        ENDIF.
-        IF GS_DETAIL-MAKTX = '' .
-          GS_DETAIL-MAKTX = LS_EKPO-TXZ01 .
+        IF gs_detail-maktx = '' .
+          gs_detail-maktx = ls_ekpo-txz01 .
         ENDIF .
         "UP BY LANJINGCUN 20201230 无物料号的处理-E857
 
-        APPEND GS_DETAIL TO GT_DETAIL.
-        LV_AMOUNT = GS_DETAIL-BRTWR + LV_AMOUNT.
-        CLEAR: GS_DETAIL.
-        AT END OF EBELN.
+        APPEND gs_detail TO gt_detail.
+        lv_amount = gs_detail-brtwr + lv_amount.
+        CLEAR: gs_detail.
+        AT END OF ebeln.
 *          SUM.
-          READ TABLE GT_HEAD ASSIGNING FIELD-SYMBOL(<FS_HEAD>) WITH KEY EBELN = LS_EKPO-EBELN.
-          IF SY-SUBRC = 0.
-            <FS_HEAD>-AMOUNT = LV_AMOUNT.
+          READ TABLE gt_head ASSIGNING FIELD-SYMBOL(<fs_head>) WITH KEY ebeln = ls_ekpo-ebeln.
+          IF sy-subrc = 0.
+            <fs_head>-amount = lv_amount.
           ENDIF.
-          CLEAR: LV_AMOUNT.
+          CLEAR: lv_amount.
         ENDAT.
       ENDLOOP.
-      SORT GT_DETAIL BY EBELP.
+      SORT gt_detail BY ebelp.
     ENDIF.
   ENDIF.
-  DATA: LT_DETAIL  TYPE STANDARD TABLE OF ZMMS_ZMMR0017_DETAIL,
-        LS_DETAIL  TYPE ZMMS_ZMMR0017_DETAIL,
-        LW_OUTPUT  TYPE SSFCOMPOP,
-        LW_CONTROL TYPE SSFCTRLOP,
-        LV_LINES   TYPE I,
-        LV_DIV     TYPE I.
-  IF GT_HEAD IS NOT INITIAL OR GT_DETAIL IS NOT INITIAL.
+  DATA: lt_detail  TYPE STANDARD TABLE OF zmms_zmmr0017_detail,
+        ls_detail  TYPE zmms_zmmr0017_detail,
+        lw_output  TYPE ssfcompop,
+        lw_control TYPE ssfctrlop,
+        lv_lines   TYPE i,
+        lv_div     TYPE i.
+  IF gt_head IS NOT INITIAL OR gt_detail IS NOT INITIAL.
     " 获取SMARTFOMRS函数
     "ADD BY LANJINGCUN 添加维乐维单据类型-S888
-    CLEAR GV_TDSFNAME .
-    CASE P_WERKS .
+    CLEAR gv_tdsfname .
+    CASE p_werks .
       WHEN '8100' .
-        GV_TDSFNAME = 'ZMM017_PC' .
+        gv_tdsfname = 'ZMM017_PC' .
       WHEN '8200' .
-        GV_TDSFNAME = 'ZMM017_PC' .
+        gv_tdsfname = 'ZMM017_PC' .
       WHEN  OTHERS .
-        GV_TDSFNAME = 'ZMM017_WL' .
+        gv_tdsfname = 'ZMM017_WL' .
     ENDCASE .
     "ADD BY LANJINGCUN 添加维乐维单据类型-E888
 
-    CLEAR: FM_NAME, LW_OUTPUT, LW_CONTROL.
+    CLEAR: fm_name, lw_output, lw_control.
     CALL FUNCTION 'SSF_FUNCTION_MODULE_NAME'
       EXPORTING
-        FORMNAME           = 'ZMM017_PC'
+        formname           = 'ZMM017_PC'
       IMPORTING
-        FM_NAME            = FM_NAME
+        fm_name            = fm_name
       EXCEPTIONS
-        NO_FORM            = 1
-        NO_FUNCTION_MODULE = 2
+        no_form            = 1
+        no_function_module = 2
         OTHERS             = 3.
 
 *    LW_OUTPUT-TDNOPREV  = ' '.                      " 是否打印预览，X是不预览。
@@ -922,68 +944,68 @@ FORM FRM_PRINT .
 *    LW_OUTPUT-TDFINAL = 'X'.
 *    LW_OUTPUT-TDIEXIT = 'X'.
 
-    LW_CONTROL-PREVIEW       = 'X'.                 " 打印预览
-    LW_CONTROL-NO_OPEN       = 'X'.                 " 新的假脱机请求
-    LW_CONTROL-NO_CLOSE      = 'X'.
-    LW_CONTROL-NO_DIALOG     = 'X'.                 " 必须设置
+    lw_control-preview       = 'X'.                 " 打印预览
+    lw_control-no_open       = 'X'.                 " 新的假脱机请求
+    lw_control-no_close      = 'X'.
+    lw_control-no_dialog     = 'X'.                 " 必须设置
 
     CALL FUNCTION 'SSF_OPEN'
       EXPORTING
-        OUTPUT_OPTIONS     = LW_OUTPUT
-        CONTROL_PARAMETERS = LW_CONTROL
-        USER_SETTINGS      = ' '
+        output_options     = lw_output
+        control_parameters = lw_control
+        user_settings      = ' '
       EXCEPTIONS
-        FORMATTING_ERROR   = 1
-        INTERNAL_ERROR     = 2
-        SEND_ERROR         = 3
-        USER_CANCELED      = 4
+        formatting_error   = 1
+        internal_error     = 2
+        send_error         = 3
+        user_canceled      = 4
         OTHERS             = 5.
 
-    LOOP AT GT_HEAD INTO GS_HEAD.
-      CLEAR: LT_DETAIL, LS_DETAIL.
-      LOOP AT GT_DETAIL INTO GS_DETAIL WHERE EBELN = GS_HEAD-EBELN.
-        MOVE-CORRESPONDING GS_DETAIL TO LS_DETAIL.
-        APPEND LS_DETAIL TO LT_DETAIL.
-        CLEAR: LS_DETAIL.
+    LOOP AT gt_head INTO gs_head.
+      CLEAR: lt_detail, ls_detail.
+      LOOP AT gt_detail INTO gs_detail WHERE ebeln = gs_head-ebeln.
+        MOVE-CORRESPONDING gs_detail TO ls_detail.
+        APPEND ls_detail TO lt_detail.
+        CLEAR: ls_detail.
       ENDLOOP.
 
-      CLEAR: GS_LINE, LV_DIV, LV_LINES.
-      DESCRIBE TABLE LT_DETAIL LINES GS_LINE.
-      IF GS_LINE > 11.
-        LV_DIV = GS_LINE DIV 12.
-        LV_LINES = ( LV_DIV + 1 ) * 12 - 1.
-        DO LV_LINES - GS_LINE TIMES.
-          APPEND LS_DETAIL TO LT_DETAIL.
+      CLEAR: gs_line, lv_div, lv_lines.
+      DESCRIBE TABLE lt_detail LINES gs_line.
+      IF gs_line > 11.
+        lv_div = gs_line DIV 12.
+        lv_lines = ( lv_div + 1 ) * 12 - 1.
+        DO lv_lines - gs_line TIMES.
+          APPEND ls_detail TO lt_detail.
         ENDDO.
       ELSE.
-        DO 11 - GS_LINE TIMES.
-          APPEND LS_DETAIL TO LT_DETAIL.
+        DO 11 - gs_line TIMES.
+          APPEND ls_detail TO lt_detail.
         ENDDO.
       ENDIF.
 
-      CALL FUNCTION FM_NAME
+      CALL FUNCTION fm_name
         EXPORTING
-          GS_HEAD            = GS_HEAD
-          GS_LINE            = GS_LINE
-          CONTROL_PARAMETERS = LW_CONTROL
-          OUTPUT_OPTIONS     = LW_OUTPUT
+          gs_head            = gs_head
+          gs_line            = gs_line
+          control_parameters = lw_control
+          output_options     = lw_output
         TABLES
-          GT_DETAIL          = LT_DETAIL
+          gt_detail          = lt_detail
         EXCEPTIONS
-          FORMATTING_ERROR   = 1
-          INTERNAL_ERROR     = 2
-          SEND_ERROR         = 3
-          USER_CANCELED      = 4
+          formatting_error   = 1
+          internal_error     = 2
+          send_error         = 3
+          user_canceled      = 4
           OTHERS             = 5.
     ENDLOOP.
     CALL FUNCTION 'SSF_CLOSE'
       EXCEPTIONS
-        FORMATTING_ERROR = 1
-        INTERNAL_ERROR   = 2
-        SEND_ERROR       = 3
+        formatting_error = 1
+        internal_error   = 2
+        send_error       = 3
         OTHERS           = 4.
 
-    CLEAR: GT_HEAD, GS_HEAD, GT_DETAIL, GS_DETAIL.
+    CLEAR: gt_head, gs_head, gt_detail, gs_detail.
   ENDIF.
 ENDFORM.
 *&---------------------------------------------------------------------*
@@ -995,37 +1017,37 @@ ENDFORM.
 *&      --> LS_EKPO_EBELP
 *&      <-- LV_LTEXT
 *&---------------------------------------------------------------------*
-FORM FRM_READ_TXTL  USING UV_EBELN UV_EBELP
-                 CHANGING CV_LTEXT .
-  DATA: TDLINES  TYPE STANDARD TABLE OF TLINE,
-        P_TDNAME LIKE STXL-TDNAME.
+FORM frm_read_txtl  USING uv_ebeln uv_ebelp
+                 CHANGING cv_ltext .
+  DATA: tdlines  TYPE STANDARD TABLE OF tline,
+        p_tdname LIKE stxl-tdname.
 
-  CLEAR: P_TDNAME, TDLINES.
-  CONCATENATE UV_EBELN UV_EBELP INTO P_TDNAME.
+  CLEAR: p_tdname, tdlines.
+  CONCATENATE uv_ebeln uv_ebelp INTO p_tdname.
 
   CALL FUNCTION 'READ_TEXT'
     EXPORTING
-      ID                      = 'F01'
-      LANGUAGE                = SY-LANGU
-      NAME                    = CONV TDOBNAME( P_TDNAME )
-      OBJECT                  = 'EKPO'
+      id                      = 'F01'
+      language                = sy-langu
+      name                    = CONV tdobname( p_tdname )
+      object                  = 'EKPO'
     TABLES
-      LINES                   = TDLINES
+      lines                   = tdlines
     EXCEPTIONS
-      ID                      = 1
-      LANGUAGE                = 2
-      NAME                    = 3
-      NOT_FOUND               = 4
-      OBJECT                  = 5
-      REFERENCE_CHECK         = 6
-      WRONG_ACCESS_TO_ARCHIVE = 7
+      id                      = 1
+      language                = 2
+      name                    = 3
+      not_found               = 4
+      object                  = 5
+      reference_check         = 6
+      wrong_access_to_archive = 7
       OTHERS                  = 8.
-  IF SY-SUBRC = 0.
-    LOOP AT TDLINES INTO DATA(LW_LINES).
-      IF CV_LTEXT IS INITIAL.
-        CV_LTEXT = LW_LINES-TDLINE.
+  IF sy-subrc = 0.
+    LOOP AT tdlines INTO DATA(lw_lines).
+      IF cv_ltext IS INITIAL.
+        cv_ltext = lw_lines-tdline.
       ELSE.
-        CONCATENATE CV_LTEXT LW_LINES-TDLINE INTO CV_LTEXT.
+        CONCATENATE cv_ltext lw_lines-tdline INTO cv_ltext.
       ENDIF.
     ENDLOOP.
   ENDIF.
@@ -1038,11 +1060,11 @@ ENDFORM.
 *& -->  p1        text
 *& <--  p2        text
 *&---------------------------------------------------------------------*
-FORM FRM_AUTH_CHECK .
+FORM frm_auth_check .
   AUTHORITY-CHECK OBJECT 'M_BEST_WRK'
-         ID 'WERKS' FIELD P_WERKS.
-  IF SY-SUBRC <> 0.
-    MESSAGE E001(00) WITH '没有权限'.
+         ID 'WERKS' FIELD p_werks.
+  IF sy-subrc <> 0.
+    MESSAGE e001(00) WITH '没有权限'.
     LEAVE LIST-PROCESSING.
   ENDIF.
 ENDFORM.

@@ -113,6 +113,11 @@ FORM frm_get_data.
         WHERE matnr = @lt_ebeln2-matnr
           AND spras = '1'.
         LOOP AT lt_ebeln2 INTO ls_ebeln2.
+          IF sy-index = 1.
+            ls_ebeln2-sel = '@TB@'.
+          ELSE.
+            ls_ebeln2-sel = '@SR@'.
+          ENDIF.
           READ TABLE lt_makt INTO ls_makt WITH KEY matnr = ls_ebeln2-matnr.
           IF sy-subrc = 0.
             ls_ebeln2-maktx = ls_makt-maktx.
@@ -158,6 +163,78 @@ FORM frm_display_data .
   PERFORM frm_get_field.
   PERFORM frm_show_alv.
 ENDFORM. " frm_display_data
+
+
+*&---------------------------------------------------------------------*
+*& CLASS LCL_EVENT_RECEIVER DEFINITION
+*&---------------------------------------------------------------------*
+CLASS lcl_event_receiver DEFINITION.
+  PUBLIC SECTION.
+    CLASS-METHODS:
+      hotspot_click
+                  FOR EVENT hotspot_click OF cl_gui_alv_grid
+        IMPORTING e_row_id
+                  e_column_id
+                  es_row_no.
+ENDCLASS.                    "LCL_EVENT_RECEIVER DEFINITION
+
+*&---------------------------------------------------------------------*
+*& CLASS LCL_EVENT_RECEIVER DEFINITION
+*&---------------------------------------------------------------------*
+CLASS lcl_event_receiver IMPLEMENTATION.
+  METHOD hotspot_click.
+
+    READ TABLE lt_ebeln2 INTO DATA(ls_ebeln2) INDEX e_row_id.
+    IF ls_ebeln2 NE '@TB@'.
+      ls_ebeln2-sel = '@SR@'.
+      MODIFY lt_ebeln2 FROM ls_ebeln2 TRANSPORTING sel WHERE sel NE '@SR@'.
+      ls_ebeln2-sel = '@TB@'.
+      MODIFY lt_ebeln2 FROM ls_ebeln2 INDEX e_row_id TRANSPORTING sel .
+    ENDIF.
+    PERFORM frm_ref_alv.
+  ENDMETHOD.                    "HANDLE_ONF4
+ENDCLASS.                    "LCL_EVENT_RECEIVER IMPLEMENTATION
+
+
+*&---------------------------------------------------------------------*
+*&      Form  FRM_REF_ALV
+*&---------------------------------------------------------------------*
+FORM frm_ref_alv .
+  DATA ls_stbl TYPE lvc_s_stbl.
+  ls_stbl-row = abap_true.
+  ls_stbl-col = abap_true.
+  CALL METHOD go_alv_grid->refresh_table_display
+    EXPORTING
+      is_stable = ls_stbl.
+ENDFORM.                    " FRM_REF_ALV
+
+
+*&---------------------------------------------------------------------*
+*&      Form  CALLER_EXIT
+*&---------------------------------------------------------------------*
+FORM caller_exit USING u_exit TYPE slis_data_caller_exit.
+  DATA: ls_f4 TYPE lvc_s_f4,
+        lt_f4 TYPE lvc_t_f4.
+  CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
+    IMPORTING
+      e_grid = go_alv_grid.
+* 设置回车事件
+  CALL METHOD go_alv_grid->register_edit_event
+    EXPORTING
+      i_event_id = cl_gui_alv_grid=>mc_evt_enter
+    EXCEPTIONS
+      error      = 1
+      OTHERS     = 2.
+* 设置光标焦点移开被修改单元格后触发事件
+  CALL METHOD go_alv_grid->register_edit_event
+    EXPORTING
+      i_event_id = cl_gui_alv_grid=>mc_evt_modified
+    EXCEPTIONS
+      error      = 1
+      OTHERS     = 2.
+  SET HANDLER lcl_event_receiver=>hotspot_click FOR go_alv_grid.
+ENDFORM.                    "CALLER_EXIT
+*&---------------------------------------------------------------------*
 
 
 *&---------------------------------------------------------------------*
@@ -217,11 +294,18 @@ FORM frm_get_field .
         wa_alv_field-tabname = &1.
         wa_alv_field-fieldname = &2.
         wa_alv_field-seltext_m = &3.
+
+       CASE &2.
+
+          WHEN 'SEL'.
+            wa_alv_field-hotspot = 'X'.
+          WHEN OTHERS.
+        ENDCASE.
         APPEND wa_alv_field TO i_fieldcat_alv.
         CLEAR wa_alv_field.
       END-OF-DEFINITION.
 
-*      get_field 'lt_ebeln' 'SEL' '选择'.
+      get_field 'lt_ebeln' 'SEL' '选择'.
       get_field 'lt_ebeln2' 'LIGHT' '指示灯'.
       get_field 'lt_ebeln2' 'MSG' '消息提示'.
       get_field 'lt_ebeln2' 'EBELN' '采购凭证'.
@@ -235,8 +319,16 @@ FORM frm_get_field .
       get_field 'lt_ebeln2' 'ERNAM' '制单人'.
       get_field 'lt_ebeln2' 'VERSION' '版本记录号'.
       get_field 'lt_ebeln2' 'SIGN' '合同状态'.
-      it_layout-zebra = 'X'.
-      it_layout-box_fieldname = 'SEL'.
+
+
+
+*      it_layout-zebra = 'X'.
+*      it_layout-box_fieldname = 'SEL'.
+
+      ls_event-name = slis_ev_caller_exit_at_start.
+      ls_event-form = slis_ev_caller_exit_at_start.
+      APPEND ls_event TO lt_event.
+
     WHEN r_03.
       DEFINE get_field.
 
@@ -324,6 +416,7 @@ FORM frm_show_alv .
           is_layout                = it_layout
           it_fieldcat              = i_fieldcat_alv
           i_default                = 'X'
+          it_events                = lt_event
         TABLES
           t_outtab                 = lt_ebeln2.
       IF sy-subrc <> 0.
@@ -427,6 +520,7 @@ FORM frm_ucomm USING r_ucomm LIKE sy-ucomm
         MESSAGE 'HHHHH' TYPE 'S'.
         PERFORM send_message .
       ENDIF.
+      rs_selfield-refresh = 'X'.
     WHEN OTHERS.
   ENDCASE.
 
@@ -564,7 +658,7 @@ FORM frm_print USING flag.
     ENDLOOP.
   ENDIF.
   IF lt_ebeln2 IS NOT INITIAL.
-    LOOP AT lt_ebeln2 INTO DATA(iw_ebeln2) WHERE sel = 'X'.
+    LOOP AT lt_ebeln2 INTO DATA(iw_ebeln2) WHERE sel = 'X' OR sel = '@TB@'.
       MOVE-CORRESPONDING iw_ebeln2 TO iw_ebeln.
       APPEND iw_ebeln TO it_ebeln.
       CLEAR: iw_ebeln.
@@ -692,6 +786,7 @@ FORM frm_print USING flag.
         gs_head-stras = ls_ekko-stras.
         gs_head-telfx = ls_ekko-telfx.
         gs_head-bsart = ls_ekko-bsart."modify by wwj
+        gs_head-lifnr = ls_ekko-lifnr.
         CASE gs_head-bukrs.
           WHEN '8100'.
             gs_head-adrnr_t ='一厂：汕头市泰山路83号；二厂：汕头市黄山路珠业南街11号'.
@@ -1128,6 +1223,7 @@ FORM frm_print USING flag.
       SORT gt_detail BY ebelp.
     ENDIF.
   ENDIF.
+
   DATA: lt_detail  TYPE STANDARD TABLE OF zmms_zmmr0017_detail,
         ls_detail  TYPE zmms_zmmr0017_detail,
         lw_output  TYPE ssfcompop,
@@ -1231,7 +1327,7 @@ FORM frm_print USING flag.
           OTHERS           = 4.
 
       CLEAR: gt_head, gs_head, gt_detail, gs_detail.
-    ELSEIF flag = 'B'.
+    ELSEIF flag = 'B'."Seashell Huang 配置盖章系统*********************************
       DATA: gwa_result     TYPE ssfcrescl,
             gwa_output     TYPE ssfcompop,
             g_filename     TYPE string,
@@ -1243,9 +1339,8 @@ FORM frm_print USING flag.
             l_xstr   TYPE xstring,
             l_encode TYPE string.
 
-*      gwa_control-no_open = 'X'.
       gwa_control-getotf    = abap_true. "取得OTF数据
-      gwa_control-no_dialog = 'X'. "不显示对话框
+      gwa_control-no_dialog = abap_true. "不显示对话框
       gwa_output-tddest   = 'LP01'.      "指定打印机
       LOOP AT gt_head INTO gs_head.
         CLEAR: lt_detail, ls_detail.
@@ -1310,142 +1405,49 @@ FORM frm_print USING flag.
           IMPORTING
             output = l_encode.
         "接下来先对接口除了content的字段赋值，然后转BASE64，获取对应的接口字段的签名，保持一致性
+        "调用第一个接口
 
-        DATA:ls_output1         TYPE zmt_sap2sign_send_file,
-             ls_output1_content TYPE zdt_sap2sign_send_file_content,
-             ls_input1          TYPE zmt_sap2sign_send_file_ret,
-             ls_input1_data     TYPE zdt_sap2sign_send_file_ret_dat,
-             lr_proxy       TYPE REF TO zco_si_sap2sign_send_new_out.
-
-        DATA: ls_zmmt0032_detail TYPE zmmt0032_detail,
-              lt_zmmt0032_detail LIKE TABLE OF ls_zmmt0032_detail.
-        ls_output1_content-code = gs_head-ebeln.
-        ls_output1_content-base64 = l_encode.
-        ls_output1_content-name = gs_head-ebeln.
-        ls_output1_content-sign_count = '2'.
-        ls_output1_content-doc_name = gs_head-ebeln .
-        ls_output1_content-creator = 'L77cz04tvotuh6'."sy-uname.
-        ls_output1_content-enterprise_id = 'L7702u'."gs_head-bukrs.
-        ls_output1_content-sync_url = 'http://baidu.com'.
-        "根据上面的字段，获取对应的签名
-        DATA: json TYPE string,
-              data TYPE xstring,
-              key  TYPE xstring.
-        DATA: lv_str  TYPE string,
-              lv_xstr TYPE xstring.
-        key = cl_abap_hmac=>string_to_xstring( if_input = '7a8b8d6bf68c482f9a5854f371bedb9f' && 'contract003' ).
-        json = /ui2/cl_json=>serialize( data = ls_output1_content compress = abap_false pretty_name = /ui2/cl_json=>pretty_mode-camel_case numc_as_string = abap_true ).
-*        json = '{"base64":"","code":"4600000023","creator":"05025","docName":"4600000023","enterpriseId":"8200","name":"4600000023","signCount":"2","syncUrl":"4600000023"}'.
-*        json = '{"base64":"","code":"4600000023","creator":"05025","docName":"4600000023","enterpriseId":"8200","name":"4600000023","signCount":"2","syncUrl":"http://baidu.com"}'.
-        data = cl_abap_hmac=>string_to_xstring( if_input = json ).
-
-
-
-
-
-
-        TRY.
-            CALL METHOD cl_abap_hmac=>calculate_hmac_for_raw
-              EXPORTING
-*               if_algorithm     = 'SHA1'
-                if_key           = key
-                if_data          = data
-*               if_length        = 0
-              IMPORTING
-*               ef_hmacstring    =
-                ef_hmacxstring   = lv_xstr
-                ef_hmacb64string = lv_str.
-          CATCH cx_abap_message_digest .
-        ENDTRY.
-        MOVE-CORRESPONDING ls_output1_content TO ls_output1-mt_sap2sign_send_file.
-        CONCATENATE 'HMAC-SHA1' lv_str INTO ls_output1-mt_sap2sign_send_file-content SEPARATED BY space.
-
-
+        DATA: g_message_id TYPE sxmsguid."全局ID
+        DATA z_flag(1).
         DATA: ls_output TYPE zmt_sap2sign_send_new,
               ls_input  TYPE zmt_sap2sign_send_ret_new.
+        DATA:ls_input_b TYPE zmt_sap2sign_send_ret_b,
+             ls_input_c TYPE zmt_sap2sign_send_ret_c.
 
-        ls_output-mt_sap2sign_send_new-info = json.
-        ls_output-mt_sap2sign_send_new-action = 'createByFile'.
-        CONCATENATE 'HMAC-SHA1' lv_str INTO ls_output-mt_sap2sign_send_new-sign SEPARATED BY space.
+        DATA:ls_zmmt0032   TYPE zmmt0032,
+             lt_zmmt0032   TYPE TABLE OF zmmt0032,
+             lv_version    TYPE zmmt0032-version,
+             lv_contractid TYPE zmmt0032_detail-contractid.
 
-        DATA: lo_server_context TYPE REF TO if_ws_server_context.
-        DATA: g_message_protocol TYPE REF TO if_wsprotocol_message_id.
-        DATA: g_message_id TYPE sxmsguid.
-        DATA: g_lo_sys_exception TYPE REF TO cx_ai_system_fault.
-        DATA: lv_intf_id(6) TYPE c,
-              lv_err_info   TYPE bapi_msg.
-
-        "逐步开始调用接口
-        "第一步接口，SAP下发采购订单合同给印章系统
-        "创建日志关联主键，类似于表头主键
-        TRY .
-            lo_server_context   = cl_proxy_access=>get_server_context( ).
-            g_message_protocol ?= lo_server_context->get_protocol( if_wsprotocol=>message_id ).
-            "获取Message ID
-            g_message_id = g_message_protocol->get_message_id( ).
-
-          CATCH cx_ai_system_fault INTO g_lo_sys_exception.
-            EXIT.
-        ENDTRY.
-        "记录接口出参日志
-        zcl_bc_public=>write_log( iv_logid = CONV #( g_message_id )
-                                  iv_intid = 'MM070A' iv_ptype = 'X'
-                                  is_data = ls_output1 ).
-        TRY.
-*            CREATE OBJECT lr_proxy.
-*            "*****TEST******************8
-*            DATA:dynamic_t  TYPE sxms_msghdr30_dynamic_t.
-*            DATA:dynamic_s  TYPE sxms_msghdr30_dynamic.
-*            dynamic_s-param_name = 'HK'.
-*            dynamic_s-param_namespace = 'S:HK'.
-*            dynamic_s-param_value = 'HK'.
-*            APPEND dynamic_s TO dynamic_t.
-*
-*            CALL FUNCTION 'SXMB_SET_DYN_HDR_OUT'
-*              EXPORTING
-*                dynamic_t           = dynamic_t
-*              EXCEPTIONS
-*                parameter_not_valid = 1
-*                OTHERS              = 2.
-*            IF sy-subrc <> 0.
-** Implement suitable error handling here
-*            ENDIF.
-*
-*            "***********END***************
-*            lr_proxy->si_sap2sign_send_file_out( EXPORTING output = ls_output1
-*                                             IMPORTING input = ls_input1 )."调用pi接口
-
-            CREATE OBJECT lr_proxy.
-            lr_proxy->si_sap2sign_send_new_out( EXPORTING output = ls_output
-              IMPORTING input = ls_input ).
-
-          CATCH cx_root INTO DATA(lr_root).
-            MESSAGE lr_root->get_text(  ) TYPE 'I'.
-            EXIT.
-        ENDTRY.
-
-        "记录接口入参日志
-        zcl_bc_public=>write_log( iv_logid = CONV #( g_message_id )
-                                      iv_intid = 'MM070A' iv_ptype = 'Y'
-                                      is_data = ls_input1 ).
-        CLEAR:ls_zmmt0032_detail,lt_zmmt0032_detail.
-        "写入日志到过程记录表中
-        zcl_bc_zmm032=>write_log( iv_logid = CONV #( g_message_id )
-                                  iv_intid = gs_head-ebeln
-                                  is_data = ls_output1
-                                  is_data2 = ls_input1
-                                  zbs = '1'
-                                    ).
-        IF ls_input1-mt_sap2sign_send_file_ret-status = '1'.
-          "上面第一步处理好了，接下来处理第二部接口
-
-        ELSEIF ls_input1-mt_sap2sign_send_file_ret-status <> '1'.
-
-          "存在错误，需要反写数据到ALV中，并中断后续的操作
+        "
+        PERFORM z_interface_first USING l_encode  CHANGING z_flag g_message_id ls_input lv_version lv_contractid.
+        "调用第一个接口结束，开始调用第二个接口
+        IF z_flag = 'S'.
+          LOOP AT lt_ebeln2 INTO ls_ebeln2 WHERE ebeln = gs_head-ebeln.
+            ls_ebeln2-light = '@08@'.
+            ls_ebeln2-msg = '' && g_message_id.
+            MODIFY lt_ebeln2 FROM ls_ebeln2.
+            CLEAR ls_ebeln2.
+          ENDLOOP.
+          "调第二个接口
+          PERFORM z_interface_second USING ls_input g_message_id CHANGING z_flag ls_input_b lv_version lv_contractid.
+          IF z_flag = 'S'.
+            "调用第三个接口
+            PERFORM z_interface_third USING g_message_id CHANGING z_flag ls_input ls_input_b lv_version lv_contractid.
+          ENDIF.
 
         ENDIF.
+        IF z_flag = 'E'.
+          "失败，反写结果到前台
+          LOOP AT lt_ebeln2 INTO ls_ebeln2 WHERE ebeln = gs_head-ebeln.
+            ls_ebeln2-light = '@0A@'.
+            ls_ebeln2-msg = '' && g_message_id.
+            MODIFY lt_ebeln2 FROM ls_ebeln2.
+            CLEAR ls_ebeln2.
+          ENDLOOP.
+        ENDIF.
 
-        CLEAR gs_head.
+        CLEAR:gs_head,g_message_id.
       ENDLOOP.
     ENDIF.
   ENDIF.
@@ -1569,5 +1571,616 @@ FORM send_message .
 
   IF sy-ucomm = 'GZ'.
     PERFORM frm_print USING 'B'.
+  ENDIF.
+ENDFORM.
+
+
+
+
+"调用第一个接口
+FORM z_interface_first USING l_encode  CHANGING z_flag g_message_id ls_input TYPE zmt_sap2sign_send_ret_new lv_version lv_contractid.
+  DATA:ls_output1         TYPE zmt_sap2sign_send_file,
+       ls_output1_content TYPE zdt_sap2sign_send_file_content,
+       ls_input1          TYPE zmt_sap2sign_send_file_ret,
+       ls_input1_data     TYPE zdt_sap2sign_send_file_ret_dat,
+       lr_proxy           TYPE REF TO zco_si_sap2sign_send_new_out.
+
+  DATA: ls_zmmt0032_detail TYPE zmmt0032_detail,
+        lt_zmmt0032_detail LIKE TABLE OF ls_zmmt0032_detail.
+  ls_output1_content-code = gs_head-ebeln.
+  ls_output1_content-base64 = l_encode.
+  ls_output1_content-name = gs_head-ebeln.
+  IF gs_head-bukrs = '8100'.
+    ls_output1_content-name = '汕头仙乐' && sy-datum && '采购订单' && gs_head-ebeln.
+  ELSEIF gs_head-bukrs = '8200'.
+    ls_output1_content-name = '安徽仙乐' && sy-datum && '采购订单' && gs_head-ebeln.
+  ENDIF.
+  ls_output1_content-sign_count = '2'.
+  ls_output1_content-doc_name = ls_output1_content-name .
+  ls_output1_content-creator = sy-uname."sy-uname.
+  ls_output1_content-enterprise_id = gs_head-bukrs."gs_head-bukrs.
+  ls_output1_content-sync_url = 'http://sappodapp.siriopharma.com:50000/dir/wsdl?p=ic/81e317c749ae3cf6adced28fab043cc7'.
+
+  "下面的测试数据后面删掉
+  ls_output1_content-creator = 'L77cz04tvotuh6'.
+  ls_output1_content-enterprise_id = 'L7702u'.
+
+  CLEAR ls_zmmt0032.
+  SELECT SINGLE
+    MAX( version ) AS version
+  FROM zmmt0032_detail
+  INTO @lv_version
+  WHERE code = @gs_head-ebeln
+    AND bukrs = @gs_head-bukrs.
+  IF lv_version IS NOT INITIAL.
+    ls_zmmt0032-version = lv_version + 1.
+    ls_zmmt0032-version = zcl_bc_public=>conv_by_ddic( i_input = ls_zmmt0032-version i_abap = 'BUKRS').
+    lv_version  = ls_zmmt0032-version.
+  ELSE.
+    ls_zmmt0032-version = '0001'.
+    lv_version = '0001'.
+  ENDIF.
+  ls_output1_content-code = ls_output1_content-code && '-' && ls_zmmt0032-version.
+
+
+  "根据上面的字段，获取对应的签名
+  DATA: json TYPE string,
+        data TYPE xstring,
+        key  TYPE xstring.
+  DATA: lv_str  TYPE string,
+        lv_xstr TYPE xstring.
+
+  key = cl_abap_hmac=>string_to_xstring( if_input = '7a8b8d6bf68c482f9a5854f371bedb9f' && 'contract003' ).
+  json = /ui2/cl_json=>serialize( data = ls_output1_content compress = abap_false pretty_name = /ui2/cl_json=>pretty_mode-camel_case numc_as_string = abap_true ).
+  data = cl_abap_hmac=>string_to_xstring( if_input = json ).
+
+  TRY.
+      CALL METHOD cl_abap_hmac=>calculate_hmac_for_raw
+        EXPORTING
+*         if_algorithm     = 'SHA1'
+          if_key           = key
+          if_data          = data
+*         if_length        = 0
+        IMPORTING
+*         ef_hmacstring    =
+          ef_hmacxstring   = lv_xstr
+          ef_hmacb64string = lv_str.
+    CATCH cx_abap_message_digest .
+  ENDTRY.
+  MOVE-CORRESPONDING ls_output1_content TO ls_output1-mt_sap2sign_send_file.
+  CONCATENATE 'HMAC-SHA1' lv_str INTO ls_output1-mt_sap2sign_send_file-content SEPARATED BY space.
+
+
+  DATA: ls_output TYPE zmt_sap2sign_send_new.
+
+  ls_output-mt_sap2sign_send_new-info = json.
+  ls_output-mt_sap2sign_send_new-action = 'createByFile'.
+  CONCATENATE 'HMAC-SHA1' lv_str INTO ls_output-mt_sap2sign_send_new-sign SEPARATED BY space.
+
+  DATA: lo_server_context TYPE REF TO if_ws_server_context.
+  DATA: g_message_protocol TYPE REF TO if_wsprotocol_message_id.
+
+  DATA: g_lo_sys_exception TYPE REF TO cx_ai_system_fault.
+  DATA: lv_intf_id(6) TYPE c,
+        lv_err_info   TYPE bapi_msg.
+
+
+
+  "逐步开始调用接口
+  "第一步接口，SAP下发采购订单合同给印章系统
+  "创建日志关联主键，类似于表头主键
+  "获取Message ID
+  g_message_id = zcl_bc_public=>get_guid( ).
+
+  "记录接口出参日志
+  zcl_bc_public=>write_log( iv_logid = CONV #( g_message_id )
+                            iv_intid = 'MM070A' iv_ptype = 'O'
+                            is_data = ls_output ).
+  TRY.
+      CREATE OBJECT lr_proxy.
+      lr_proxy->si_sap2sign_send_new_out( EXPORTING output = ls_output
+        IMPORTING input = ls_input ).
+
+    CATCH cx_root INTO DATA(lr_root).
+      MESSAGE lr_root->get_text(  ) TYPE 'I'.
+      EXIT.
+  ENDTRY.
+
+  "记录合同ID
+  lv_contractid = ls_input-mt_sap2sign_send_ret_new-data-contract_id.
+
+  "记录接口入参日志
+  zcl_bc_public=>write_log( iv_logid = CONV #( g_message_id )
+                                iv_intid = 'MM070A' iv_ptype = 'I'
+                                is_data = ls_input ).
+  CLEAR:ls_zmmt0032_detail,lt_zmmt0032_detail.
+  "写入日志到过程记录表中
+  zcl_bc_zmm032=>write_log( iv_logid = CONV #( g_message_id )
+                            iv_intid = gs_head-ebeln
+                            is_data = ls_output1
+                            is_data2 = ls_input
+                            zbs = '1'
+                            status = ls_input-mt_sap2sign_send_ret_new-status && ''
+                            msg = ls_input-mt_sap2sign_send_ret_new-msg && ''
+                            version =  lv_version
+                            bukrs = gs_head-bukrs
+                            contractid = lv_contractid
+                              ).
+  IF ls_input-mt_sap2sign_send_ret_new-status = '1'.
+    "上面第一步处理好了，接下来处理下一个接口
+    z_flag = 'S'.
+    "写入数据到ZMMT0032数据表中
+    ls_zmmt0032-bukrs = gs_head-bukrs.
+    ls_zmmt0032-ebeln = gs_head-ebeln.
+    ls_zmmt0032-user_no = sy-uname.
+    ls_zmmt0032-ernam = sy-uname.
+    ls_zmmt0032-aedat = sy-datum.
+    ls_zmmt0032-last_changed_time = sy-datum.
+    ls_zmmt0032-lifnr = gs_head-lifnr.
+    ls_zmmt0032-sign = ls_input-mt_sap2sign_send_ret_new-data-status.
+    ls_zmmt0032-name = ls_input-mt_sap2sign_send_ret_new-data-contract_name.
+    ls_zmmt0032-flag = ls_input-mt_sap2sign_send_ret_new-data-contract_id.
+    ls_zmmt0032-flag_docu = ls_input-mt_sap2sign_send_ret_new-data-code.
+    INSERT zmmt0032 FROM ls_zmmt0032.
+    COMMIT WORK.
+  ELSEIF ls_input-mt_sap2sign_send_ret_new-status <> '1'.
+
+    "存在错误，需要反写数据到ALV中，并中断后续的操作
+    z_flag = 'E'.
+
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form Z_INTERFACE_SECOND
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> LS_INPUT
+*&      --> G_MESSAGE_ID
+*&      <-- Z_FLAG
+*&      <-- LS_INPUT_B
+*&---------------------------------------------------------------------*
+FORM z_interface_second  USING    ls_input TYPE zmt_sap2sign_send_ret_new
+                                  g_message_id TYPE sxmsguid
+
+                         CHANGING z_flag TYPE char1
+                                  ls_input_b TYPE zmt_sap2sign_send_ret_b lv_version
+                                  lv_contractid.
+
+  DATA:ls_output_b  TYPE zmt_sap2sign_send_b,
+       signers_t    TYPE zdt_sap2sign_send_b_signer_tab,
+       signers_l    TYPE zdt_sap2sign_send_b_signers,
+       sign_files_t TYPE zdt_sap2sign_send_b_sign_f_tab,
+       sign_files_l TYPE zdt_sap2sign_send_b_sign_files.
+  "定义结构
+  DATA:BEGIN OF keyword_sign_controls_d,
+         id(20),
+         type(100),
+         page_num(10),
+         keyword(10),
+       END OF keyword_sign_controls_d.
+  DATA:keyword_sign_controls LIKE TABLE OF keyword_sign_controls_d WITH HEADER LINE.
+  DATA:BEGIN OF cross_sign_controls_d,
+         id(20),
+         page_num(10),
+         y(10),
+       END OF cross_sign_controls_d.
+  DATA:cross_sign_controls LIKE TABLE OF cross_sign_controls_d WITH HEADER LINE.
+  DATA:BEGIN OF  sign_files_d,
+         doc_id(100),
+         keyword_sign_controls LIKE TABLE OF keyword_sign_controls_d,
+         cross_sign_controls   LIKE TABLE OF cross_sign_controls,
+       END OF sign_files_d.
+  DATA: sign_files LIKE TABLE OF sign_files_d WITH HEADER LINE.
+  DATA:BEGIN OF signers_d,
+         signer_type(10),
+         user_id(20),
+         enterprise_id(30),
+         controls_type(20),
+         setting(10),
+         sign_files        LIKE TABLE OF sign_files,
+       END OF signers_d.
+  DATA:signers LIKE TABLE OF signers_d WITH HEADER LINE.
+  DATA:BEGIN OF addsignerbyfile,
+         contract_id(100),
+         signers          LIKE TABLE OF signers,
+       END OF addsignerbyfile.
+
+
+
+
+
+  ls_output_b-mt_sap2sign_send_b-contract_id = ls_input-mt_sap2sign_send_ret_new-data-contract_id.
+  addsignerbyfile-contract_id = ls_input-mt_sap2sign_send_ret_new-data-contract_id.
+  "首先先是仙乐的结构
+  "签署合同文档Id
+  sign_files_l-doc_id = ls_input-mt_sap2sign_send_ret_new-data-doc_id.
+  sign_files-doc_id = ls_input-mt_sap2sign_send_ret_new-data-doc_id.
+  "控件id
+  sign_files_l-keyword_sign_controls-id = '01'.
+  keyword_sign_controls-id = '01'.
+  "控件类型
+  sign_files_l-keyword_sign_controls-type = 'signet'.
+  keyword_sign_controls-type = 'signet'.
+  "多页签时为必填项 指定盖章页
+  sign_files_l-keyword_sign_controls-page_num = '0'.
+  keyword_sign_controls-page_num = '0'.
+  "关键字
+  sign_files_l-keyword_sign_controls-keyword = gs_head-fax_number.
+  keyword_sign_controls-keyword = gs_head-fax_number.
+  "骑缝章控件
+
+  "关键字
+  sign_files_l-cross_sign_controls-id = '02'.
+  cross_sign_controls-id = '02'.
+  sign_files_l-cross_sign_controls-page_num = '0'.
+  cross_sign_controls-page_num = '0'.
+  sign_files_l-cross_sign_controls-y = '3'.
+  cross_sign_controls-y = '3'.
+  APPEND sign_files_l TO sign_files_t.
+  APPEND cross_sign_controls TO cross_sign_controls.
+  APPEND keyword_sign_controls TO keyword_sign_controls.
+  APPEND cross_sign_controls TO sign_files-cross_sign_controls.
+  APPEND keyword_sign_controls TO sign_files-keyword_sign_controls.
+
+
+
+*  signfiles_d-crosssigncontrols = crosssigncontrols.
+*  signfiles_d-keywordsigncontrols = keywordsigncontrols.
+  APPEND sign_files TO sign_files.
+
+  signers_l-sign_files = sign_files_t.
+  APPEND sign_files TO signers-sign_files.
+*  signers-signfiles = signfiles.
+  signers-setting = 'true'.
+  signers_l-signer_type = '2'.
+  signers-signer_type = '2'.
+  signers_l-user_id = sy-uname.
+  signers-user_id = sy-uname.
+  signers_l-enterprise_id = gs_head-bukrs.
+  signers-enterprise_id = gs_head-bukrs.
+  "下面这一行后期去掉
+
+  signers_l-enterprise_id = 'L7702u'.
+  signers_l-user_id = 'L77cz04tvotuh6'.
+  signers-enterprise_id = 'L7702u'.
+  signers-user_id = 'L77cz04tvotuh6'.
+
+  APPEND signers_l TO ls_output_b-mt_sap2sign_send_b-signers.
+  APPEND signers TO signers.
+  APPEND signers TO addsignerbyfile-signers.
+*  addsignerbyfile-signers = signers.
+
+  "接下来的是供应商的
+  CLEAR:signers,signers_l.
+  CLEAR sign_files.
+  sign_files-doc_id = ls_input-mt_sap2sign_send_ret_new-data-doc_id.
+  APPEND sign_files TO sign_files.
+  APPEND sign_files TO signers-sign_files.
+
+  signers_l-signer_type = '2'.
+  signers-signer_type = '2'.
+  signers_l-enterprise_id = gs_head-lifnr.
+  signers-enterprise_id = gs_head-lifnr.
+  signers_l-user_id = gs_head-lifnr.
+  signers-user_id = gs_head-lifnr.
+  APPEND signers_l TO ls_output_b-mt_sap2sign_send_b-signers.
+  signers-controls_type = 'signet'.
+  signers-enterprise_id = 'L77034'.
+  signers-user_id = 'L77d2qt7jy835t'.
+  signers-setting = 'false'.
+
+  sign_files-doc_id = ls_input-mt_sap2sign_send_ret_new-data-doc_id.
+  APPEND sign_files TO sign_files.
+
+  APPEND signers TO signers.
+  APPEND signers TO addsignerbyfile-signers.
+
+
+
+  "根据上面的字段，获取对应的签名
+  DATA: json TYPE string.
+  DATA: json2 TYPE string,
+        data  TYPE xstring,
+        key   TYPE xstring.
+  DATA: lv_str  TYPE string,
+        lv_xstr TYPE xstring.
+  DATA:lv_a LIKE sy-fdpos,
+       lv_b LIKE sy-fdpos,
+       lv_c LIKE sy-fdpos,
+       lv_d LIKE sy-fdpos.
+
+  key = cl_abap_hmac=>string_to_xstring( if_input = '7a8b8d6bf68c482f9a5854f371bedb9f' && 'contract003' ).
+  json = /ui2/cl_json=>serialize( data = addsignerbyfile compress = abap_true pretty_name = /ui2/cl_json=>pretty_mode-camel_case numc_as_string = abap_true ).
+  "替换controlstype参数，加上中括号
+  json2 = json.
+  lv_d = strlen( json ).
+  SEARCH json FOR 'controlstype'.
+  lv_a = sy-fdpos + 14.
+  lv_b = lv_a + 8.
+  lv_c =  lv_d - lv_b .
+  json = json2+0(lv_a) && '[' && json2+lv_a(8) && ']' && json2+lv_b(lv_c).
+  REPLACE '"true"' IN json WITH 'true'.
+  REPLACE '"false"' IN json WITH 'false'.
+
+
+
+  data = cl_abap_hmac=>string_to_xstring( if_input = json ).
+
+  TRY.
+      CALL METHOD cl_abap_hmac=>calculate_hmac_for_raw
+        EXPORTING
+*         if_algorithm     = 'SHA1'
+          if_key           = key
+          if_data          = data
+*         if_length        = 0
+        IMPORTING
+*         ef_hmacstring    =
+          ef_hmacxstring   = lv_xstr
+          ef_hmacb64string = lv_str.
+    CATCH cx_abap_message_digest .
+  ENDTRY.
+
+  DATA: ls_output TYPE zmt_sap2sign_send_new.
+
+  ls_output-mt_sap2sign_send_new-info = json.
+  ls_output-mt_sap2sign_send_new-action = 'addSignerByFile'.
+  CONCATENATE 'HMAC-SHA1' lv_str INTO ls_output-mt_sap2sign_send_new-sign SEPARATED BY space.
+
+  DATA: lo_server_context TYPE REF TO if_ws_server_context.
+  DATA: g_message_protocol TYPE REF TO if_wsprotocol_message_id.
+  DATA: g_message_id2 TYPE sxmsguid.
+  DATA: g_lo_sys_exception TYPE REF TO cx_ai_system_fault.
+  DATA: lv_intf_id(6) TYPE c,
+        lv_err_info   TYPE bapi_msg,
+        lr_proxy      TYPE REF TO zco_si_sap2sign_send_b_out.
+
+  TRY .
+      lo_server_context   = cl_proxy_access=>get_server_context( ).
+      g_message_protocol ?= lo_server_context->get_protocol( if_wsprotocol=>message_id ).
+      "获取Message ID
+      g_message_id2 = g_message_protocol->get_message_id( ).
+
+    CATCH cx_ai_system_fault INTO g_lo_sys_exception.
+      EXIT.
+  ENDTRY.
+  "记录接口出参日志
+  zcl_bc_public=>write_log( iv_logid = CONV #( g_message_id2 )
+                                  iv_intid = 'MM070B' iv_ptype = 'O'
+                                  is_data = ls_output_b ).
+
+  TRY.
+      CREATE OBJECT lr_proxy.
+      lr_proxy->si_sap2sign_send_b_out( EXPORTING output = ls_output
+        IMPORTING input = ls_input_b ).
+
+    CATCH cx_root INTO DATA(lr_root).
+      MESSAGE lr_root->get_text(  ) TYPE 'I'.
+      EXIT.
+  ENDTRY.
+
+  "记录接口入参日志
+  zcl_bc_public=>write_log( iv_logid = CONV #( g_message_id2 )
+                                iv_intid = 'MM070B' iv_ptype = 'I'
+                                is_data = ls_input_b ).
+  "写入日志到过程记录表中
+  zcl_bc_zmm032=>write_log( iv_logid = CONV #( g_message_id )
+                            iv_intid = gs_head-ebeln
+                            is_data = ls_output_b
+                            is_data2 = ls_input_b
+                            zbs = '2'
+                            status = ls_input_b-mt_sap2sign_send_ret_b-status && ''
+                            msg = ls_input_b-mt_sap2sign_send_ret_b-msg && ''
+                            version =  lv_version
+                            bukrs = gs_head-bukrs
+                            contractid = lv_contractid
+                              ).
+  IF ls_input_b-mt_sap2sign_send_ret_b-status = '1'.
+    "上面第一步处理好了，接下来处理第二个接口
+    z_flag = 'S'.
+    "更新ZMMT0032表
+    ls_zmmt0032-sign = ls_input_b-mt_sap2sign_send_ret_b-data-status.
+    ls_zmmt0032-aedat = sy-datum.
+    ls_zmmt0032-last_changed_time = sy-datum.
+    ls_zmmt0032-approve_last_time = ls_input_b-mt_sap2sign_send_ret_b-data-last_sign_time.
+    DELETE FROM  zmmt0032 WHERE ebeln = ls_zmmt0032-ebeln AND version = ls_zmmt0032-version AND bukrs = ls_zmmt0032-bukrs.
+    COMMIT WORK.
+    LOOP AT ls_input_b-mt_sap2sign_send_ret_b-data-signers INTO DATA(ls_line).
+      ls_zmmt0032-approve_id = ls_line-signer_id.
+      ls_zmmt0032-approve_user_id = ls_line-user_id.
+      ls_zmmt0032-approve_name = ls_line-user_name.
+      ls_zmmt0032-approve_sign = ls_line-sign_status.
+
+      INSERT zmmt0032 FROM ls_zmmt0032.
+      COMMIT WORK.
+      APPEND ls_zmmt0032 TO lt_zmmt0032.
+      CLEAR ls_line.
+    ENDLOOP.
+
+  ELSEIF ls_input_b-mt_sap2sign_send_ret_b-status <> '1'.
+
+    "存在错误，需要反写数据到ALV中，并中断后续的操作
+    z_flag = 'E'.
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form Z_INTERFACE_THIRD
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> G_MESSAGE_ID
+*&      <-- Z_FLAG
+*&      <-- LS_INPUT_B
+*&---------------------------------------------------------------------*
+FORM z_interface_third  USING    g_message_id TYPE sxmsguid
+                        CHANGING z_flag TYPE char1
+                                 ls_input TYPE zmt_sap2sign_send_ret_new
+                                 ls_input_b TYPE zmt_sap2sign_send_ret_b
+                                 lv_version
+                                 lv_contractid.
+  DATA:ls_output_c TYPE zmt_sap2sign_send_c,
+       ls_input_c  TYPE zmt_sap2sign_send_ret_c.
+  "定义结构
+  DATA:BEGIN OF sign_control,
+         1(100),
+         2(100),
+       END OF sign_control.
+
+  DATA:BEGIN OF sign_files_d,
+         doc_id(100),
+         sign_control LIKE sign_control,
+       END OF sign_files_d.
+  DATA:sign_files LIKE TABLE OF sign_files_d WITH HEADER LINE.
+  DATA:BEGIN OF signer_d,
+         signer_id(100),
+         sign_files     LIKE TABLE OF sign_files,
+       END OF signer_d.
+  DATA signer LIKE TABLE OF signer_d WITH HEADER LINE.
+  DATA:BEGIN OF signbyfile,
+         contract_id(100),
+         signer           LIKE signer,
+
+       END OF signbyfile.
+
+
+  "文档ID
+  ls_output_c-mt_sap2sign_send_c-contract_id = ls_input_b-mt_sap2sign_send_ret_b-data-contract_id.
+  signbyfile-contract_id = ls_input_b-mt_sap2sign_send_ret_b-data-contract_id.
+  "签署人ID
+  READ TABLE ls_input_b-mt_sap2sign_send_ret_b-data-signers INTO DATA(ls_signers) INDEX 1.
+  IF sy-subrc = 0.
+    ls_output_c-mt_sap2sign_send_c-signer-signer_id = ls_signers-signer_id.
+  ENDIF.
+  ls_output_c-mt_sap2sign_send_c-signer-signer_id = ls_signers-signer_id.
+  signer-signer_id = ls_signers-signer_id.
+  "合同文档唯一标识
+  ls_output_c-mt_sap2sign_send_c-signer-sign_files-doc_id = ls_input-mt_sap2sign_send_ret_new-data-doc_id.
+  sign_files-doc_id = ls_input-mt_sap2sign_send_ret_new-data-doc_id.
+  "印章ID
+  SELECT SINGLE
+    signcontrol
+  FROM zmmt0032_yzid
+  INTO sign_control-1
+  WHERE zburks = ls_signers-signer_id.
+  sign_control-2  = sign_control-1.
+*  sign_files-sign_control = ls_output_c-mt_sap2sign_send_c-signer-sign_files-sign_control.
+  sign_control-1 = 'sealId:1453552973069344769'.
+  sign_control-2 = 'sealId:1453552973069344769'.
+*  SELECT SINGLE
+*    SIGNCONTROL
+*  FROM ZMMT0032_YZID
+*  INTO sign_control-1
+*  WHERE BURKS = ls_signers-user_id.
+*  sign_control-2 = sign_control-1.
+  MOVE sign_control TO sign_files-sign_control.
+  APPEND sign_files TO sign_files.
+  APPEND sign_files TO signer-sign_files.
+  APPEND signer TO signer.
+  MOVE signer TO signbyfile-signer.
+
+  "根据上面的字段，获取对应的签名
+  DATA: json TYPE string,
+        data TYPE xstring,
+        key  TYPE xstring.
+  DATA: lv_str  TYPE string,
+        lv_xstr TYPE xstring.
+
+  key = cl_abap_hmac=>string_to_xstring( if_input = '7a8b8d6bf68c482f9a5854f371bedb9f' && 'contract003' ).
+  json = /ui2/cl_json=>serialize( data = signbyfile compress = abap_false pretty_name = /ui2/cl_json=>pretty_mode-camel_case numc_as_string = abap_true ).
+  data = cl_abap_hmac=>string_to_xstring( if_input = json ).
+
+  TRY.
+      CALL METHOD cl_abap_hmac=>calculate_hmac_for_raw
+        EXPORTING
+*         if_algorithm     = 'SHA1'
+          if_key           = key
+          if_data          = data
+*         if_length        = 0
+        IMPORTING
+*         ef_hmacstring    =
+          ef_hmacxstring   = lv_xstr
+          ef_hmacb64string = lv_str.
+    CATCH cx_abap_message_digest .
+  ENDTRY.
+
+  DATA: ls_output TYPE zmt_sap2sign_send_new.
+
+  ls_output-mt_sap2sign_send_new-info = json.
+  ls_output-mt_sap2sign_send_new-action = 'signByFile'.
+  CONCATENATE 'HMAC-SHA1' lv_str INTO ls_output-mt_sap2sign_send_new-sign SEPARATED BY space.
+
+  DATA: lo_server_context TYPE REF TO if_ws_server_context.
+  DATA: g_message_protocol TYPE REF TO if_wsprotocol_message_id.
+  DATA: g_message_id3 TYPE sxmsguid.
+  DATA: g_lo_sys_exception TYPE REF TO cx_ai_system_fault.
+  DATA: lv_intf_id(6) TYPE c,
+        lv_err_info   TYPE bapi_msg,
+        lr_proxy      TYPE REF TO zco_si_sap2sign_send_c_out.
+
+  TRY .
+      lo_server_context   = cl_proxy_access=>get_server_context( ).
+      g_message_protocol ?= lo_server_context->get_protocol( if_wsprotocol=>message_id ).
+      "获取Message ID
+      g_message_id3 = g_message_protocol->get_message_id( ).
+
+    CATCH cx_ai_system_fault INTO g_lo_sys_exception.
+      EXIT.
+  ENDTRY.
+  "记录接口出参日志
+  zcl_bc_public=>write_log( iv_logid = CONV #( g_message_id3 )
+                                  iv_intid = 'MM070C' iv_ptype = 'O'
+                                  is_data = ls_output_c ).
+
+  TRY.
+      CREATE OBJECT lr_proxy.
+      lr_proxy->si_sap2sign_send_c_out( EXPORTING output = ls_output
+        IMPORTING input = ls_input_c ).
+
+    CATCH cx_root INTO DATA(lr_root).
+      MESSAGE lr_root->get_text(  ) TYPE 'I'.
+      EXIT.
+  ENDTRY.
+
+  "记录接口入参日志
+  zcl_bc_public=>write_log( iv_logid = CONV #( g_message_id3 )
+                                iv_intid = 'MM070C' iv_ptype = 'I'
+                                is_data = ls_input_c ).
+  "写入日志到过程记录表中
+  zcl_bc_zmm032=>write_log( iv_logid = CONV #( g_message_id )
+                            iv_intid = gs_head-ebeln
+                            is_data = ls_output_c
+                            is_data2 = ls_input_c
+                            zbs = '3'
+                            status = ls_input_c-mt_sap2sign_send_ret_c-status && ''
+                            msg = ls_input_c-mt_sap2sign_send_ret_c-msg && ''
+                            version =  lv_version
+                            bukrs = gs_head-bukrs
+                            contractid = lv_contractid
+                              ).
+  IF ls_input_c-mt_sap2sign_send_ret_c-status = '1'.
+    "上面第一步处理好了，接下来处理第3部接口
+    z_flag = 'S'.
+
+
+    DELETE FROM  zmmt0032 WHERE ebeln = ls_zmmt0032-ebeln AND version = ls_zmmt0032-version AND bukrs = ls_zmmt0032-bukrs.
+    COMMIT WORK.
+    LOOP AT ls_input_c-mt_sap2sign_send_ret_c-data-signers INTO DATA(ls_line).
+      READ TABLE lt_zmmt0032 INTO ls_zmmt0032 WITH KEY version = lv_version
+                                                       ebeln = gs_head-ebeln
+                                                       bukrs = gs_head-bukrs
+                                                       approve_id = ls_line-signer_id.
+      IF sy-subrc = 0.
+        ls_zmmt0032-sign = ls_input_c-mt_sap2sign_send_ret_c-data-status.
+        ls_zmmt0032-approve_sign = ls_line-sign_status.
+        MODIFY TABLE lt_zmmt0032 FROM ls_zmmt0032.
+        MODIFY zmmt0032 FROM ls_zmmt0032.
+        COMMIT WORK.
+      ENDIF.
+      CLEAR:ls_line,ls_zmmt0032.
+    ENDLOOP.
+  ELSEIF ls_input_c-mt_sap2sign_send_ret_c-status <> '1'.
+
+    "存在错误，需要反写数据到ALV中，并中断后续的操作
+    z_flag = 'E'.
   ENDIF.
 ENDFORM.

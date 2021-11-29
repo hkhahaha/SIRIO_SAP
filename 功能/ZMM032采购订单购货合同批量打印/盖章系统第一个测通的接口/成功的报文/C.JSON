@@ -1,0 +1,64 @@
+{
+    "contractId": "1465202759769952258",
+    "signer": {
+        "signerId": "1465202760776585217",
+        "signFiles": [
+            {
+                "docId": "1465202759774146562",
+                "signControl": {
+                    "1": "sealId:1453552973069344769",
+                    "2": "sealId:1453552973069344769"
+                }
+            }
+        ]
+    }
+}
+
+{
+    "code": 0,
+    "msg": "请求成功",
+    "data": {
+        "code": "4500001429-0036",
+        "contractId": 1465202759769952258,
+        "contractName": "汕头仙乐20211129采购订单4500001429",
+        "status": 2,
+        "enterpriseId": "L7702u",
+        "signers": [
+            {
+                "signerId": 1465202760776585217,
+                "userId": "L77cz04tvotuh6",
+                "enterpriseId": "L7702u",
+                "userName": "纪丽玲",
+                "signStatus": 3,
+                "docList": [
+                    {
+                        "docId": 1465202759774146562,
+                        "docName": "汕头仙乐20211129采购订单4500001429"
+                    }
+                ]
+            },
+            {
+                "signerId": 1465202760784973826,
+                "userId": "L77d2qt7jy835t",
+                "enterpriseId": "L77034",
+                "userName": "测试",
+                "signStatus": 2,
+                "docList": [
+                    {
+                        "docId": 1465202759774146562,
+                        "docName": "汕头仙乐20211129采购订单4500001429"
+                    }
+                ]
+            }
+        ],
+        "lastSignTime": "2021-11-29 14:15:38",
+        "documents": [
+            {
+                "docId": 1465202759774146562,
+                "docName": "汕头仙乐20211129采购订单4500001429"
+            }
+        ]
+    },
+    "message": "请求成功",
+    "status": 1
+}

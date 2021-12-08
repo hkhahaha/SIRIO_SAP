@@ -27,12 +27,12 @@ INITIALIZATION.
   SELECT-OPTIONS: s_bsart FOR ekko-bsart."凭证类型
   SELECT-OPTIONS: s_bedat FOR ekko-bedat."凭证日期
 
-  PARAMETERS: p_werks TYPE ekpo-werks.
+  PARAMETERS: p_werks TYPE ekpo-werks OBLIGATORY.
   SELECT-OPTIONS: s_ernam FOR ekko-ernam."制单人
   SELECT-OPTIONS: s_ver FOR ls_zmmt0032-version MODIF ID m3."版本号
   SELECT-OPTIONS: s_date FOR ls_zmmt0032-last_changed_time MODIF ID m3."记录建立日期
   SELECT-OPTIONS: s_flag FOR ls_zmmt0032-flag MODIF ID m3."合同唯一标识
-  SELECT-OPTIONS: s_sign FOR ls_zmmt0032-sign MODIF ID m3."合同状态
+  PARAMETERS: p_sign TYPE zmmt0032-sign MODIF ID m3 OBLIGATORY."合同状态
 
   SELECTION-SCREEN END OF BLOCK b1.
 *

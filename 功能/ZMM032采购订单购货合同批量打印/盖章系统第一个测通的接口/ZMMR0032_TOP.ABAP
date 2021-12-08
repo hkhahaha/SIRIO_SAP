@@ -80,3 +80,5 @@ DATA: BEGIN OF ls_ebeln2,
 DATA lt_ebeln2 LIKE TABLE OF ls_ebeln2.
 
 DATA: go_alv_grid TYPE REF TO cl_gui_alv_grid.
+
+DATA:ls_zmmt0032_header TYPE zmmt0032_header.

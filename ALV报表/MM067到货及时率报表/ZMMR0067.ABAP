@@ -283,13 +283,14 @@ DATA : gt_makt TYPE TABLE OF makt .
 *&---------------------------------------------------------------------*
 * GLOBAL VARIABLE
 *&---------------------------------------------------------------------*
-DATA:sumbatch(4)        TYPE i,
-     latebatch(4)       TYPE i,
-     intimenobatch(4)   TYPE i,
-     intimerate_tmp(5)  TYPE p DECIMALS 2,
+DATA:sumbatch(4)         TYPE i,
+     latebatch(4)        TYPE i,
+     intimenobatch(4)    TYPE i,
+     intimerate_tmp(5)   TYPE p DECIMALS 2,
      intimerate(7)   ,
-     intimerate2_tmp(5) TYPE p DECIMALS 2,
-     intimerate2(7)  .
+     intimerate2_tmp(5)  TYPE p DECIMALS 2,
+     intimerate2(7)  ,
+     intime_close_six(4) TYPE i.
 DATA:i_alv_top_of_page TYPE slis_t_listheader.
 *&---------------------------------------------------------------------*
 * SELECTION-SCREEN
@@ -2416,6 +2417,11 @@ FORM sub_build_header .
       "及时未齐备批次
     ELSEIF gs_alv-zzsdt = '及时未齐备到货'.
       intimenobatch = intimenobatch + 1.
+      "设置第六类的数据：及时未齐备到货的数据中且状态为关闭的数据；Seashell 20220221
+      IF gs_alv-zslzt = 4.
+        intime_close_six = intime_close_six + 1.
+      ENDIF.
+      "end 20220221
     ENDIF.
   ENDLOOP.
 
@@ -2424,7 +2430,9 @@ FORM sub_build_header .
     intimerate_tmp = ( sumbatch - latebatch ) / sumbatch * 100.
     intimerate = intimerate_tmp && '%'.
     "及时齐备到货率
-    intimerate2_tmp = ( sumbatch - latebatch - intimenobatch ) / sumbatch * 100.
+*    intimerate2_tmp = ( sumbatch - latebatch - intimenobatch ) / sumbatch * 100.
+    "及时齐备到货率新逻辑：（1-2-3+6）/1得出百分比
+    intimerate2_tmp = ( sumbatch - latebatch - intimenobatch + intime_close_six ) / sumbatch * 100.
     intimerate2 = intimerate2_tmp && '%'.
   ENDIF.
 

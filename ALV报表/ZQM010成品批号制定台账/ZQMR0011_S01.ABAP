@@ -1,12 +1,17 @@
 *&---------------------------------------------------------------------*
 *& 包含               ZQMR0011_S01
 *&---------------------------------------------------------------------*
-SELECTION-SCREEN: BEGIN OF BLOCK BLK1 WITH FRAME TITLE TEXT-B01.
-  PARAMETERS: P_WERKS TYPE AFPO-PWERK OBLIGATORY.
-  SELECT-OPTIONS: S_ERSDA FOR MCHA-ERSDA.               " 日期
-  SELECT-OPTIONS: S_KDAUF FOR AFPO-KDAUF.               " 销售订单号
-  SELECT-OPTIONS: S_SORT1 FOR BUT000-BU_SORT1.          " 客户检索号
-  SELECT-OPTIONS: S_MATNR FOR AFPO-MATNR.               " 客户检索号
-  SELECT-OPTIONS: S_CHARG FOR MSEG-CHARG.               " 工艺批号
-  SELECT-OPTIONS: S_SMATN FOR MSEG-MATNR.               " S产品代码
-SELECTION-SCREEN:END OF BLOCK BLK1.
+TYPES:BEGIN OF ty_range,
+        zcpdy(20),
+      END OF ty_range.
+DATA lt_range TYPE TABLE OF ty_range WITH HEADER LINE.
+SELECTION-SCREEN: BEGIN OF BLOCK blk1 WITH FRAME TITLE TEXT-b01.
+PARAMETERS: p_werks TYPE afpo-pwerk OBLIGATORY.
+SELECT-OPTIONS: s_ersda FOR mcha-ersda.               " 日期
+SELECT-OPTIONS: s_kdauf FOR afpo-kdauf.               " 销售订单号
+SELECT-OPTIONS: s_sort1 FOR but000-bu_sort1.          " 客户检索号
+SELECT-OPTIONS: s_matnr FOR afpo-matnr.               " 客户检索号
+SELECT-OPTIONS: s_charg FOR mseg-charg.               " 工艺批号
+SELECT-OPTIONS: s_smatn FOR mseg-matnr.               " S产品代码
+SELECT-OPTIONS: s_zcpdy FOR lt_range-zcpdy.           " 包装批号
+SELECTION-SCREEN:END OF BLOCK blk1.

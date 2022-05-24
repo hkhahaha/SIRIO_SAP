@@ -9,7 +9,7 @@ TABLES: bseg,acdoca,bkpf,zfit0020a,zfit0020b,sscrfields.
 
 TYPE-POOLS: slis.
 
-DATA: BEGIN OF gt_upload OCCURS 0,
+DATA: BEGIN OF gt_upload OCCURS 0, 
 *        BUKRS LIKE BKPF-BUKRS,
 *        GJAHR LIKE BKPF-GJAHR,
 *        MONAT LIKE BKPF-MONAT,

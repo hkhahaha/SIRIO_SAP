@@ -153,7 +153,7 @@ FORM frm_maintain_bom USING    u_input TYPE zdt_plm2sap_createchange_bom_2
                                                          ai_group = ls_stpo-ai_group
                                                          ai_strateg = ls_stpo-ai_strateg
                                                          usage_prob1 = ls_stpo-usage_prob1
-*                                                         rel_cost = ls_stpo-rel_cost 这个字段是自动计算的，不比较
+                                                         rel_cost = ls_stpo-rel_cost
                                                          rec_allowd = ls_stpo-rec_allowd.
         "因为行项目有修改即先删除再新建，故PLM无法知道SAP系统bom行项目的准确valid_from日期，
         "如果用户传过来的有效日期小于当前日期，那就认为是不修改
@@ -539,7 +539,7 @@ FORM frm_create_ecn  CHANGING c_change_no TYPE aenrb-aennr.
   DATA: ls_obj_bom LIKE aenv_api01,    "标志（ECN用途）
         l_aennr    TYPE aenr-aennr.
 
-  CHECK g_guid_input IS NOT INITIAL.  "g_chtxt
+  CHECK g_chtxt IS NOT INITIAL.
 *--------------------------------------------------------------------*
 * 创建更改编号
 *--------------------------------------------------------------------*
@@ -1036,4 +1036,4 @@ FORM frm_modify_mat_bom  TABLES t_stpo TYPE tt_stpo_in
     CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
   ENDIF .
 
-ENDFORM.    
+ENDFORM.

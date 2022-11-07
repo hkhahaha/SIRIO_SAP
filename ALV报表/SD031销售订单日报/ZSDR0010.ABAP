@@ -1,16 +1,23 @@
 *&---------------------------------------------------------------------*
-*& Report ZSDR0010
-*&---------------------------------------------------------------------*
-*&
-*&---------------------------------------------------------------------*
-REPORT zsdr0010.
-*&---------------------------------------------------------------------*
 *& 程序名：ZSDR0010
 *&作者：Seashell Huang
+*&事务代码：ZSD011
 *&模块：SD模块
 *&创建日期：15.10.2019 10:51:57
 *&功能描述：销售订单日报表
 *&---------------------------------------------------------------------*
+*  Modified Recorder :
+*  Date      C#NO        Author      Content
+*  --------  ----------  ----------  ---------------
+*  20210517  S4DK904793  05168       SD：订单日报汇率问题 20210517
+*                                    1、修改VBKD取数逻辑，默认根据订单号和行项目查询，若查询不到，通过订单号查询
+*                                    2、汇率取数逻辑：货币判断是否CNY，若不是，取VBKD-KURRF会计核算汇率，若取不到，去VBKD-KURSK汇率，若汇率=1，根据货币，定价日期取TCURR表的UKURS汇率
+*                                    3、优化AUSP表，不全表查询
+*  20210604  S4DK904838  05168       SD：销售订单日报付款方式修复 20210604
+*  20211231  S4DK905471  05168       SD：添加备料单类型 20211231
+*  20220121              05025       由于组织架构调整，修改分销渠道
+*&---------------------------------------------------------------------*
+REPORT zsdr0010.
 TYPE-POOLS:slis."调用系统存在的类型池
 DATA:fieldcat TYPE lvc_t_fcat WITH HEADER LINE, "调用系统存在的FIELDCAT类型。
      layout   TYPE lvc_s_layo, "调用系统存在的LAYOUT
@@ -25,6 +32,10 @@ TYPES:BEGIN OF ty_zco,
         atwtb TYPE cawnt-atwtb, "特性值描述
       END OF ty_zco.
 DATA gv_sel_error TYPE flag.
+DATA: lt_data TYPE TABLE OF zsdt0114,
+      lt_knvv TYPE TABLE OF knvv,
+      r_vtweg TYPE vtweg,
+      error   TYPE string.
 TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部字段
         zapszt(10) , "  APS状态
         vbeln          TYPE    vbak-vbeln  , "  单据号
@@ -32,7 +43,8 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         ernam          TYPE    vbak-ernam  , "  制单人
         vkorg          TYPE    vbak-vkorg  , "  销售组织
         auart          TYPE    string  , "  订单类型
-        vtweg          TYPE    string , "  分销渠道
+        vtweg          TYPE    vbak-vtweg , "  分销渠道
+        vtweg_n        TYPE    string,    "归属分销渠道(因组织架构调整，客户可能更换渠道，但历史订单无法调整)
         werks          TYPE    vbap-werks  , "  工厂
         vkbur          TYPE    string  , "  二级部门
         mandt          TYPE    vbak-mandt  , "  集团名称
@@ -99,6 +111,21 @@ TYPES:BEGIN OF ty_all,"定义结构，用于接收VBAP、VBAK所需要的全部�
         zmeng          TYPE vbap-zmeng, "目标数量
         kpein          TYPE prcd_elements-kpein, "定价单位
         budat          TYPE aufm-budat, "过账日期
+        "最终单据信息
+        zysdj          TYPE zsdt0025-zysdj,
+        zysdh          TYPE zsdt0025-zysdh,
+        zyscj          TYPE zsdt0025-zyscj,
+        vbezz          TYPE vbap-vbeln,
+        poszz          TYPE vbap-posnr,
+        zatzz          TYPE vbap-zatpdfrq,
+        zapzz          TYPE vbap-zapszt,
+        ettzz          TYPE vbep-ettyp,
+        zplp1          TYPE mbew-zplp1, "计划价格1
+        zleix          TYPE vbak-zleix, "多方交易类型
+        "最终单据信息
+        werks2         TYPE    vbap-werks  , "  制造工厂
+        zbldlx         TYPE    string  , "备料单类型 S4DK905471
+        bstdk_e        TYPE vbkd-bstdk_e, "采购日期
       END OF ty_all.
 TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zapszt(10), "  APS状态
@@ -108,20 +135,23 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         ernam(10), "  制单人
         vkorg            TYPE    vbak-vkorg  , "  销售组织
         auart(15), "  订单类型
-        vtweg(25), "  分销渠道
+        vtweg            TYPE vbak-vtweg, "  分销渠道
+        vtwegt(20), "  分销渠道
+*        vtweg_n(25),"归属分销渠道 (因组织架构调整，客户可能更换渠道，但历史订单无法调整)
         kvgr1(25), "  销售渠道/客户类型
         werks            TYPE    vbap-werks  , "  工厂
         lgort            TYPE    lips-lgort  , "  库存地点
         vkbur(15), "  二级部门
+        vkburt(15), "  二级部门描述
         saleman(20), "  业务员
         salemanno(20),"业务员编号
         mc_name1         TYPE    but000-mc_name1, "检索项
         mandt            TYPE    vbak-mandt  , "  集团名称
         kunnr(60), "  售达方(客户名称)
-        kunn2            TYPE knvp-kunn2, "实际客户的业务员
+        kunn2(60), "实际客户的业务员
         kunnr2           TYPE    vbak-kunnr  , "  售达方(编号)
         custname(60), "  实际客户名称
-        custname2(60), "  实际客户编号
+        custname2        TYPE vbak-kunnr, "  实际客户编号
         kukla            TYPE    kna1-kukla  , "  实际客户等级
         zterm(60), "  付款方式
         zckgj(60), "  出口国家简称
@@ -178,6 +208,7 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         zzwbz            TYPE    vbap-zzwbz  , "  最晚包装时间
         bstkd_e2         TYPE    vbkd-bstkd_e, "  客户合同单号
         posex_e          TYPE    vbkd-posex_e, "  客户合同分录
+        bstdk_e          TYPE vbkd-bstdk_e, "客户采购日期
         note(100), "  生产行项目备注
         zbhcl(60), "  备货策略
         zbomqq           TYPE    vbap-zbomqq , "  BOM欠缺物料
@@ -209,7 +240,43 @@ TYPES:BEGIN OF ty_out,"定义结构，用于接收所有的ALV字段数据
         chgnr            TYPE jcds-chgnr,
         kpein            TYPE prcd_elements-kpein, "定价单位
         budat            TYPE aufm-budat, "过账日期
+        rate             TYPE vbap-kwmeng, "销售转换率
+        sel(1),
+        "最终单据信息
+        zysdj            TYPE zsdt0025-zysdj,
+        zysdh            TYPE zsdt0025-zysdh,
+        vbezz            TYPE vbap-vbeln,
+        poszz            TYPE vbap-posnr,
+        zatzz            TYPE vbap-zatpdfrq,
+        zapzz            TYPE vbap-zapszt,
+        ettzz            TYPE vbep-ettyp,
+        zleix            TYPE zsdt0022t-zleix,
+        zleit            TYPE zsdt0022t-zleit,
+        zplp1            TYPE mbew-zplp1, "计划价格1
+        "最终单据信息
+        werks2           TYPE    vbap-werks  , "  制造工厂
+        zbldlx(60), "备料单类型 S4DK905471
+        firdat           TYPE zppt0003-erdat, "最早入库日期
+        spart            TYPE vbak-spart, "产品组
+        inco1            TYPE vbkd-inco1, "国际贸易条款
       END OF ty_out.
+
+TYPES : BEGIN OF ty_vbapz ,
+          vbeln    TYPE vbap-vbeln,
+          posnr    TYPE vbap-posnr,
+          zatpdfrq TYPE vbap-zatpdfrq,
+          zapszt   TYPE vbap-zapszt,
+          ettyp    TYPE vbep-ettyp,
+          ernam    TYPE vbap-ernam,
+        END OF ty_vbapz .
+
+DATA : gs_all TYPE ty_all.
+DATA : gs_zsdt0025 TYPE zsdt0025 .
+DATA : gt_zsdt0025 TYPE TABLE OF zsdt0025 .
+DATA : gs_vbapz TYPE ty_vbapz .
+DATA : gt_vbapz TYPE TABLE OF ty_vbapz .
+DATA : gs_zsdt0022t TYPE zsdt0022t .
+DATA : gt_zsdt0022t TYPE TABLE OF zsdt0022t .
 
 ***********  ALV 定义 **********************************************
 
@@ -222,18 +289,23 @@ SELECT-OPTIONS:
 sauart    FOR   vbak-auart  ,"  订单类型
 svbeln FOR vbap-vbeln,"订单号
 sposnr FOR vbap-posnr,"行号
+s_znbjhq FOR vbap-znbjhq,
 pvkorg    FOR   vbak-vkorg  OBLIGATORY,"  销售组织
 svtweg    FOR   vbak-vtweg  OBLIGATORY,"  分销渠道
 sspart    FOR   vbak-spart  ,"  产品组
+svkbur    FOR   vbak-vkbur  ,"  销售办公室 S4DK905471
 swerks    FOR   vbap-werks  ,"  工厂
 skunnr    FOR   vbak-kunnr  ,"  客户
 sernam    FOR   vbak-ernam  ,"  创建人
 serdat    FOR   vbak-erdat  ,"  创建日期
 smatnr    FOR   vbap-matnr  ,"  物料编码
 settyp    FOR   vbep-ettyp  ,"  计划行类别
+*S_ETTZZ   FOR VBEP-ETTYP  ," 最终单据计划行类别
 s_kunn2 FOR knvp-kunn2,"实际业务员
 s_udate1 FOR jcds-udate,"一审时间
-s_udate FOR jcds-udate."二审时间
+s_udate FOR jcds-udate,"二审时间
+spmatn FOR vbap-pmatn."定价参考物料
+SELECT-OPTIONS:vtweg_n FOR vbak-vtweg NO-DISPLAY ."渠道迁移
 
 SELECTION-SCREEN BEGIN OF LINE.
 SELECTION-SCREEN COMMENT 1(20) TEXT-002.
@@ -281,6 +353,7 @@ END-OF-SELECTION.
 
 
 FORM getdata.
+  PERFORM get_vtweg.
   TYPES:BEGIN OF ty_all2,
           matnr90(90) TYPE c,
         END OF ty_all2.
@@ -296,22 +369,49 @@ FORM getdata.
        lt_all           TYPE TABLE OF ty_all, "用于存储VBAP、VBAK相关的数据
        ls_all           TYPE ty_all,
        ls_jest          TYPE jest,
+       lt_jest          TYPE TABLE OF jest,
+       ls_tvaut         TYPE tvaut,
+       lt_tvaut         TYPE TABLE OF tvaut,
        ls_adrp          TYPE adrp,
+       ls_kna1          TYPE kna1,
+       lt_kna1          TYPE TABLE OF kna1,
        ls_knvv          TYPE knvv,
+       lt_knvv          TYPE TABLE OF knvv,
+       ls_knvp          TYPE knvp,
+       lt_knvp          TYPE TABLE OF knvp,
+       ls_t052u         TYPE t052u,
+       lt_t052u         TYPE TABLE OF t052u,
+       ls_vbkd          TYPE vbkd,
+       lt_vbkd          TYPE TABLE OF vbkd,
+       ls_vbep          TYPE vbep,
+       lt_vbep          TYPE TABLE OF vbep,
+       ls_vbpa          TYPE vbpa,
+       lt_vbpa          TYPE TABLE OF vbpa,
+       ls_t023t         TYPE t023t,
+       lt_t023t         TYPE TABLE OF t023t,
+       ls_makt          TYPE makt,
+       lt_makt          TYPE TABLE OF makt,
+       ls_mvke          TYPE mvke,
+       lt_mvke          TYPE TABLE OF mvke,
        ls_lips          TYPE lips,
        ls_but000        TYPE but000,
        lt_but000        TYPE TABLE OF but000,
-       ls_vbkd          TYPE vbkd,
-       ls_mvke          TYPE mvke,
-       ls_makt          TYPE makt,
+       ls_tkukt         TYPE tkukt,
+       lt_tkukt         TYPE TABLE OF tkukt,
        lt_jcds          TYPE TABLE OF jcds,
        ls_jcds          TYPE jcds,
        lt_vbfa          TYPE TABLE OF vbfa,
        ls_vbfa          TYPE vbfa,
-       lt_mska          TYPE TABLE OF mska,
+       lt_vbfa_out      TYPE TABLE OF vbfa,
+       ls_vbfa_out      TYPE vbfa,
+       lt_vbfa_invoice  TYPE TABLE OF vbfa,
+       ls_vbfa_invoice  TYPE vbfa,
+       lt_vbfa_jhrq     TYPE TABLE OF vbfa,
+       ls_vbfa_jhrq     TYPE vbfa,
        ls_mara          TYPE mara,
+       lt_mara          TYPE TABLE OF mara,
        ls_prcd_elements TYPE prcd_elements,
-       ls_mska          TYPE mska,
+       lt_prcd_elements TYPE TABLE OF prcd_elements,
        lt_ausp          TYPE TABLE OF ausp,
        ls_ausp          TYPE ausp,
        lt_mast          TYPE TABLE OF mast,
@@ -330,7 +430,6 @@ FORM getdata.
        ls_t005t         TYPE t005t,
        lt_tvkbt         TYPE TABLE OF tvkbt,
        ls_tvkbt         TYPE tvkbt,
-       ls_kna1          TYPE kna1,
        lt_likp          TYPE TABLE OF likp,
        ls_likp          TYPE likp,
        lt_zco           TYPE TABLE OF ty_zco,
@@ -351,48 +450,57 @@ FORM getdata.
 *&修改记录：添加中文描述信息，对应分别是订单类型、分销渠道、销售渠道、二级部门、出口国家
 *&
 *&---------------------------------------------------------------------*
-  "取出所有的数据到对应的内表中
-  SELECT
-    auart
-    bezei
-  INTO CORRESPONDING FIELDS OF TABLE lt_tvakt
-  FROM tvakt
-  WHERE tvakt~spras = '1'.
-  "取出所有的分销渠道的中文描述
-  SELECT
-    vtweg
-    vtext
-  INTO CORRESPONDING FIELDS OF TABLE lt_tvtwt
-  FROM tvtwt
-  WHERE tvtwt~spras = '1'.
-  "获取销售渠道的全部中文描述
-  SELECT
-    bezei
-    kvgr1
-  INTO CORRESPONDING FIELDS OF TABLE lt_tvv1t
-  FROM tvv1t
-  WHERE spras = '1'.
-  "获取出口国家的全部中文描述
-  SELECT
-    land1
-    landx
-  INTO CORRESPONDING FIELDS OF TABLE lt_t005t
-  FROM t005t
-  WHERE spras = '1'.
-  "取二级部门的全部中文描述
-  SELECT
-    vkbur
-    bezei
-  INTO CORRESPONDING FIELDS OF TABLE lt_tvkbt
-  FROM tvkbt
-  WHERE spras = '1'.
 
+  "获取订单类型描述
+  SELECT
+    auart,
+    bezei
+  INTO CORRESPONDING FIELDS OF TABLE @lt_tvakt
+  FROM tvakt
+  WHERE tvakt~spras = @sy-langu.
+  SORT lt_tvakt BY auart.
+
+  "取出所有的分销渠道的描述
+  SELECT
+    vtweg,
+    vtext
+  INTO CORRESPONDING FIELDS OF TABLE @lt_tvtwt
+  FROM tvtwt
+  WHERE tvtwt~spras = @sy-langu.
+  SORT lt_tvtwt BY vtweg.
+
+  "获取销售渠道的全部描述
+  SELECT
+    kvgr1,
+    bezei
+  INTO CORRESPONDING FIELDS OF TABLE @lt_tvv1t
+  FROM tvv1t
+  WHERE spras = @sy-langu.
+  SORT lt_tvv1t BY kvgr1.
+
+  "获取出口国家的全部描述
+  SELECT
+    land1,
+    landx
+  INTO CORRESPONDING FIELDS OF TABLE @lt_t005t
+  FROM t005t
+  WHERE spras = @sy-langu.
+  SORT lt_t005t BY land1.
+
+  "取二级部门的全部描述
+  SELECT
+    vkbur,
+    bezei
+  INTO CORRESPONDING FIELDS OF TABLE @lt_tvkbt
+  FROM tvkbt
+  WHERE spras = @sy-langu.
+  SORT lt_tvkbt BY vkbur.
 
   "首先先查询VBAK
   SELECT
   zapszt    "  APS状态
   vbak~vbeln     "  单据号
-  posnr     "  行号
+  vbap~posnr     "  行号
   vbak~ernam     "  制单人
   vkorg     "  销售组织
   auart     "  订单类型
@@ -401,6 +509,7 @@ FORM getdata.
   vkbur     "  二级部门
   vbak~mandt     "  集团名称
   kunnr     "  售达方
+  knumv     "  条件编号
   zckgj     "  出口国家
   vbak~waerk     "  订单币种
   matnr     "  产品编码
@@ -429,6 +538,7 @@ FORM getdata.
   zzzbz     "  最早包装时间
   zzwbz     "  最晚包装时间
   zbhcl     "  备货策略
+  zbldlx    "  备料单类型 S4DK905471
   zbomqq    "  BOM欠缺物料
   zblxy     "  是否有备料协议
   zsfxkh    "  新客户
@@ -441,31 +551,134 @@ FORM getdata.
   vbak~zyfkqk    "预付款
   augru     "订货原因
   vbak~erdat "创建日期
+  vbak~zleix  "多方交易类型
+  zsdt0025~zysdj
+  zsdt0025~zysdh
+  zsdt0025~zyscj
   INTO CORRESPONDING FIELDS OF TABLE lt_all
   FROM vbak
   INNER JOIN vbap
   ON vbak~vbeln = vbap~vbeln
+  LEFT JOIN zsdt0025   "ADD BY LANJINGCUN 获取多方交易的原始单据 20201214-S
+  ON zsdt0025~vbeln = vbap~vbeln
+ AND zsdt0025~posnr = vbap~posnr
   WHERE vbap~matnr IN smatnr
     AND vbap~werks IN swerks
     AND vbap~vbeln IN svbeln
     AND vbap~posnr IN sposnr
+    AND vbap~znbjhq IN s_znbjhq
     AND vbak~auart IN sauart
     AND vbak~vkorg IN pvkorg
-    AND vbak~vtweg IN svtweg
+*    AND vbak~vkbur IN svkbur
+*    AND VBAK~VTWEG IN SVTWEG
     AND vbak~spart IN sspart
     AND vbak~kunnr IN skunnr
-    AND vbak~ernam IN sernam
+    "AND VBAK~ERNAM IN SERNAM
 *    AND vbak~vbeln = '0200000829'
     AND vbak~erdat IN serdat
-  AND vbak~vbtyp <> 'W'.
+    AND vbap~pmatn IN spmatn
+    AND vbak~vbtyp <> 'W'.
 
   "上面获取到的是所有有关VBAP和VBAK的数据
 
+  IF lt_all IS NOT INITIAL.
+    SELECT matnr,bwkey,zplp1 FROM mbew
+      INTO TABLE @DATA(lt_mbew)
+      FOR ALL ENTRIES IN @lt_all
+      WHERE matnr = @lt_all-matnr AND bwkey = @lt_all-werks.
+  ENDIF.
+
+
+  "因组织架构调整，导致客户渠道变更，但历史订单渠道无法更新，因此通过自建表ZSDT0114来更新报表中订单的渠道
+****  data: lt_data type TABLE OF zsdt0114,
+****        lt_knvv_ TYPE TABLE OF knvv,
+****        lv_vtweg type vtweg, "入参
+****        r_vtweg type vtweg,   "返参
+****        error TYPE string.
+****  "调用渠道转换函数，获取转换表数据，用于后续更新渠道使用
+****  CALL FUNCTION 'Z_SD_GET_TRANS_DATA'
+****    TABLES
+****      lt_data       = lt_data
+****      lt_knvv       = lt_knvv_
+****            .
+  "获取实际客户
+  SELECT vbeln, kunnr
+    INTO CORRESPONDING FIELDS OF TABLE @lt_vbpa
+    FROM vbpa
+    WHERE vbpa~parvw = 'Z1'
+    AND vbpa~posnr = ''.
+  SORT lt_vbpa BY vbeln.
+
+
+  SELECT * FROM zsdt0030 INTO TABLE @DATA(lt_zsdt0030) WHERE ztype = '1'.
+
+
   "将物料编码转类型
   LOOP AT lt_all INTO ls_all.
+    "S4DK904793-start
     ls_all2-matnr90 = ls_all-matnr.
     APPEND ls_all2 TO lt_all2.
+    "S4DK904793-start
+    "多方期初的创建人抛转的创建人更新
+    IF ls_all-ernam = 'S4_AUTO'.
+      ls_all-ernam = ls_all-zyscj.
+    ENDIF.
+
+    READ TABLE lt_mbew INTO DATA(ls_mbew) WITH KEY matnr = ls_all-matnr bwkey = ls_all-werks.
+    IF sy-subrc = 0.
+      ls_all-zplp1 = ls_mbew-zplp1.
+    ENDIF.
+*  客户渠道变更
+*    READ TABLE lt_zsdt0030 INTO DATA(ls_zsdt0030) WITH KEY vbeln = ls_all-vbeln.
+*    IF sy-subrc = 0.
+*      ls_all-vtweg = ls_zsdt0030-zvtweg.
+*      ls_all-vtweg_n = ls_zsdt0030-zvtweg.
+*    ENDIF.
+    CLEAR ls_prcd_elements.
+    ls_prcd_elements-knumv = ls_all-knumv.
+    APPEND ls_prcd_elements TO lt_prcd_elements.
+
+
+    "获取实际客户
+    CLEAR ls_vbpa.
+    READ TABLE lt_vbpa INTO ls_vbpa WITH KEY vbeln = ls_all-vbeln BINARY SEARCH.
+
+    "调用函数更新订单的归属分销渠道字段
+****    lv_vtweg = ls_all-vtweg.
+****    clear error.
+****    CALL FUNCTION 'Z_SD_GET_VTWEG'
+****      EXPORTING
+****        i_kunnr       = ls_vbpa-kunnr"实际客户
+****        i_vkorg       = ls_all-vkorg
+****        i_vtweg       = lv_vtweg
+****        i_spart       = ls_all-spart
+****     IMPORTING
+****       R_VTWEG       = r_vtweg
+****       ERROR         = error
+****      TABLES
+****        lt_data       = lt_data
+****        lt_knvv       = lt_knvv_
+****              .
+****    IF error is not INITIAL.
+****      "渠道转换失败，显示失败信息
+****      ls_all-vtweg_n = error.
+****    else.
+****      ls_all-vtweg_n = r_vtweg.
+****    ENDIF.
+
+
+
+    MODIFY lt_all FROM ls_all.
   ENDLOOP.
+  DELETE lt_all WHERE ernam NOT IN sernam.
+*  DELETE lt_all WHERE vtweg NOT IN svtweg.
+  DELETE lt_all WHERE vtweg NOT IN svtweg.
+
+
+
+
+
+
   "定义特征名
   DATA:lv_zappsou(10)  TYPE c,
        lv_zcotype(10)  TYPE c,
@@ -491,13 +704,30 @@ FORM getdata.
   changeausp lv_zprotype lv_zprotype.
   changeausp lv_zstdname lv_zstdname.
   "查询出全部物料的所需要的全部批次属性特征值
-  SELECT
-    *
-  INTO CORRESPONDING FIELDS OF TABLE lt_ausp
-  FROM ausp
-  FOR ALL ENTRIES IN lt_all2
-  WHERE ausp~objek = lt_all2-matnr90
-  AND ausp~atinn IN ( lv_zappsou,lv_zcotype,lv_zprotype,lv_zpro,lv_zstdname ).
+*04815  SELECT
+*04815    *
+*04815  INTO CORRESPONDING FIELDS OF TABLE lt_ausp
+*04815  FROM ausp
+*04815  FOR ALL ENTRIES IN lt_all2
+*04815  WHERE ausp~objek = lt_all2-matnr90
+*04815  AND ausp~atinn IN ( lv_zappsou,lv_zcotype,lv_zprotype,lv_zpro,lv_zstdname ).
+  SELECT *
+    INTO CORRESPONDING FIELDS OF TABLE lt_ausp
+    FROM ausp
+    WHERE ausp~atinn IN ( lv_zappsou, lv_zcotype, lv_zprotype, lv_zpro, lv_zstdname ).
+  SORT lt_ausp BY objek atinn.
+
+
+
+*    汇率 modify by jiguican 20210121
+  DATA : lt_tcurr TYPE TABLE OF tcurr,
+         ls_tcurr TYPE tcurr,
+         gdatu(8) TYPE c.
+  SELECT * INTO TABLE lt_tcurr
+      FROM tcurr
+      WHERE kurst = 'M'
+        AND tcurr = 'CNY'.
+  SORT lt_tcurr BY fcurr gdatu.
 
 
 ***********hk 添加最晚入库日期字段**************
@@ -556,6 +786,333 @@ FORM getdata.
 
 *****************END *******************
 
+  "ADD BY LANJINGCUN 获取多方交易的最终单据信息 20201214-S561
+  PERFORM sub_get_zdf TABLES lt_all .
+  SELECT *
+    INTO TABLE gt_zsdt0022t
+    FROM zsdt0022t
+    WHERE spras = sy-langu .
+  "ADD BY LANJINGCUN 获取多方交易的最终单据信息 20201214-E561
+
+
+**************************S-2022-01-11 04815 调整代码段***********************************************************************
+
+
+
+
+
+
+
+
+
+
+  "合作类型取描述
+  SELECT
+    cawnt~atwtb
+    cawn~atinn
+    cawn~atzhl
+    cawn~atwrt
+  INTO CORRESPONDING FIELDS OF TABLE lt_zco
+  FROM cawnt
+  INNER JOIN cawn
+  ON cawn~atinn = cawnt~atinn
+  AND cawn~atzhl = cawnt~atzhl
+  WHERE cawnt~spras = '1'
+  AND cawnt~atinn = lv_zcotype.
+
+  "获取订单原因
+  SELECT augru, bezei
+      INTO TABLE @lt_tvaut
+      FROM tvaut
+      WHERE tvaut~spras  = @sy-langu.
+
+  "获取计划行类别
+  SELECT vbeln,posnr,ettyp
+    INTO CORRESPONDING FIELDS OF TABLE @lt_vbep
+    FROM vbep.
+  SORT lt_vbep BY vbeln posnr.
+
+  "获取订单状态
+  SELECT objnr, stat
+    INTO CORRESPONDING FIELDS OF TABLE @lt_jest
+    FROM jest
+    WHERE jest~stat LIKE 'E%'
+    AND jest~inact = ''.
+  SORT lt_jest BY objnr.
+
+  "获取二审日期
+  SELECT  objnr, udate, chgnr
+    INTO CORRESPONDING FIELDS OF TABLE @lt_jcds
+    FROM jcds
+    WHERE jcds~stat = 'E0003'
+    ORDER BY objnr,chgnr.
+
+  "制单人(取描述)
+  DATA: BEGIN OF ls_user,
+          bname     TYPE usr21-bname,
+          name_text TYPE adrp-name_text,
+        END OF ls_user,
+        lt_user LIKE TABLE OF ls_user.
+  SELECT bname, name_text
+    INTO TABLE @lt_user
+    FROM adrp
+    INNER JOIN usr21
+    ON adrp~persnumber = usr21~persnumber
+  .
+
+  "客户组1
+  SELECT kunnr, vkorg, vtweg, spart, kvgr1, vkbur
+    INTO CORRESPONDING FIELDS OF TABLE @lt_knvv
+    FROM knvv.
+  SORT lt_knvv BY kunnr vkorg vtweg spart.
+
+
+  "业务员
+  SELECT kunnr, vkorg, vtweg, spart, kunn2
+    INTO CORRESPONDING FIELDS OF TABLE @lt_knvp
+    FROM  knvp
+    WHERE knvp~parvw = 'Z3'.
+  SORT lt_knvp BY kunnr vkorg vtweg spart.
+
+
+  "BP名称
+  SELECT partner, name_org1, name_org2, name_org3, name_org4, bu_sort1
+    INTO CORRESPONDING FIELDS OF TABLE @lt_but000
+    FROM but000.
+  SORT lt_but000 BY partner.
+
+
+
+  "获取客户信息表KNA1
+  SELECT kunnr, kukla
+    INTO CORRESPONDING FIELDS OF TABLE @lt_kna1
+    FROM kna1.
+  SORT lt_kna1 BY kunnr.
+
+  "获取客户等级
+  SELECT kukla, vtext
+    INTO CORRESPONDING FIELDS OF TABLE @lt_tkukt
+    FROM tkukt
+    WHERE spras = @sy-langu.
+  SORT lt_tkukt BY kukla.
+
+  "获取VBKD表，取汇率、PO
+  SELECT vbeln, posnr, prsdt, kurrf, kursk, zterm, bstkd_e, posex_e,bstdk_e,inco1
+    INTO CORRESPONDING FIELDS OF TABLE @lt_vbkd
+    FROM vbkd
+    FOR ALL ENTRIES IN @lt_all
+    WHERE vbeln = @lt_all-vbeln.
+*      AND posnr = @lt_all-posnr..
+  SORT lt_vbkd BY vbeln posnr.
+
+  "获取抬头的国际贸易条款
+*  SELECT
+*    vbeln,
+*    inco1
+*  FROM vbkd
+*  FOR ALL ENTRIES IN @lt_all
+*  WHERE vbeln = @lt_all-vbeln
+*    AND posnr IS INITIAL
+*  INTO TABLE @DATA(lt_vbkd2).
+
+
+  "获取支付条件
+  SELECT zterm, text1
+    INTO CORRESPONDING FIELDS OF TABLE @lt_t052u
+    FROM t052u
+    WHERE spras = @sy-langu.
+  SORT lt_t052u BY zterm.
+
+
+  "获取定价参考物料编码
+  SELECT vkorg, vtweg, matnr, pmatn
+    INTO CORRESPONDING FIELDS OF TABLE @lt_mvke
+    FROM mvke.
+  SORT lt_mvke BY matnr vkorg vtweg.
+
+  "最早入库日期
+  SELECT
+    kdauf,
+    kdpos,
+    erdat
+  INTO TABLE @DATA(lt_zppt0003)
+  FROM zppt0003
+  FOR ALL ENTRIES IN @lt_all
+  WHERE kdauf = @lt_all-vbeln
+    AND kdpos = @lt_all-posnr.
+
+
+  "获取批次特性值文本
+  DATA: BEGIN OF ls_cawn_t,
+          atinn TYPE cawn-atinn,
+          atwrt TYPE cawn-atwrt,
+          atwtb TYPE cawnt-atwtb,
+        END OF ls_cawn_t,
+        lt_cawn_t LIKE TABLE OF ls_cawn_t.
+  SELECT a~atinn, a~atwrt, t~atwtb
+    INTO TABLE @lt_cawn_t
+    FROM cawn AS a
+    INNER JOIN cawnt AS t ON a~atinn = t~atinn AND a~adzhl = t~adzhl
+    WHERE a~atinn IN ( @lv_zappsou, @lv_zcotype, @lv_zprotype, @lv_zpro, @lv_zstdname )
+    AND t~spras = @sy-langu.
+  SORT lt_cawn_t BY atinn atwrt.
+
+  "获取物料描述
+  SELECT matnr, maktx
+    INTO CORRESPONDING FIELDS OF TABLE @lt_makt
+    FROM makt
+    WHERE spras = @sy-langu.
+  SORT lt_makt BY matnr.
+
+
+  "获取域定义描述
+  SELECT
+    ddtext,
+    valpos,
+    domname,
+    domvalue_l
+    INTO CORRESPONDING FIELDS OF TABLE @lt_dd07v
+    FROM dd07v
+    WHERE dd07v~ddlanguage = @sy-langu
+    AND dd07v~domname IN ( 'ZD_DYTK','ZD_SFXBZ','ZD_XFLAG','ZD_ZDSCQY','ZD_PHYQ','ZD_BHCL','ZBLDLX' ).
+  SORT lt_dd07v BY domname domvalue_l.
+
+
+  "获取物料清单
+  SELECT matnr, werks, stlnr
+      INTO CORRESPONDING FIELDS OF TABLE @lt_mast
+      FROM mast AS a
+      WHERE a~stlan = '1'
+      AND a~stlal = '01'.
+  SORT lt_mast BY matnr werks.
+
+  "获取BOM基本数量
+  SELECT stlnr, bmeng
+      INTO CORRESPONDING FIELDS OF TABLE @lt_stko
+      FROM stko AS a
+      WHERE a~stlty = 'M'
+      AND a~stlal = '01'.
+  SORT lt_stko BY stlnr.
+
+  "获取mara表数据
+  SELECT matnr, matkl, mtart, meins
+    INTO CORRESPONDING FIELDS OF TABLE @lt_mara
+    FROM mara.
+  SORT lt_mara BY matnr.
+
+  "获取物料组描述
+  SELECT matkl, wgbez
+    INTO CORRESPONDING FIELDS OF TABLE @lt_t023t
+    FROM t023t
+    WHERE spras = @sy-langu.
+
+
+
+  "获取税率
+  IF lt_prcd_elements IS NOT INITIAL.
+    SELECT knumv, kposn, kbetr, kwert, kpein
+      INTO CORRESPONDING FIELDS OF TABLE @lt_prcd_elements
+      FROM prcd_elements
+      FOR ALL ENTRIES IN @lt_prcd_elements
+      WHERE knumv = @lt_prcd_elements-knumv
+      AND kschl = 'MWSI'
+      .
+    SORT lt_prcd_elements BY knumv kposn.
+  ENDIF.
+
+  "获取销售订单库存
+  DATA: BEGIN OF ls_mska,
+          vbeln  TYPE mska-vbeln,
+          posnr  TYPE mska-posnr,
+          matnr  TYPE mska-matnr,
+          kalab  TYPE mska-kalab,
+          kalab1 TYPE mska-kalab,
+        END OF ls_mska,
+        lt_mska LIKE TABLE OF ls_mska.
+
+  SELECT  vbeln, posnr, matnr, kalab,  ( kains + kaspe + kavla + kavin + kavsp ) AS kalab1
+    INTO TABLE @lt_mska
+    FROM mska
+    WHERE lgort IN ('1040','2040','3040','1070','2070','3070').
+  SORT lt_mska BY vbeln posnr matnr.
+
+
+  "获取出库数量
+  IF lt_all IS NOT INITIAL.
+    CLEAR lt_vbfa.
+    SELECT ruuid, vbelv, posnv, vbtyp_n, rfmng
+      INTO CORRESPONDING FIELDS OF TABLE @lt_vbfa
+      FROM vbfa
+      FOR ALL ENTRIES IN @lt_all
+      WHERE vbelv = @lt_all-vbeln
+      AND posnv = @lt_all-posnr
+      AND vbfa~vbtyp_n IN ( 'R','h' ).
+
+    SELECT vbelv, posnv, SUM( rfmng * (
+                   CASE vbtyp_n
+                       WHEN 'R' THEN ( 1 )
+                       WHEN 'H' THEN ( -1 )
+                   END )
+                  ) AS rfmng
+      FROM @lt_vbfa AS a
+      GROUP BY vbelv, posnv
+      INTO CORRESPONDING FIELDS OF TABLE @lt_vbfa_out.
+    SORT lt_vbfa_out BY vbelv posnv.
+
+  ENDIF.
+
+
+  "获取首个发货日期，通过VBFA表找出销售订单对应的交货单，按照交货单升序取第一张交货单的过账日期
+  IF lt_all IS NOT INITIAL.
+
+    SELECT vbelv, posnv, vbeln
+      INTO CORRESPONDING FIELDS OF TABLE @lt_vbfa_jhrq
+      FROM vbfa
+      FOR ALL ENTRIES IN @lt_all
+      WHERE vbelv = @lt_all-vbeln
+      AND vbtyp_n = 'J'
+      AND rfmng > 0.
+    SORT lt_vbfa_jhrq BY vbelv posnv vbeln.
+
+    SELECT vbeln, wadat_ist
+      INTO CORRESPONDING FIELDS OF TABLE @lt_likp
+      FROM likp.
+    SORT lt_likp BY vbeln.
+
+  ENDIF.
+
+  "获取开票数量
+  IF ls_all IS NOT INITIAL.
+    CLEAR lt_vbfa.
+    SELECT vbelv, posnv, vbtyp_n, rfmng
+      INTO CORRESPONDING FIELDS OF TABLE @lt_vbfa
+      FROM vbfa
+      FOR ALL ENTRIES IN @lt_all
+      WHERE vbelv = @lt_all-vbeln
+      AND posnv = @lt_all-posnr
+      AND vbfa~vbtyp_n IN ( 'M','N', 'O', 'S' ).
+
+    SELECT vbelv, posnv, SUM( rfmng * (
+                   CASE vbtyp_n
+                      WHEN 'M' THEN ( 1 )
+                      WHEN 'O' THEN ( 1 )
+                      WHEN 'N' THEN ( -1 )
+                      WHEN 'S' THEN ( -1 )
+                   END )
+                  ) AS rfmng
+      FROM @lt_vbfa AS a
+      GROUP BY vbelv, posnv
+      INTO CORRESPONDING FIELDS OF TABLE @lt_vbfa_invoice.
+    SORT lt_vbfa_invoice BY vbelv posnv.
+  ENDIF.
+
+
+
+
+
+
+**************************E-2022-01-11 04815 调整代码段***********************************************************************
+
 
 
   "将一部分可以直接插入的数据插入到内表中
@@ -563,70 +1120,165 @@ FORM getdata.
 
     CLEAR ls_out.
     CLEAR ls_ausp.
+
     READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
-                                             atinn = lv_zappsou.
+                                             atinn = lv_zappsou BINARY SEARCH.
     ls_out-zappsou = ls_ausp-atwrt.
     CLEAR ls_ausp.
     READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
-                                             atinn = lv_zcotype.
+                                             atinn = lv_zcotype BINARY SEARCH.
     ls_out-zcotype = ls_ausp-atwrt.
     CLEAR ls_ausp.
     READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
-                                             atinn = lv_zprotype.
+                                             atinn = lv_zprotype BINARY SEARCH.
     ls_out-zprotype = ls_ausp-atwrt.
     CLEAR ls_ausp.
     READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
-                                             atinn = lv_zstdname.
+                                             atinn = lv_zstdname BINARY SEARCH.
     ls_out-zstdname = ls_ausp-atwrt.
     CLEAR ls_ausp.
     READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all-matnr
-                                             atinn = lv_zpro.
+                                             atinn = lv_zpro BINARY SEARCH.
     ls_out-zpro = ls_ausp-atwrt.
     CLEAR ls_ausp.
 
-    CLEAR lt_zco.
-    "合作类型取描述
-    SELECT
-      cawnt~atwtb
-      cawn~atinn
-      cawn~atzhl
-      cawn~atwrt
-    INTO CORRESPONDING FIELDS OF TABLE lt_zco
-    FROM cawnt
-    INNER JOIN cawn
-    ON cawn~atinn = cawnt~atinn
-    AND cawn~atzhl = cawnt~atzhl
-    WHERE cawnt~spras = '1'
-    AND cawnt~atinn = lv_zcotype.
+*04815**     CLEAR LT_ZCO.
+*04815**    "合作类型取描述
+*04815**    SELECT
+*04815**      CAWNT~ATWTB
+*04815**      CAWN~ATINN
+*04815**      CAWN~ATZHL
+*04815**      CAWN~ATWRT
+*04815**    INTO CORRESPONDING FIELDS OF TABLE LT_ZCO
+*04815**    FROM CAWNT
+*04815**    INNER JOIN CAWN
+*04815**    ON CAWN~ATINN = CAWNT~ATINN
+*04815**    AND CAWN~ATZHL = CAWNT~ATZHL
+*04815**    WHERE CAWNT~SPRAS = '1'
+*04815**    AND CAWNT~ATINN = LV_ZCOTYPE.
     CLEAR ls_zco.
     READ TABLE lt_zco INTO ls_zco WITH KEY atwrt = ls_out-zcotype.
-    ls_out-zcotype = ls_zco-atwtb.
-*    CLEAR ls_all-augru.
-    "订货原因取描述
-    IF ls_all-augru IS NOT INITIAL.
-      SELECT SINGLE
-        bezei
-      INTO ls_all-augru
-      FROM tvaut
-      WHERE tvaut~spras  = '1'
-      AND tvaut~augru = ls_all-augru.
+    IF sy-subrc EQ 0.
+      ls_out-zcotype = ls_zco-atwtb.
     ENDIF.
+
+*    CLEAR ls_all-augru.
+*04815**    "订货原因取描述
+*04815**    if ls_all-augru is not initial.
+*04815**      select single
+*04815**        bezei
+*04815**      into ls_all-augru
+*04815**      from tvaut
+*04815**      where tvaut~spras  = '1'
+*04815**      and tvaut~augru = ls_all-augru.
+*04815**    endif.
+    IF ls_all-augru IS NOT INITIAL.
+      CLEAR ls_tvaut.
+      READ TABLE lt_tvaut INTO ls_tvaut WITH KEY augru = ls_all-augru.
+      IF sy-subrc EQ 0.
+        ls_all-augru = ls_tvaut-bezei.
+      ENDIF.
+    ENDIF.
+
+
+
+
+
     "因为TY_OUT的结构包含了TY_ALL的结构，所以直接MOVE
     MOVE-CORRESPONDING ls_all TO ls_out.
     ls_out-kwmeng = ls_all-zmeng + ls_all-kwmeng.
-    "计划行类别
-    SELECT SINGLE
-    ettyp
-    INTO ls_out-ettyp
-    FROM vbep
-    WHERE vbep~vbeln = ls_all-vbeln
-    AND vbep~posnr = ls_all-posnr.
-    IF settyp IS NOT INITIAL.
-      READ TABLE settyp INTO ls_ettyp WITH KEY low = ls_out-ettyp.
-      IF sy-subrc <> 0.
-        CONTINUE.
+
+    "ADD BY LANJINGCUN 获取多方交易的最终单据信息 20201214-S599
+    ls_out-zysdj = ls_all-zysdj .
+    ls_out-zysdh = ls_all-zysdh .
+    CLEAR gs_zsdt0025 .
+    READ TABLE gt_zsdt0025 INTO gs_zsdt0025 WITH KEY zysdj = ls_out-zysdj
+                                                     zysdh = ls_out-zysdh .
+    IF sy-subrc = 0 .
+      CLEAR gs_vbapz .
+      READ TABLE gt_vbapz INTO gs_vbapz WITH  KEY vbeln = gs_zsdt0025-vbeln
+                                                  posnr = gs_zsdt0025-posnr .
+      ls_out-vbezz = gs_vbapz-vbeln.
+      ls_out-poszz = gs_vbapz-posnr.
+      ls_out-zatzz = gs_vbapz-zatpdfrq.
+      ls_out-zapzz = gs_vbapz-zapszt.
+      ls_out-ettzz = gs_vbapz-ettyp.
+      ls_out-zleix = gs_zsdt0025-zleix .
+      IF ls_out-ernam = 'S4_AUTO'.
+        ls_out-ernam = gs_vbapz-ernam.
+      ENDIF.
+
+      CLEAR gs_zsdt0022t .
+      READ TABLE gt_zsdt0022t INTO gs_zsdt0022t WITH KEY zleix = ls_out-zleix .
+      ls_out-zleit = gs_zsdt0022t-zleit .
+    ENDIF .
+
+
+    "如果多方交易类型为空的话，下面查询二级部门
+    IF ls_out-zleix IS INITIAL ."非多方
+      SELECT SINGLE
+        vkbur
+      FROM knvv
+      INNER JOIN vbpa
+      ON vbpa~kunnr = knvv~kunnr
+      WHERE vbeln = @ls_out-vbeln
+        AND posnr IS INITIAL
+        AND parvw = 'Z1'
+        AND vkorg = @ls_out-vkorg
+        AND vtweg = @ls_out-vtweg
+      INTO @ls_out-vkbur.
+    ENDIF.
+
+    "如果多方交易类型不为空的话，下面查询二级部门
+    IF ls_out-zleix IS NOT INITIAL."多方
+      "原始单据
+      SELECT SINGLE
+        zysdj
+      FROM zsdt0025
+      INTO @DATA(lv_zysdj)
+      WHERE vbeln = @ls_out-vbeln
+        AND posnr = @ls_out-posnr.
+      "根据原始单据获取二级部门
+      IF lv_zysdj IS NOT INITIAL.
+        SELECT SINGLE
+          vkbur
+        FROM knvv
+        INNER JOIN vbpa
+        ON vbpa~kunnr = knvv~kunnr
+        WHERE vbeln = @lv_zysdj
+          AND posnr IS INITIAL
+          AND parvw = 'Z1'
+          AND vkorg = @ls_out-vkorg
+          AND vtweg = @ls_out-vtweg
+        INTO @ls_out-vkbur.
       ENDIF.
     ENDIF.
+
+
+    "ADD BY LANJINGCUN 获取多方交易的最终单据信息 20201214-E599
+    "计划行类别
+
+*******************S 04815 2022-01-13****************
+*04815    select single
+*04815    ettyp
+*04815    into ls_out-ettyp
+*04815    from vbep
+*04815    where vbep~vbeln = ls_all-vbeln
+*04815    and vbep~posnr = ls_all-posnr.
+    CLEAR ls_vbep.
+    READ TABLE lt_vbep INTO ls_vbep WITH KEY vbeln = ls_all-vbeln posnr = ls_all-posnr BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-ettyp = ls_vbep-ettyp.
+    ENDIF.
+*******************E 04815 2022-01-13****************
+
+*    IF SETTYP IS NOT INITIAL.
+*      READ TABLE SETTYP INTO LS_ETTYP WITH KEY LOW = LS_OUT-ETTYP.
+*      IF SY-SUBRC <> 0.
+*        CONTINUE.
+*      ENDIF.
+*    ENDIF.
+    CHECK ls_out-ettzz IN settyp OR  ls_out-ettyp IN settyp .
     "一审日期
     READ TABLE lt_jcds1 INTO DATA(ls_jcds1) WITH KEY objnr = ls_all-objnr.
     IF sy-subrc = 0.
@@ -637,63 +1289,96 @@ FORM getdata.
     ls_out-kunnr2 = ls_all-kunnr.
     CLEAR ls_jest.
     "订单状态
-    SELECT SINGLE
-      stat
-    INTO CORRESPONDING FIELDS OF ls_jest
-    FROM jest
-    WHERE jest~objnr = ls_all-objnr
-    AND jest~stat LIKE 'E%'
-    AND jest~inact = ''.
-    IF ls_jest-stat = 'E0001' AND part_a = 'X'.
-      ls_out-state = '创建'.
-    ELSEIF ls_jest-stat = 'E0002' AND part_b = 'X'.
-      ls_out-state = '业务一审'.
-    ELSEIF ls_jest-stat = 'E0003' AND part_c = 'X'.
-      ls_out-state = '财务二审'.
-    ELSEIF ls_jest-stat = '' AND part_d = 'X'.
-      ls_out-state = ''.
-    ELSE.
-      CONTINUE.
-    ENDIF.
+*******************S 04815 2022-01-13****************
+*    select single
+*      stat
+*    into corresponding fields of ls_jest
+*    from jest
+*    where jest~objnr = ls_all-objnr
+*    and jest~stat like 'E%'
+*    and jest~inact = ''.
 
+    READ TABLE lt_jest INTO ls_jest WITH KEY objnr = ls_all-objnr BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      IF ls_jest-stat = 'E0001' AND part_a = 'X'.
+        ls_out-state = '创建'.
+      ELSEIF ls_jest-stat = 'E0002' AND part_b = 'X'.
+        ls_out-state = '业务一审'.
+      ELSEIF ls_jest-stat = 'E0003' AND part_c = 'X'.
+        ls_out-state = '财务二审'.
+      ELSEIF ls_jest-stat = '' AND part_d = 'X'.
+        ls_out-state = ''.
+      ELSE.
+        CONTINUE.
+      ENDIF.
+    ENDIF.
+*******************E 04815 2022-01-13****************
 
     IF ls_out-state = '财务二审'.
       "二审日期
-      CLEAR lt_jcds.
-      SELECT
-      udate
-      chgnr
-      INTO CORRESPONDING FIELDS OF TABLE lt_jcds
-      FROM jcds
-      WHERE jcds~objnr = ls_all-objnr
-      AND jcds~stat = 'E0003'
-      ORDER BY chgnr.
-
-      READ TABLE lt_jcds INTO ls_jcds INDEX 1.
-      ls_out-udate = ls_jcds-udate.
+*******************S 04815 2022-01-13****************
       CLEAR ls_jcds.
+      READ TABLE lt_jcds INTO ls_jcds WITH KEY objnr = ls_all-objnr BINARY SEARCH.
+      IF sy-subrc EQ 0.
+        ls_out-udate = ls_jcds-udate.
+      ENDIF.
+*04815      CLEAR lt_jcds.
+*04815      SELECT
+*04815      udate
+*04815      chgnr
+*04815      INTO CORRESPONDING FIELDS OF TABLE lt_jcds
+*04815      FROM jcds
+*04815      WHERE jcds~objnr = ls_all-objnr
+*04815      AND jcds~stat = 'E0003'
+*04815      ORDER BY chgnr.
+*04815
+*04815      READ TABLE lt_jcds INTO ls_jcds INDEX 1.
+*04815      ls_out-udate = ls_jcds-udate.
+*04815      CLEAR ls_jcds.
+*******************E 04815 2022-01-13****************
     ENDIF.
+
     "制单人(取描述)
-    SELECT SINGLE
-      name_text
-    INTO CORRESPONDING FIELDS OF ls_adrp
-    FROM adrp
-    INNER JOIN usr21
-    ON adrp~persnumber = usr21~persnumber
-    WHERE usr21~bname = ls_all-ernam.
-    ls_out-ernam = ls_adrp-name_text.
-    CLEAR ls_adrp.
-    " 销售渠道/客户类型
-    SELECT SINGLE
-      kvgr1
-    INTO CORRESPONDING FIELDS OF ls_knvv
-    FROM knvv
-    WHERE knvv~kunnr = ls_all-kunnr
-      AND knvv~vkorg = ls_all-vkorg
-      AND knvv~vtweg = ls_all-vtweg
-    AND knvv~spart = ls_all-spart.
-    ls_out-kvgr1 = ls_knvv-kvgr1.
+*******************S 04815 2022-01-13****************
+*04815    SELECT SINGLE
+*04815      name_text
+*04815    INTO CORRESPONDING FIELDS OF ls_adrp
+*04815    FROM adrp
+*04815    INNER JOIN usr21
+*04815    ON adrp~persnumber = usr21~persnumber
+*04815    WHERE usr21~bname = ls_all-ernam.
+*04815    ls_out-ernam = ls_adrp-name_text.
+
+    CLEAR ls_user.
+    READ TABLE lt_user INTO ls_user WITH KEY bname = ls_all-ernam.
+    IF sy-subrc EQ 0.
+      ls_out-ernam = ls_user-name_text.
+    ENDIF.
+
+*******************E 04815 2022-01-13****************
+
+
+    " 销售渠道/客户类型 (客户组1)
+
+*******************S 04815 2022-01-13****************
     CLEAR ls_knvv.
+    READ TABLE lt_knvv INTO ls_knvv WITH KEY kunnr = ls_all-kunnr vkorg = ls_all-vkorg vtweg = ls_all-vtweg spart = ls_all-spart BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-kvgr1 = ls_knvv-kvgr1.
+    ENDIF.
+
+
+*04815    SELECT SINGLE
+*04815      kvgr1
+*04815    INTO CORRESPONDING FIELDS OF ls_knvv
+*04815    FROM knvv
+*04815    WHERE knvv~kunnr = ls_all-kunnr
+*04815      AND knvv~vkorg = ls_all-vkorg
+*04815      AND knvv~vtweg = ls_all-vtweg
+*04815    AND knvv~spart = ls_all-spart.
+*04815    ls_out-kvgr1 = ls_knvv-kvgr1.
+*04815    CLEAR ls_knvv.
+*******************E 04815 2022-01-13****************
     "库存地点
 *    SELECT SINGLE
 *      lgort
@@ -719,397 +1404,608 @@ FORM getdata.
 *    ls_out-saleman = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
 *    CLEAR ls_but000.
 
-    SELECT SINGLE
-      name_org1,
-      partner
-    FROM  but000
-    INNER JOIN knvp
-    ON knvp~kunn2 = but000~partner
-    WHERE knvp~parvw = 'Z3'
-      AND knvp~vkorg = @ls_all-vkorg
-      AND knvp~spart = @ls_all-spart
-      AND knvp~vtweg = @ls_all-vtweg
-      AND knvp~kunnr = @ls_all-kunnr
-    INTO (@ls_out-saleman,@ls_out-salemanno).
-
+*******************S 04815 2022-01-13****************
+*04815    SELECT SINGLE
+*04815      name_org1,
+*04815      partner
+*04815    FROM  but000
+*04815    INNER JOIN knvp
+*04815    ON knvp~kunn2 = but000~partner
+*04815    WHERE knvp~parvw = 'Z3'
+*04815      AND knvp~vkorg = @ls_all-vkorg
+*04815      AND knvp~spart = @ls_all-spart
+*04815      AND knvp~vtweg = @ls_all-vtweg
+*04815      AND knvp~kunnr = @ls_all-kunnr
+*04815    INTO (@ls_out-saleman,@ls_out-salemanno).
+    CLEAR ls_knvp.
+    READ TABLE lt_knvp INTO ls_knvp WITH KEY kunnr = ls_all-kunnr vkorg = ls_all-vkorg vtweg = ls_all-vtweg spart = ls_all-spart BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_knvp-kunn2 BINARY SEARCH.
+      IF sy-subrc EQ 0.
+        ls_out-salemanno = ls_but000-partner.
+        ls_out-saleman = ls_but000-name_org1.
+      ENDIF.
+    ENDIF.
+*******************E 04815 2022-01-13****************
 
     "检索项
-    SELECT SINGLE
-      mc_name1
-      name_org1
-      name_org2
-      name_org3
-      name_org4
-      bu_sort1
-    INTO CORRESPONDING FIELDS OF ls_but000
-    FROM but000
-    WHERE but000~partner = ls_all-kunnr.
-    ls_out-mc_name1 = ls_but000-bu_sort1.
-    "客户名称
-    ls_out-kunnr = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
-    "集团名称
-    "实际客户名称、实际客户的检索项字段
-    SELECT SINGLE
-    bu_sort1
-    partner
-    name_org1
-    name_org2
-    name_org3
-    name_org4
-    INTO CORRESPONDING FIELDS OF ls_but000
-    FROM but000
-    INNER JOIN vbpa
-    ON but000~partner = vbpa~kunnr
-    WHERE vbpa~parvw = 'Z1'
-    AND vbpa~vbeln = ls_all-vbeln
-    AND vbpa~posnr = ''.
-    ls_out-bu_sort1 = ls_but000-bu_sort1."实际客户的检索项字段
-    ls_out-custname = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
-    ls_out-custname2 = ls_but000-partner.
-    "实际客户对应的业务员
-    SELECT SINGLE
-      kunn2
-      name_org1
-    INTO (ls_out-partner,ls_out-kunn2)
-    FROM but000
-    INNER JOIN knvp
-    ON but000~partner = knvp~kunn2
-    WHERE knvp~kunnr  = ls_but000-partner
-      AND knvp~vkorg = ls_all-vkorg
-      AND knvp~vtweg = ls_all-vtweg
-      AND knvp~spart = ls_all-spart
-    AND knvp~parvw = 'Z3'.
+*******************S 04815 2022-01-13****************
+*04815    SELECT SINGLE
+*04815      mc_name1
+*04815      name_org1
+*04815      name_org2
+*04815      name_org3
+*04815      name_org4
+*04815      bu_sort1
+*04815    INTO CORRESPONDING FIELDS OF ls_but000
+*04815    FROM but000
+*04815    WHERE but000~partner = ls_all-kunnr.
+*04815    ls_out-mc_name1 = ls_but000-bu_sort1.
 
     CLEAR ls_but000.
-    "实际客户等级
-    SELECT SINGLE
-      kukla
-    INTO CORRESPONDING FIELDS OF ls_kna1
-    FROM kna1
-    INNER JOIN vbpa
-    ON vbpa~kunnr = kna1~kunnr
-    WHERE vbpa~parvw = 'Z1'
-      AND vbpa~vbeln = ls_all-vbeln
-    AND vbpa~posnr = ''.
-    ls_out-kukla = ls_kna1-kukla.
-    IF ls_out-kukla IS NOT INITIAL.
-      SELECT SINGLE
-        vtext
-      INTO ls_out-kukla
-      FROM tkukt
-      WHERE tkukt~spras = '1'
-      AND tkukt~kukla = ls_out-kukla.
+    READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_all-kunnr BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-mc_name1 = ls_but000-bu_sort1.
     ENDIF.
+
+*******************E 04815 2022-01-13****************
+
+    "客户名称
+    ls_out-kunnr = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
+
+    "集团名称
+    "实际客户名称、实际客户的检索项字段
+*******************S 04815 2022-01-13****************
+
+*04815    SELECT SINGLE
+*04815    bu_sort1
+*04815    partner
+*04815    name_org1
+*04815    name_org2
+*04815    name_org3
+*04815    name_org4
+*04815    INTO CORRESPONDING FIELDS OF ls_but000
+*04815    FROM but000
+*04815    INNER JOIN vbpa
+*04815    ON but000~partner = vbpa~kunnr
+*04815    WHERE vbpa~parvw = 'Z1'
+*04815    AND vbpa~vbeln = ls_all-vbeln
+*04815    AND vbpa~posnr = ''.
+    CLEAR ls_vbpa.
+    READ TABLE lt_vbpa INTO ls_vbpa WITH KEY vbeln = ls_all-vbeln BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      CLEAR ls_but000.
+      READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_vbpa-kunnr BINARY SEARCH.
+      IF sy-subrc EQ 0.
+        ls_out-bu_sort1 = ls_but000-bu_sort1."实际客户的检索项字段
+        ls_out-custname = ls_but000-name_org1 && ls_but000-name_org2 && ls_but000-name_org3 && ls_but000-name_org4.
+        ls_out-custname2 = ls_but000-partner.
+      ENDIF.
+    ENDIF.
+
+    "实际客户对应的业务员
+*04815    SELECT SINGLE
+*04815      kunn2
+*04815      name_org1
+*04815    INTO (ls_out-partner,ls_out-kunn2)
+*04815    FROM but000
+*04815    INNER JOIN knvp
+*04815    ON but000~partner = knvp~kunn2
+*04815    WHERE knvp~kunnr  = ls_but000-partner
+*04815      AND knvp~vkorg = ls_all-vkorg
+*04815      AND knvp~vtweg = ls_all-vtweg
+*04815      AND knvp~spart = ls_all-spart
+*04815    AND knvp~parvw = 'Z3'.
+
+    CLEAR ls_knvp.
+    READ TABLE lt_knvp INTO ls_knvp WITH KEY kunnr = ls_but000-partner vkorg = ls_all-vkorg vtweg = ls_all-vtweg spart = ls_all-spart BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      CLEAR ls_but000.
+      READ TABLE lt_but000 INTO ls_but000 WITH KEY partner = ls_knvp-kunn2 BINARY SEARCH.
+      ls_out-partner = ls_but000-partner.
+      ls_out-kunn2 = ls_but000-name_org1.
+    ENDIF.
+
+
+*******************E 04815 2022-01-13****************
+
+
+    "实际客户等级
+*******************E 04815 2022-01-13****************
+*04815    SELECT SINGLE
+*04815      kukla
+*04815    INTO CORRESPONDING FIELDS OF ls_kna1
+*04815    FROM kna1
+*04815    INNER JOIN vbpa
+*04815    ON vbpa~kunnr = kna1~kunnr
+*04815    WHERE vbpa~parvw = 'Z1'
+*04815      AND vbpa~vbeln = ls_all-vbeln
+*04815    AND vbpa~posnr = ''.
     CLEAR ls_kna1.
+    READ TABLE lt_kna1 INTO ls_kna1 WITH KEY kunnr = ls_vbpa-kunnr BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-kukla = ls_kna1-kukla.
+    ENDIF.
+
+
+*******************E 04815 2022-01-13****************
+    IF ls_out-kukla IS NOT INITIAL.
+*******************S 04815 2022-01-13****************
+*04815      SELECT SINGLE
+*04815        vtext
+*04815      INTO ls_out-kukla
+*04815      FROM tkukt
+*04815      WHERE tkukt~spras = '1'
+*04815      AND tkukt~kukla = ls_out-kukla.
+      CLEAR ls_tkukt.
+      READ TABLE lt_tkukt INTO ls_tkukt WITH KEY kukla = ls_out-kukla BINARY SEARCH.
+      IF sy-subrc EQ 0.
+        ls_out-kukla = ls_tkukt-vtext.
+      ENDIF.
+
+*******************E 04815 2022-01-13****************
+    ENDIF.
+
+
     "客户PO、付款方式、汇率
     CLEAR ls_vbkd.
-    SELECT SINGLE
-      posex_e
-      bstkd_e
-      kursk
-      zterm
-    INTO CORRESPONDING FIELDS OF ls_vbkd
-    FROM vbkd
-    WHERE vbkd~posnr = ls_all-posnr
-    AND vbkd~vbeln = ls_all-vbeln.
-    IF ls_vbkd-posex_e IS INITIAL.
-      SELECT SINGLE
-      posex_e
-      INTO CORRESPONDING FIELDS OF ls_vbkd
-      FROM vbkd
-      WHERE vbkd~posnr = ''
-      AND vbkd~vbeln = ls_all-vbeln.
+*******************S 04815 2022-01-13****************
+*04815    "S4DK904793-start
+*04815    SELECT SINGLE
+*04815      *
+*04815    INTO CORRESPONDING FIELDS OF ls_vbkd
+*04815    FROM vbkd
+*04815    WHERE vbkd~posnr = ls_all-posnr
+*04815    AND vbkd~vbeln = ls_all-vbeln.
+*04815
+*04815    IF ls_vbkd IS INITIAL.
+*04815      SELECT SINGLE
+*04815      *
+*04815      INTO CORRESPONDING FIELDS OF ls_vbkd
+*04815      FROM vbkd
+*04815      WHERE vbkd~posnr = ''
+*04815      AND vbkd~vbeln = ls_all-vbeln.
+*04815    ENDIF.
+    READ TABLE lt_vbkd INTO ls_vbkd WITH KEY vbeln = ls_all-vbeln posnr = ls_all-posnr BINARY SEARCH.
+    IF sy-subrc NE 0.
+      READ TABLE lt_vbkd INTO ls_vbkd WITH KEY vbeln = ls_all-vbeln BINARY SEARCH.
     ENDIF.
-    IF ls_vbkd-bstkd_e IS INITIAL.
-      SELECT SINGLE
-      bstkd_e
-      INTO CORRESPONDING FIELDS OF ls_vbkd
-      FROM vbkd
-      WHERE vbkd~posnr = ''
-      AND vbkd~vbeln = ls_all-vbeln.
+
+    IF ls_vbkd IS NOT INITIAL.
+      "国际贸易条款
+      ls_out-inco1 = ls_vbkd-inco1.
+* 汇率 modify by jiguican 20210121
+
+      gdatu = ls_vbkd-prsdt.
+      gdatu = '99999999' - gdatu.
+      IF ls_out-waerk <> 'CNY'.
+
+        IF ls_vbkd-kurrf IS NOT INITIAL.
+          ls_out-kursk = ls_vbkd-kurrf.
+        ELSE.
+          ls_out-kursk = ls_vbkd-kursk.
+        ENDIF.
+        IF ls_out-kursk = 1.
+          LOOP AT lt_tcurr INTO ls_tcurr WHERE fcurr = ls_out-waerk AND gdatu >= gdatu.
+            ls_out-kursk = ls_tcurr-ukurs.
+            EXIT.
+          ENDLOOP.
+        ENDIF.
+
+      ELSE.
+        ls_out-kursk = 1.
+      ENDIF.
+      "S4DK904793-end
+
+      "付款方式
+      "add S4DK904838 start
+      IF ls_vbkd-zterm IS NOT INITIAL.
+*04815        SELECT SINGLE
+*04815          text1
+*04815        INTO ls_out-zterm
+*04815        FROM t052u
+*04815        WHERE t052u~spras = '1'
+*04815        AND t052u~zterm = ls_vbkd-zterm.
+        CLEAR ls_t052u.
+        READ TABLE lt_t052u INTO ls_t052u WITH KEY zterm = ls_vbkd-zterm BINARY SEARCH.
+        IF sy-subrc EQ 0.
+          ls_out-zterm = ls_t052u-text1.
+        ENDIF.
+
+
+      ENDIF.
+
+      "add S4DK904838 end
+
+      "客户PO
+      ls_out-bstkd_e = ls_vbkd-bstkd_e.
+      ls_out-posex_e = ls_vbkd-posex_e.
+      "客户采购日期
+      ls_out-bstdk_e = ls_vbkd-bstdk_e.
     ENDIF.
-    IF ls_vbkd-zterm IS INITIAL.
-      SELECT SINGLE
-      zterm
-      INTO CORRESPONDING FIELDS OF ls_vbkd
-      FROM vbkd
-      WHERE vbkd~posnr = ''
-      AND vbkd~vbeln = ls_all-vbeln.
-    ENDIF.
-    IF ls_vbkd-kursk IS INITIAL.
-      SELECT SINGLE
-      kursk
-      INTO CORRESPONDING FIELDS OF ls_vbkd
-      FROM vbkd
-      WHERE vbkd~posnr = ''
-      AND vbkd~vbeln = ls_all-vbeln.
-    ENDIF.
-    "付款方式、客户PO
-*    ls_out-zterm = ls_vbkd-zterm.
-    IF ls_vbkd-zterm IS NOT INITIAL.
-      SELECT SINGLE
-        text1
-      INTO ls_out-zterm
-      FROM t052u
-      WHERE t052u~spras = '1'
-      AND t052u~zterm = ls_vbkd-zterm.
-    ENDIF.
-    ls_out-bstkd_e = ls_vbkd-bstkd_e.
-    "汇率
-    ls_out-kursk = ls_vbkd-kursk.
-    ls_out-posex_e = ls_vbkd-posex_e.
+
+
+
+*******************E 04815 2022-01-13****************
     "不含税金额CNY
     ls_out-price2 = ls_out-netwr * ls_out-kursk."不含税金额CNY
 
 
-
+*******************S 04815 2022-01-13****************
     " 定价参考物料编码
-    SELECT SINGLE
-      pmatn
-    INTO CORRESPONDING FIELDS OF ls_mvke
-    FROM mvke
-    WHERE mvke~matnr = ls_all-matnr
-      AND mvke~vkorg = ls_all-vkorg
-      AND mvke~vtweg = ls_all-vtweg.
-    ls_out-pmatn = zcl_bc_public=>conv_by_ddic( i_input = ls_mvke-pmatn i_out = 'X' ).
+*04815   SELECT SINGLE
+*04815     pmatn
+*04815   INTO CORRESPONDING FIELDS OF ls_mvke
+*04815   FROM mvke
+*04815   WHERE mvke~matnr = ls_all-matnr
+*04815     AND mvke~vkorg = ls_all-vkorg
+*04815     AND mvke~vtweg = ls_all-vtweg.
+    CLEAR ls_mvke.
+    READ TABLE lt_mvke INTO ls_mvke WITH KEY matnr = ls_all-matnr vkorg = ls_all-vkorg vtweg = ls_all-vtweg BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-pmatn = zcl_bc_public=>conv_by_ddic( i_input = ls_mvke-pmatn i_out = 'X' ).
+
+      "定价参考物料描述
+      IF ls_mvke-pmatn IS NOT INITIAL.
+
+        CLEAR ls_makt.
+        READ TABLE lt_makt INTO ls_makt WITH KEY matnr = ls_mvke-pmatn BINARY SEARCH.
+        IF sy-subrc EQ 0.
+          ls_out-maktx = ls_makt-maktx.
+        ENDIF.
+      ENDIF.
+
+    ENDIF.
+
+*******************E 04815 2022-01-13****************
     CLEAR ls_all2-matnr90.
     CLEAR ls_out-zappsou.
-    ls_all2-matnr90 = zcl_bc_public=>conv_by_ddic( i_input = ls_out-pmatn ).
+*    ls_all2-matnr90 = zcl_bc_public=>conv_by_ddic( i_input = ls_out-pmatn ).
     CLEAR ls_out-zappsou.
     IF ls_all2-matnr90 IS NOT INITIAL.
-      SELECT SINGLE
-      atwrt
-      INTO ls_out-zappsou
-      FROM  ausp
-      WHERE ausp~atinn  = lv_zappsou
-      AND ausp~objek = ls_all2-matnr90.
-      ls_out-zappsou2 = ls_out-zappsou.
-      CLEAR ls_out-zappsou.
+*******************S 04815 2022-01-14****************
+*04815      SELECT SINGLE
+*04815      atwrt
+*04815      INTO ls_out-zappsou
+*04815      FROM  ausp
+*04815      WHERE ausp~atinn  = lv_zappsou
+*04815      AND ausp~objek = ls_all2-matnr90.
+      "批文来源
+      CLEAR ls_ausp.
+      READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all2-matnr90 atinn = lv_zappsou BINARY SEARCH.
+      IF sy-subrc EQ 0.
+        CLEAR ls_cawn_t.
+        READ TABLE lt_cawn_t INTO ls_cawn_t WITH KEY atinn = lv_zappsou atwrt = ls_ausp-atwrt BINARY SEARCH.
+        IF sy-subrc EQ 0.
+          ls_out-zappsou = ls_cawn_t-atwtb.
+        ENDIF.
+      ENDIF.
+
+      "产品类型
+      CLEAR ls_ausp.
+      READ TABLE lt_ausp INTO ls_ausp WITH KEY objek = ls_all2-matnr90 atinn = lv_zprotype BINARY SEARCH.
+      IF sy-subrc EQ 0.
+        CLEAR ls_cawn_t.
+        READ TABLE lt_cawn_t INTO ls_cawn_t WITH KEY atinn = lv_zprotype atwrt = ls_ausp-atwrt BINARY SEARCH.
+        IF sy-subrc EQ 0.
+          ls_out-zprotype = ls_cawn_t-atwtb.
+        ENDIF.
+      ENDIF.
     ENDIF.
 
-    "批文来源
-
-    IF ls_out-zappsou2 IS NOT INITIAL.
-      SELECT SINGLE
-        atwtb
-      INTO ls_out-zappsou
-      FROM cawnt
-      INNER JOIN cawn
-      ON cawn~atinn = cawnt~atinn
-      AND cawn~atzhl = cawnt~atzhl
-      WHERE cawnt~spras = '1'
-        AND cawn~atinn = lv_zappsou
-        AND cawn~atwrt = ls_out-zappsou2.
+    "最早入库日期
+    READ TABLE lt_zppt0003 INTO DATA(ls_zppt0003) WITH KEY kdauf = ls_all-vbeln
+                                                           kdpos = ls_all-posnr.
+    IF sy-subrc = 0.
+      ls_out-firdat = ls_zppt0003-erdat.
     ENDIF.
+
+
+
+*04815   IF ls_out-zappsou IS NOT INITIAL.
+*04815     SELECT SINGLE
+*04815       atwtb
+*04815     INTO ls_out-zappsou
+*04815     FROM cawnt
+*04815     INNER JOIN cawn
+*04815     ON cawn~atinn = cawnt~atinn
+*04815     AND cawn~atzhl = cawnt~atzhl
+*04815     WHERE cawnt~spras = '1'
+*04815       AND cawn~atinn = lv_zappsou
+*04815       AND cawn~atwrt = ls_out-zappsou2.
+*04815   ENDIF.
+
+
+
     "产品类型
-    CLEAR ls_out-zprotype.
+*04815    CLEAR ls_out-zprotype.
+*04815
+*04815    IF ls_all2-matnr90 IS NOT INITIAL.
+*04815      SELECT SINGLE
+*04815      atwrt
+*04815      INTO ls_out-zprotype
+*04815      FROM  ausp
+*04815      WHERE ausp~atinn  = lv_zprotype
+*04815      AND ausp~objek = ls_all2-matnr90.
+*04815      ls_out-zprotype2 = ls_out-zprotype.
+*04815      CLEAR ls_out-zprotype.
+*04815    ENDIF.
+*04815
+*04815    IF ls_out-zprotype2 IS NOT INITIAL.
+*04815      SELECT SINGLE
+*04815      atwtb
+*04815      INTO ls_out-zprotype
+*04815      FROM cawnt
+*04815      INNER JOIN cawn
+*04815      ON cawn~atinn = cawnt~atinn
+*04815      AND cawn~atzhl = cawnt~atzhl
+*04815      WHERE cawnt~spras = '1'
+*04815      AND cawn~atinn = lv_zprotype
+*04815      AND cawn~atwrt = ls_out-zprotype2.
+*04815    ENDIF.
 
-    IF ls_all2-matnr90 IS NOT INITIAL.
-      SELECT SINGLE
-      atwrt
-      INTO ls_out-zprotype
-      FROM  ausp
-      WHERE ausp~atinn  = lv_zprotype
-      AND ausp~objek = ls_all2-matnr90.
-      ls_out-zprotype2 = ls_out-zprotype.
-      CLEAR ls_out-zprotype.
-    ENDIF.
+*******************E 04815 2022-01-14****************
 
-    IF ls_out-zprotype2 IS NOT INITIAL.
-      SELECT SINGLE
-      atwtb
-      INTO ls_out-zprotype
-      FROM cawnt
-      INNER JOIN cawn
-      ON cawn~atinn = cawnt~atinn
-      AND cawn~atzhl = cawnt~atzhl
-      WHERE cawnt~spras = '1'
-      AND cawn~atinn = lv_zprotype
-      AND cawn~atwrt = ls_out-zprotype2.
-    ENDIF.
-
-
-
-
-*    ls_out-pmatn = ls_mvke-pmatn.
-    IF ls_mvke-pmatn IS NOT INITIAL.
-      SELECT SINGLE
-        maktx
-      INTO CORRESPONDING FIELDS OF ls_makt
-      FROM makt
-      WHERE makt~matnr = ls_mvke-pmatn.
-      ls_out-maktx = ls_makt-maktx.
-    ENDIF.
 
     "物料小类编码
-    SELECT SINGLE
-      matkl
-    INTO CORRESPONDING FIELDS OF ls_mara
-    FROM mara
-    WHERE mara~matnr = ls_all-matnr.
-    ls_out-matkl = ls_mara-matkl+0(4).
+    CLEAR ls_mara.
+    READ TABLE lt_mara INTO ls_mara WITH KEY matnr = ls_all-matnr BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-matkl = ls_mara-matkl+0(4).
+    ENDIF.
+
+*04815    SELECT SINGLE
+*04815      matkl
+*04815    INTO CORRESPONDING FIELDS OF ls_mara
+*04815    FROM mara
+*04815    WHERE mara~matnr = ls_all-matnr.
+
+
     "物料小类名称
     CLEAR ls_makt.
-    SELECT SINGLE
-      wgbez
-    INTO ls_out-maktxs
-    FROM t023t
-    WHERE t023t~matkl = ls_out-matkl
-    AND t023t~spras = '1'.
-
+*04815    SELECT SINGLE
+*04815      wgbez
+*04815    INTO ls_out-maktxs
+*04815    FROM t023t
+*04815    WHERE t023t~matkl = ls_out-matkl
+*04815    AND t023t~spras = '1'.
+    READ TABLE lt_t023t INTO ls_t023t WITH KEY matkl = ls_out-matkl BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-maktxs = ls_t023t-wgbez.
+    ENDIF.
 
 
     "基本计量数量
     IF ls_all-umzin IS NOT INITIAL.
       ls_out-number = ( ls_all-kwmeng * ( ls_all-umziz / ls_all-umzin ) ) + ( ls_all-zmeng * ( ls_all-umziz / ls_all-umzin ) ).
     ENDIF.
+
     CLEAR ls_prcd_elements.
+
+    "销售转换率
+    ls_out-rate = ls_all-umziz / ls_all-umzin.
+
+    CLEAR ls_prcd_elements.
+    SELECT
+          SUM( kbetr ) AS kbetr "含税单价
+          SUM( kwert ) AS kwert"含税金额
+          SUM( prcd_elements~kpein ) AS kpein "定价单位
+        INTO CORRESPONDING FIELDS OF ls_prcd_elements
+        FROM prcd_elements
+        WHERE knumv = ls_all-knumv
+        AND kschl IN ( 'ZP00','ZP02','ZP04','Z001','Z002','Z005','Z006' )
+        AND kinak = ''
+        AND kposn = ls_all-posnr.
     "含税单价
-    SELECT SINGLE
-      kbetr"含税单价
-      kwert"含税金额
-      prcd_elements~kpein"定价单位
-    INTO CORRESPONDING FIELDS OF ls_prcd_elements
-    FROM prcd_elements
-    INNER JOIN vbak
-    ON vbak~knumv = prcd_elements~knumv
-    INNER JOIN vbap
-    ON vbap~posnr = prcd_elements~kposn
-    WHERE vbak~vbeln = ls_all-vbeln
-    AND prcd_elements~kschl IN ( 'ZP00','ZP02' )
-    AND prcd_elements~kinak = ''
-    AND vbap~posnr = ls_all-posnr.
     ls_out-kbetr = ls_prcd_elements-kbetr.
+
     "定价单位
     ls_out-kpein = ls_prcd_elements-kpein.
-    "折扣金额
-    ls_out-mwsbp2 = ls_prcd_elements-kwert - ls_all-netwr - ls_all-mwsbp.
+
     "折扣率
-    IF ls_prcd_elements-kwert IS NOT INITIAL AND ls_all-kwmeng IS NOT INITIAL.
-      ls_out-kwert = ls_out-mwsbp2 / ls_prcd_elements-kwert * 100.
+    IF ls_prcd_elements-kwert IS NOT INITIAL.
+      "折扣金额
+      ls_out-mwsbp2 = ls_prcd_elements-kwert - ls_all-netwr - ls_all-mwsbp.
+
+      "折扣率
+      IF ls_all-kwmeng IS NOT INITIAL.
+        ls_out-kwert = ls_out-mwsbp2 / ls_prcd_elements-kwert * 100.
+      ENDIF.
+
     ENDIF.
 
     "税率
     CLEAR ls_prcd_elements.
-    SELECT SINGLE
-      kbetr
-    INTO CORRESPONDING FIELDS OF ls_prcd_elements
-    FROM prcd_elements
-    INNER JOIN vbak
-    ON vbak~knumv = prcd_elements~knumv
-    WHERE vbak~vbeln = ls_all-vbeln
-    AND prcd_elements~kschl = 'MWSI'
-    AND prcd_elements~kposn = ls_out-posnr.
-    ls_out-kwertdis = ls_prcd_elements-kbetr .
+    READ TABLE lt_prcd_elements INTO ls_prcd_elements WITH KEY knumv = ls_all-knumv kposn = ls_all-posnr BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-kwertdis = ls_prcd_elements-kbetr .
+    ENDIF.
+
+*04815    "含税单价
+*04815    SELECT
+*04815          SUM( kbetr ) AS kbetr "含税单价
+*04815          SUM( kwert ) AS kwert"含税金额
+*04815          SUM( prcd_elements~kpein ) AS kpein "定价单位
+*04815        INTO CORRESPONDING FIELDS OF ls_prcd_elements
+*04815        FROM vbap
+*04815    INNER JOIN vbak
+*04815    ON vbap~vbeln = vbak~vbeln
+*04815    INNER JOIN prcd_elements
+*04815        ON vbak~knumv = prcd_elements~knumv AND vbap~posnr = prcd_elements~kposn
+*04815        WHERE vbak~vbeln = ls_all-vbeln
+*04815        AND prcd_elements~kschl IN ( 'ZP00','ZP02','ZP04','Z001','Z002','Z005','Z006' )"修改定价过程的逻辑 modify by 202210206 纪桂灿
+*04815        AND prcd_elements~kinak = ''
+*04815        AND vbap~posnr = ls_all-posnr.
+*04815    ls_out-kbetr = ls_prcd_elements-kbetr.
+*04815    "定价单位
+*04815    ls_out-kpein = ls_prcd_elements-kpein.
+*04815    "折扣金额
+*04815    ls_out-mwsbp2 = ls_prcd_elements-kwert - ls_all-netwr - ls_all-mwsbp.
+*04815    "折扣率
+*04815    IF ls_prcd_elements-kwert IS NOT INITIAL AND ls_all-kwmeng IS NOT INITIAL.
+*04815      ls_out-kwert = ls_out-mwsbp2 / ls_prcd_elements-kwert * 100.
+*04815    ENDIF.
+
+*04815    "税率
+*04815    CLEAR ls_prcd_elements.
+*04815    SELECT SINGLE
+*04815      kbetr
+*04815    INTO CORRESPONDING FIELDS OF ls_prcd_elements
+*04815    FROM prcd_elements
+*04815    INNER JOIN vbak
+*04815    ON vbak~knumv = prcd_elements~knumv
+*04815    WHERE vbak~vbeln = ls_all-vbeln
+*04815    AND prcd_elements~kschl = 'MWSI'
+*04815    AND prcd_elements~kposn = ls_out-posnr.
+*04815    ls_out-kwertdis = ls_prcd_elements-kbetr .
+
     "价格合计
     ls_out-priceall = ls_all-netwr + ls_all-mwsbp.
+
     "入库量（当前库存）
     CLEAR ls_mska.
-    CLEAR lt_mska.
+*    CLEAR lt_mska.
     CLEAR ls_out-innum.
-    DATA:lv_value1 TYPE mska-kalab,
-         lv_value2 TYPE mska-kains.
-    CLEAR lv_value1.
-    CLEAR lv_value2.
-    SELECT
-    kalab
-    kains
-    kaspe
-    kavla
-    kavin
-    kavsp
-    INTO CORRESPONDING FIELDS OF TABLE lt_mska
-    FROM mska
-    WHERE mska~vbeln = ls_all-vbeln
-    AND mska~posnr = ls_all-posnr
-    AND mska~matnr = ls_all-matnr
-    AND mska~lgort IN ('1040','2040','3040','1070','2070','3070').
-    LOOP AT lt_mska INTO ls_mska.
-*    ls_out-innum = ls_mska-kalab + ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
-      lv_value1 = lv_value1 + ls_mska-kalab.
-      lv_value2 = lv_value2 + ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
-      CLEAR ls_mska.
-    ENDLOOP.
-    ls_out-innum = lv_value1.
-    ls_out-innum2 = lv_value2.
+*04815    DATA:lv_value1 TYPE mska-kalab,
+*04815         lv_value2 TYPE mska-kains.
+*04815    CLEAR lv_value1.
+*04815    CLEAR lv_value2.
+*04815    SELECT
+*04815    kalab
+*04815    kains
+*04815    kaspe
+*04815    kavla
+*04815    kavin
+*04815    kavsp
+*04815    INTO CORRESPONDING FIELDS OF TABLE lt_mska
+*04815    FROM mska
+*04815    WHERE mska~vbeln = ls_all-vbeln
+*04815    AND mska~posnr = ls_all-posnr
+*04815    AND mska~matnr = ls_all-matnr
+*04815    AND mska~lgort IN ('1040','2040','3040','1070','2070','3070').
+*04815    LOOP AT lt_mska INTO ls_mska.
+*04815*    ls_out-innum = ls_mska-kalab + ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
+*04815      lv_value1 = lv_value1 + ls_mska-kalab.
+*04815      lv_value2 = lv_value2 + ls_mska-kains + ls_mska-kaspe + ls_mska-kavla + ls_mska-kavin + ls_mska-kavsp.
+*04815      CLEAR ls_mska.
+*04815    ENDLOOP.
+    CLEAR ls_mska.
+    READ TABLE lt_mska INTO ls_mska WITH KEY vbeln = ls_all-vbeln posnr = ls_all-posnr matnr = ls_all-matnr  BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-innum = ls_mska-kalab.
+      ls_out-innum2 = ls_mska-kalab1.
+    ENDIF.
+
     IF ls_out-number IS NOT INITIAL AND ls_out-kwmeng IS NOT INITIAL.
       ls_out-innum = ls_out-innum / ( ls_out-number / ls_out-kwmeng  ).
       ls_out-innum2 = ls_out-innum2 / ( ls_out-number / ls_out-kwmeng  ).
     ENDIF.
-    CLEAR lt_vbfa.
+
+*04815    CLEAR lt_vbfa.
+*04815    "出库量
+*04815    SELECT
+*04815      rfmng
+*04815      vbtyp_n
+*04815    INTO CORRESPONDING FIELDS OF TABLE lt_vbfa
+*04815    FROM vbfa
+*04815    WHERE vbfa~vbelv = ls_all-vbeln
+*04815      AND vbfa~posnv = ls_all-posnr
+*04815    AND vbfa~vbtyp_n IN ( 'R','h' ).
+*04815    LOOP AT lt_vbfa INTO ls_vbfa.
+*04815      IF ls_vbfa-vbtyp_n = 'R'.
+*04815        ls_out-outnum = ls_out-outnum + ls_vbfa-rfmng.
+*04815      ELSEIF ls_vbfa-vbtyp_n = 'h'.
+*04815        ls_out-outnum = ls_out-outnum - ls_vbfa-rfmng.
+*04815      ENDIF.
+*04815      CLEAR ls_vbfa.
+*04815    ENDLOOP.
+
     "出库量
-    SELECT
-      rfmng
-      vbtyp_n
-    INTO CORRESPONDING FIELDS OF TABLE lt_vbfa
-    FROM vbfa
-    WHERE vbfa~vbelv = ls_all-vbeln
-      AND vbfa~posnv = ls_all-posnr
-    AND vbfa~vbtyp_n IN ( 'R','h' ).
-    LOOP AT lt_vbfa INTO ls_vbfa.
-      IF ls_vbfa-vbtyp_n = 'R'.
-        ls_out-outnum = ls_out-outnum + ls_vbfa-rfmng.
-      ELSEIF ls_vbfa-vbtyp_n = 'h'.
-        ls_out-outnum = ls_out-outnum - ls_vbfa-rfmng.
-      ENDIF.
-      CLEAR ls_vbfa.
-    ENDLOOP.
+    CLEAR ls_vbfa_out.
+    READ TABLE lt_vbfa_out INTO ls_vbfa_out WITH KEY vbelv = ls_all-vbeln posnv = ls_all-posnr BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-outnum = ls_vbfa_out-rfmng.
+    ENDIF.
+
 
     IF ls_out-number IS NOT INITIAL AND ls_out-kwmeng IS NOT INITIAL.
       ls_out-outnum = ls_out-outnum /  ( ls_out-number / ls_out-kwmeng  ).
     ENDIF.
-    CLEAR ls_vbfa.
-    CLEAR lt_vbfa.
+
+*04815    CLEAR lt_vbfa.
+
     "首个交货日期
-    SELECT
-      vbeln
-    INTO CORRESPONDING FIELDS OF TABLE lt_vbfa
-    FROM vbfa
-    WHERE vbfa~vbelv = ls_all-vbeln
-    AND vbfa~posnv = ls_all-posnr
-    AND vbfa~vbtyp_n = 'J'
-    AND vbfa~rfmng > 0
-    ORDER BY vbeln.
-    READ TABLE lt_vbfa INTO ls_vbfa INDEX 1.
-    CLEAR ls_likp.
-    SELECT SINGLE
-      wadat_ist
-    INTO CORRESPONDING FIELDS OF ls_likp
-    FROM likp
-    WHERE likp~vbeln = ls_vbfa-vbeln.
-    ls_out-wadat_ist = ls_likp-wadat_ist.
-    CLEAR lt_vbfa.
-    CLEAR ls_vbfa.
-    "开票量
-    SELECT
-    rfmng
-    vbtyp_n
-    erdat
-    INTO CORRESPONDING FIELDS OF TABLE lt_vbfa
-    FROM vbfa
-    WHERE vbfa~vbelv = ls_all-vbeln
-    AND vbfa~posnv = ls_all-posnr
-    AND vbfa~vbtyp_n IN ( 'M','N','O','S' )
-    ORDER BY erdat DESCENDING.
-    LOOP AT lt_vbfa INTO ls_vbfa.
-*      ls_out-invoice = ls_out-invoice + ls_vbfa-rfmng.
-      IF ls_vbfa-vbtyp_n = 'M' OR ls_vbfa-vbtyp_n = 'O'.
-        ls_out-invoice = ls_out-invoice + ls_vbfa-rfmng.
-      ELSEIF ls_vbfa-vbtyp_n = 'N' OR ls_vbfa-vbtyp_n = 'S'.
-        ls_out-invoice = ls_out-invoice - ls_vbfa-rfmng.
+*04815    SELECT
+*04815      vbeln
+*04815    INTO CORRESPONDING FIELDS OF TABLE lt_vbfa
+*04815    FROM vbfa
+*04815    WHERE vbfa~vbelv = ls_all-vbeln
+*04815    AND vbfa~posnv = ls_all-posnr
+*04815    AND vbfa~vbtyp_n = 'J'
+*04815    AND vbfa~rfmng > 0
+*04815    ORDER BY vbeln.
+*04815    READ TABLE lt_vbfa INTO ls_vbfa INDEX 1.
+*04815    CLEAR ls_likp.
+*04815    SELECT SINGLE
+*04815      wadat_ist
+*04815    INTO CORRESPONDING FIELDS OF ls_likp
+*04815    FROM likp
+*04815    WHERE likp~vbeln = ls_vbfa-vbeln.
+*04815    ls_out-wadat_ist = ls_likp-wadat_ist.
+*04815    CLEAR lt_vbfa.
+*04815    CLEAR ls_vbfa.
+    CLEAR ls_vbfa_jhrq.
+    READ TABLE lt_vbfa_jhrq INTO ls_vbfa_jhrq WITH KEY vbelv = ls_all-vbeln posnv = ls_all-posnr BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      "找到交货单号，根据交货单号读取likp表取过账日期
+      CLEAR ls_likp.
+      READ TABLE lt_likp INTO ls_likp WITH KEY vbeln = ls_vbfa_jhrq-vbeln BINARY SEARCH.
+      IF sy-subrc EQ 0.
+        ls_out-wadat_ist = ls_likp-wadat_ist.
       ENDIF.
-      CLEAR ls_vbfa.
-    ENDLOOP.
+    ENDIF.
+
+
+    "开票量
+*04815    SELECT
+*04815    rfmng
+*04815    vbtyp_n
+*04815    erdat
+*04815    INTO CORRESPONDING FIELDS OF TABLE lt_vbfa
+*04815    FROM vbfa
+*04815    WHERE vbfa~vbelv = ls_all-vbeln
+*04815    AND vbfa~posnv = ls_all-posnr
+*04815    AND vbfa~vbtyp_n IN ( 'M','N','O','S' )
+*04815    ORDER BY erdat DESCENDING.
+*04815    LOOP AT lt_vbfa INTO ls_vbfa.
+*04815*      ls_out-invoice = ls_out-invoice + ls_vbfa-rfmng.
+*04815      IF ls_vbfa-vbtyp_n = 'M' OR ls_vbfa-vbtyp_n = 'O'.
+*04815        ls_out-invoice = ls_out-invoice + ls_vbfa-rfmng.
+*04815      ELSEIF ls_vbfa-vbtyp_n = 'N' OR ls_vbfa-vbtyp_n = 'S'.
+*04815        ls_out-invoice = ls_out-invoice - ls_vbfa-rfmng.
+*04815      ENDIF.
+*04815      CLEAR ls_vbfa.
+*04815    ENDLOOP.
+    CLEAR ls_vbfa_invoice.
+    READ TABLE lt_vbfa_invoice INTO ls_vbfa_invoice WITH KEY vbelv = ls_all-vbeln posnv = ls_all-posnr BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-invoice = ls_vbfa_invoice-rfmng.
+    ENDIF.
+
     IF ls_out-number IS NOT INITIAL AND ls_out-kwmeng IS NOT INITIAL AND ( ls_out-number / ls_out-kwmeng  ) <> 0.
       ls_out-invoice = ls_out-invoice /  ( ls_out-number / ls_out-kwmeng  ).
     ENDIF.
 
-    CLEAR ls_vbfa.
-    "开票日期
-    LOOP AT lt_vbfa INTO ls_vbfa.
-      ls_out-invoiced = ls_vbfa-erdat.
-      CHECK ls_out-invoiced IS NOT INITIAL.
-    ENDLOOP.
+
+*    "开票日期
+*    LOOP AT lt_vbfa INTO ls_vbfa.
+*      ls_out-invoiced = ls_vbfa-erdat.
+*      CHECK ls_out-invoiced IS NOT INITIAL.
+*    ENDLOOP.
+
+
+
+
     "是否报检
 *    IF ls_all-zsfbj = 'X'.
 *      ls_out-zsfbj = '是'.
@@ -1307,26 +2203,57 @@ FORM getdata.
     ENDLOOP.
     CLEAR ls_lines.
     CLEAR  lt_lines.
+
+
     "订单类型取描述
-    READ TABLE lt_tvakt INTO ls_tvakt WITH KEY auart = ls_out-auart.
-    ls_out-auart = ls_tvakt-bezei.
     CLEAR ls_tvakt.
+    READ TABLE lt_tvakt INTO ls_tvakt WITH KEY auart = ls_out-auart BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-auart = ls_tvakt-bezei.
+    ENDIF.
+
+    "因为组织结构调整，修改分销渠道
+    "根据历史订单的旧数据，通过配置表的转换逻辑，返回新分销渠道
+    CALL FUNCTION 'Z_SD_GET_VTWEG'
+      EXPORTING
+        i_kunnr = ls_out-custname2
+        i_vkorg = ls_out-vkorg
+        i_vtweg = ls_out-vtweg
+        i_spart = ls_out-spart
+      IMPORTING
+        r_vtweg = ls_out-vtweg
+        error   = error
+      TABLES
+        lt_data = lt_data
+        lt_knvv = lt_knvv.
+
     "分销渠道取描述
-    READ TABLE lt_tvtwt INTO ls_tvtwt WITH KEY vtweg = ls_out-vtweg.
-    ls_out-vtweg = ls_tvtwt-vtext.
     CLEAR ls_tvtwt.
+    READ TABLE lt_tvtwt INTO ls_tvtwt WITH KEY vtweg = ls_out-vtweg BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-vtwegt = ls_tvtwt-vtext.
+    ENDIF.
+
     "销售渠道取描述
-    READ TABLE lt_tvv1t INTO ls_tvv1t WITH KEY kvgr1 = ls_out-kvgr1.
-    ls_out-kvgr1 = ls_tvv1t-bezei.
     CLEAR ls_tvv1t.
+    READ TABLE lt_tvv1t INTO ls_tvv1t WITH KEY kvgr1 = ls_out-kvgr1 BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-kvgr1 = ls_tvv1t-bezei.
+    ENDIF.
+
     "出口国家取描述
-    READ TABLE lt_t005t INTO ls_t005t WITH KEY land1 = ls_out-zckgj.
-    ls_out-zckgj2 = ls_t005t-landx.
     CLEAR ls_t005t.
+    READ TABLE lt_t005t INTO ls_t005t WITH KEY land1 = ls_out-zckgj BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-zckgj2 = ls_t005t-landx.
+    ENDIF.
+
     "二级部门取描述
-    READ TABLE lt_tvkbt INTO ls_tvkbt WITH KEY vkbur = ls_out-vkbur.
-    ls_out-vkbur = ls_tvkbt-bezei.
     CLEAR ls_tvkbt.
+    READ TABLE lt_tvkbt INTO ls_tvkbt WITH KEY vkbur = ls_out-vkbur BINARY SEARCH.
+    IF sy-subrc EQ 0.
+      ls_out-vkburt = ls_tvkbt-bezei.
+    ENDIF.
 
     "是否新产品
     IF ls_all-zsfxcp = 'Y'.
@@ -1361,35 +2288,51 @@ FORM getdata.
     IF ls_all-zapszt = 'A'.
       ls_out-zapszt = '下达状态'.
     ENDIF.
-    CLEAR lt_dd07v.
-    SELECT
-      ddtext
-      valpos
-      domname
-      domvalue_l
-    INTO CORRESPONDING FIELDS OF TABLE lt_dd07v
-    FROM dd07v
-      WHERE dd07v~ddlanguage = '1'
-    AND dd07v~domname IN ( 'ZD_DYTK','ZD_SFXBZ','ZD_XFLAG','ZD_ZDSCQY','ZD_PHYQ','ZD_BHCL' ).
-    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_BHCL' domvalue_l = ls_out-zbhcl."备货策略
-    ls_out-zbhcl = ls_dd07v-ddtext.
+*04815    CLEAR lt_dd07v.
+*04815    SELECT
+*04815      ddtext
+*04815      valpos
+*04815      domname
+*04815      domvalue_l
+*04815    INTO CORRESPONDING FIELDS OF TABLE lt_dd07v
+*04815    FROM dd07v
+*04815      WHERE dd07v~ddlanguage = '1'
+*04815    AND dd07v~domname IN ( 'ZD_DYTK','ZD_SFXBZ','ZD_XFLAG','ZD_ZDSCQY','ZD_PHYQ','ZD_BHCL','ZBLDLX' ). "S4DK905471
     CLEAR ls_dd07v.
-    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_SFXBZ' domvalue_l = ls_out-zsfxbz."是否新包装
-    ls_out-zsfxbz = ls_dd07v-ddtext.
-    CLEAR ls_dd07v.
-    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_DYTK' domvalue_l = ls_out-zdytk."短溢条款
-    ls_out-zdytk = ls_dd07v-ddtext.
-    CLEAR ls_dd07v.
-    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_PHYQ' domvalue_l = ls_all-zphyq."批号要求
-    ls_out-zphyq = ls_dd07v-ddtext.
-    CLEAR ls_dd07v.
-    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_XFLAG' domvalue_l = ls_all-zsfbj."批号要求
-    ls_out-zsfbj = ls_dd07v-ddtext.
-    CLEAR ls_dd07v.
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_BHCL' domvalue_l = ls_out-zbhcl BINARY SEARCH."备货策略
+    IF sy-subrc EQ 0.
+      ls_out-zbhcl = ls_dd07v-ddtext.
+    ENDIF.
 
+    CLEAR ls_dd07v.
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_SFXBZ' domvalue_l = ls_out-zsfxbz BINARY SEARCH."是否新包装
+    IF sy-subrc EQ 0.
+      ls_out-zsfxbz = ls_dd07v-ddtext.
+    ENDIF.
 
+    CLEAR ls_dd07v.
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_DYTK' domvalue_l = ls_out-zdytk BINARY SEARCH."短溢条款
+    IF sy-subrc EQ 0.
+      ls_out-zdytk = ls_dd07v-ddtext.
+    ENDIF.
 
+    CLEAR ls_dd07v.
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_PHYQ' domvalue_l = ls_all-zphyq BINARY SEARCH."批号要求
+    IF sy-subrc EQ 0.
+      ls_out-zphyq = ls_dd07v-ddtext.
+    ENDIF.
 
+    CLEAR ls_dd07v.
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZD_XFLAG' domvalue_l = ls_all-zsfbj BINARY SEARCH."批号要求
+    IF sy-subrc EQ 0.
+      ls_out-zsfbj = ls_dd07v-ddtext.
+    ENDIF.
+
+    CLEAR ls_dd07v.
+    READ TABLE lt_dd07v INTO ls_dd07v WITH KEY domname = 'ZBLDLX' domvalue_l = ls_all-zbldlx BINARY SEARCH."备料单类型
+    IF sy-subrc EQ 0.
+      ls_out-zbldlx = ls_dd07v-ddtext.
+    ENDIF.
 
 
     "DDP价格
@@ -1453,33 +2396,50 @@ FORM getdata.
     CLEAR ls_aufma.
 
 ***************END*************************
+*     判断制造工厂
+    CASE ls_out-zleix.
+      WHEN 'S010' OR 'S030' OR 'S030' OR 'S050' OR 'S070' OR 'S100' OR 'S120' OR 'S130' OR 'S150' OR 'S190' OR 'S210' OR 'S280'.
+        ls_out-werks2 = '8100'.
+      WHEN :'S020' OR 'S040' OR 'S060' OR 'S080' OR 'S090' OR 'S110' OR 'S140' OR 'S160' OR 'S170' OR 'S180' OR 'S200'.
+        ls_out-werks2 = '8200'.
+      WHEN 'S220' OR 'S240' OR 'S270'.
+        ls_out-werks2 = '8100'.
+      WHEN 'S230' OR '250' OR 'S260'.
+        ls_out-werks2 = '8200'.
+      WHEN OTHERS.
+        ls_out-werks2 = ls_out-werks.
+    ENDCASE.
+
+
 
     IF flag = 'X' AND flag_b = 'X'.
       "获取对应的物料清单
       CLEAR ls_mast.
-      SELECT SINGLE
-      stlnr
-      INTO CORRESPONDING FIELDS OF ls_mast
-      FROM mast AS a
-      WHERE a~matnr = ls_all-matnr
-      AND a~werks = ls_all-werks
-      AND a~stlan = '1'
-      AND a~stlal = '01'.
-      "BOM的基本数量
-      CLEAR ls_stko.
-      SELECT SINGLE
-      bmeng
-      INTO CORRESPONDING FIELDS OF ls_stko
-      FROM stko AS a
-      WHERE a~stlty = 'M'
-      AND a~stlal = '01'
-      AND a~stlnr = ls_mast-stlnr.
+      READ TABLE lt_mast INTO ls_mast WITH KEY matnr = ls_all-matnr werks = ls_all-werks BINARY SEARCH.
+      IF sy-subrc EQ 0.
+        "BOM的基本数量
+        CLEAR ls_stko.
+        READ TABLE lt_stko INTO ls_stko WITH KEY stlnr = ls_mast-stlnr BINARY SEARCH.
+
+      ENDIF.
+*04815      SELECT SINGLE
+*04815      stlnr
+*04815      INTO CORRESPONDING FIELDS OF ls_mast
+*04815      FROM mast AS a
+*04815      WHERE a~matnr = ls_all-matnr
+*04815      AND a~werks = ls_all-werks
+*04815      AND a~stlan = '1'
+*04815      AND a~stlal = '01'.
 
 
-
-
-
-
+*04815      CLEAR ls_stko.
+*04815      SELECT SINGLE
+*04815      bmeng
+*04815      INTO CORRESPONDING FIELDS OF ls_stko
+*04815      FROM stko AS a
+*04815      WHERE a~stlty = 'M'
+*04815      AND a~stlal = '01'
+*04815      AND a~stlnr = ls_mast-stlnr.
 
       CALL FUNCTION 'CS_BOM_EXPL_MAT_V2'
         EXPORTING
@@ -1570,48 +2530,56 @@ FORM getdata.
 
       LOOP AT lt_stb INTO ls_stb.
         CLEAR ls_mara.
-        SELECT SINGLE
-          mtart
-          meins
-        INTO CORRESPONDING FIELDS OF ls_mara
-        FROM mara
-        WHERE mara~matnr = ls_stb-idnrk.
-        IF ls_mara-mtart = 'Z050'.
-          ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-matnr i_out = 'X' ).
-          ls_out-zson = ls_stb-idnrk."BOM的物料编码
-          ls_out-zson = zcl_bc_public=>conv_by_ddic( i_input = ls_out-zson i_out = 'X' ).
-          "子件的单位
-          CLEAR ls_out-zmeins.
-          CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
-            EXPORTING
-              input          = ls_mara-meins
-              language       = sy-langu
-            IMPORTING
-              long_text      = ls_out-zmeins
-*             OUTPUT         =
-*             SHORT_TEXT     =
-            EXCEPTIONS
-              unit_not_found = 1
-              OTHERS         = 2.
-          IF sy-subrc <> 0.
-* Implement suitable error handling here
+*04815        SELECT SINGLE
+*04815          mtart
+*04815          meins
+*04815        INTO CORRESPONDING FIELDS OF ls_mara
+*04815        FROM mara
+*04815        WHERE mara~matnr = ls_stb-idnrk.
+        READ TABLE lt_mara INTO ls_mara WITH KEY matnr = ls_stb-idnrk BINARY SEARCH.
+        IF sy-subrc EQ 0.
+          IF ls_mara-mtart = 'Z050'.
+            ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-matnr i_out = 'X' ).
+            ls_out-zson = ls_stb-idnrk."BOM的物料编码
+            ls_out-zson = zcl_bc_public=>conv_by_ddic( i_input = ls_out-zson i_out = 'X' ).
+            "子件的单位
+            CLEAR ls_out-zmeins.
+            CALL FUNCTION 'CONVERSION_EXIT_CUNIT_OUTPUT'
+              EXPORTING
+                input          = ls_mara-meins
+                language       = sy-langu
+              IMPORTING
+                long_text      = ls_out-zmeins
+*               OUTPUT         =
+*               SHORT_TEXT     =
+              EXCEPTIONS
+                unit_not_found = 1
+                OTHERS         = 2.
+            IF sy-subrc <> 0.
+*   Implement suitable error handling here
+            ENDIF.
+*            ls_out-zmeins = ls_mara-meins.
+            "子件的描述
+            CLEAR ls_makt.
+*  04815          SELECT SINGLE
+*  04815          maktx
+*  04815          INTO ls_out-zsondetail
+*  04815          FROM makt
+*  04815          WHERE makt~matnr = ls_stb-idnrk AND makt~spras = '1'."ADD S4DK904526
+            READ TABLE lt_makt INTO ls_makt WITH KEY matnr = ls_stb-idnrk.
+            IF sy-subrc EQ 0.
+              ls_out-zsondetail = ls_makt-maktx.
+            ENDIF.
+
+            "礼合装子件销售数量
+            ls_out-zsum = ( ls_stb-menge / ls_stko-bmeng ) * ls_out-number.
+            "礼合装子件基本数量
+            ls_out-zsum2 =  ( ls_stb-menge / ls_stko-bmeng ) * ls_out-kwmeng.
+
+            APPEND ls_out TO lt_out." 输出BOM子件的行数
           ENDIF.
-*          ls_out-zmeins = ls_mara-meins.
-          "子件的描述
-          CLEAR ls_makt.
-          SELECT SINGLE
-          maktx
-          INTO ls_out-zsondetail
-          FROM makt
-          WHERE makt~matnr = ls_stb-idnrk.
-
-          "礼合装子件销售数量
-          ls_out-zsum = ( ls_stb-menge / ls_stko-bmeng ) * ls_out-number.
-          "礼合装子件基本数量
-          ls_out-zsum2 =  ( ls_stb-menge / ls_stko-bmeng ) * ls_out-kwmeng.
-
-          APPEND ls_out TO lt_out." 输出BOM子件的行数
         ENDIF.
+
         CLEAR ls_stb.
       ENDLOOP.
       ls_out-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_out-matnr i_out = 'X' ).
@@ -1628,6 +2596,12 @@ FORM getdata.
     CLEAR ls_out.
     CLEAR ls_all.
   ENDLOOP.
+  "去除二级部门不符合条件的数据
+  DELETE lt_out WHERE vkbur NOT IN svkbur.
+  DELETE lt_out WHERE vtweg NOT IN vtweg_n.
+
+
+
   SELECT
     *
   FROM @lt_out AS a
@@ -1643,7 +2617,7 @@ ENDFORM.
 FORM catalog.
   w_repid = sy-repid.
   CLEAR fieldcat.
-
+  CLEAR sy-tabix.
   DEFINE fieldcatset."宏定义
     fieldcat-just = 'C'."字段居中显示
     fieldcat-outputlen = 12."自定义字段的长度
@@ -1651,6 +2625,18 @@ FORM catalog.
     fieldcat-fieldname = &1."透明表字段名
     fieldcat-coltext = &2."ALV列名
     fieldcat-col_pos = &3."列位置
+
+     IF &1 = 'VBELN'.
+       fieldcat-hotspot = 'X' ."鼠标热点事件
+       fieldcat-key = 'X'."定义为主键（颜色改变）
+       ELSEIF &1 = 'VBEZZ' OR &1 = 'ZYSDJ' .
+      fieldcat-hotspot = 'X' .
+
+     ELSE.
+       fieldcat-hotspot = '' ."鼠标热点事件
+       fieldcat-key = ''."定义为主键（颜色改变）
+    ENDIF .
+
     APPEND fieldcat.
   END-OF-DEFINITION.
   fieldcatset 'ERDAT'      '创建日期'    sy-tabix.
@@ -1658,29 +2644,31 @@ FORM catalog.
   fieldcatset 'UDATE1'      '一审日期'    sy-tabix.
   fieldcatset 'UDATE'      '二审日期'    sy-tabix.
   fieldcatset 'AUGRU'   '订单原因' sy-tabix.
-  fieldcatset 'VBELN'   '单据号Serial Number' sy-tabix.
-  fieldcatset 'PRONOTE'   '生产相关文本Comment' sy-tabix.
-  fieldcatset 'PRONOTE2'   '生产相关文本2Comment2' sy-tabix.
+  fieldcatset 'VBELN'   '单据号SERIAL NUMBER' sy-tabix.
+  fieldcatset 'PRONOTE'   '生产相关文本COMMENT' sy-tabix.
+  fieldcatset 'PRONOTE2'   '生产相关文本2COMMENT2' sy-tabix.
   fieldcatset 'VKORG'   '销售组织' sy-tabix.
-  fieldcatset 'WERKS'   '工厂Factory' sy-tabix.
-  fieldcatset 'VTWEG'   '分销渠道Area' sy-tabix.
-  fieldcatset 'VKBUR'   '二级部门' sy-tabix.
+  fieldcatset 'WERKS'   '工厂FACTORY' sy-tabix.
+  fieldcatset 'VTWEGT'   '订单分销渠道AREA' sy-tabix.
+*  fieldcatset 'VTWEG_N' '归属分销渠道AREA' sy-tabix.
+  fieldcatset 'VKBUR'   '销售办公室' sy-tabix.
+  fieldcatset 'VKBURT'   '销售办公室描述' sy-tabix.
   fieldcatset 'AUART'   '订单类型' sy-tabix.
   fieldcatset 'MC_NAME1'   '检索项' sy-tabix.
-  fieldcatset 'KUNNR'   '售达方(客户名称)Customer' sy-tabix.
+  fieldcatset 'KUNNR'   '售达方(客户名称)CUSTOMER' sy-tabix.
   fieldcatset 'KUNNR2'   '售达方(编号)' sy-tabix.
-  fieldcatset 'SALEMAN'   '业务员Sales' sy-tabix.
+  fieldcatset 'SALEMAN'   '业务员SALES' sy-tabix.
   fieldcatset 'SALEMANNO'   '业务员编号' sy-tabix.
   fieldcatset 'POSNR'   '行号' sy-tabix.
-  fieldcatset 'MATNR'   '产品编码Product ID' sy-tabix.
-  fieldcatset 'ARKTX'   '产品名称Product Name' sy-tabix.
-  fieldcatset 'ZBZGG'   '包装规格Packing Specification' sy-tabix.
+  fieldcatset 'MATNR'   '产品编码PRODUCT ID' sy-tabix.
+  fieldcatset 'ARKTX'   '产品名称PRODUCT NAME' sy-tabix.
+  fieldcatset 'ZBZGG'   '包装规格PACKING SPECIFICATION' sy-tabix.
   fieldcatset 'ZAPSZT'   'APS状态' sy-tabix.
   fieldcatset 'ETTYP' '计划行类别' sy-tabix.
   fieldcatset 'NUMBER'   '基本计量数量QTY' sy-tabix.
-  fieldcatset 'MEINS'   '基本计量单位Unit' sy-tabix.
-  fieldcatset 'KWMENG'   '销售数量Marketing QTY' sy-tabix.
-  fieldcatset 'VRKME'   '销售单位Marketing Unit' sy-tabix.
+  fieldcatset 'MEINS'   '基本计量单位UNIT' sy-tabix.
+  fieldcatset 'KWMENG'   '销售数量MARKETING QTY' sy-tabix.
+  fieldcatset 'VRKME'   '销售单位MARKETING UNIT' sy-tabix.
   fieldcatset 'INNUM'   '非限制库存' sy-tabix.
   fieldcatset 'INNUM2'   '其它库存' sy-tabix.
   fieldcatset 'OUTNUM'   '出库量' sy-tabix.
@@ -1690,22 +2678,22 @@ FORM catalog.
   fieldcatset 'ZNBJHQ'   '内部交货日期' sy-tabix.
   fieldcatset 'WADAT_IST'      '首个交货日期'    sy-tabix.
   fieldcatset 'ZATPDFRQ'   'ATP答复日期' sy-tabix.
-  fieldcatset 'ZTERM'   '付款方式Terms of Payment' sy-tabix.
-  fieldcatset 'WAERK'   '订单币种Currency' sy-tabix.
-  fieldcatset 'KURSK'   '汇率Exchange Rate' sy-tabix.
-  fieldcatset 'KBETR'   '折前单价Unit price' sy-tabix.
+  fieldcatset 'ZTERM'   '付款方式TERMS OF PAYMENT' sy-tabix.
+  fieldcatset 'WAERK'   '订单币种CURRENCY' sy-tabix.
+  fieldcatset 'KURSK'   '汇率EXCHANGE RATE' sy-tabix.
+  fieldcatset 'KBETR'   '折前单价UNIT PRICE' sy-tabix.
   fieldcatset 'KPEIN'   '定价单位' sy-tabix.
-  fieldcatset 'KWERT'   '总折扣率%Discount Rate' sy-tabix.
-  fieldcatset 'MWSBP2'   '总折扣金额Discount' sy-tabix.
-  fieldcatset 'KWERTDIS'   '税率Tax Rate' sy-tabix.
+  fieldcatset 'KWERT'   '总折扣率%DISCOUNT RATE' sy-tabix.
+  fieldcatset 'MWSBP2'   '总折扣金额DISCOUNT' sy-tabix.
+  fieldcatset 'KWERTDIS'   '税率TAX RATE' sy-tabix.
   fieldcatset 'MWSBP'   '销项税额' sy-tabix.
-  fieldcatset 'NETWR'   '不含税金额Amount（Tax excluding）' sy-tabix.
+  fieldcatset 'NETWR'   '不含税金额AMOUNT（TAX EXCLUDING）' sy-tabix.
   fieldcatset 'PRICE2'     '不含税金额CNY'   sy-tabix.
-  fieldcatset 'PRICEALL'   '价税合计Amount(Tax Including)' sy-tabix.
-  fieldcatset 'DDPPRICE' 'DDP价格DDP Price' sy-tabix.
-  fieldcatset 'ZYPSL'   '样品数量Sample QTY' sy-tabix.
-  fieldcatset 'ZSFXBZ'   '新包装New Package?' sy-tabix.
-  fieldcatset 'ZSFXCP'   '新产品New Product' sy-tabix.
+  fieldcatset 'PRICEALL'   '价税合计AMOUNT(TAX INCLUDING)' sy-tabix.
+  fieldcatset 'DDPPRICE' 'DDP价格DDP PRICE' sy-tabix.
+  fieldcatset 'ZYPSL'   '样品数量SAMPLE QTY' sy-tabix.
+  fieldcatset 'ZSFXBZ'   '新包装NEW PACKAGE?' sy-tabix.
+  fieldcatset 'ZSFXCP'   '新产品NEW PRODUCT' sy-tabix.
   fieldcatset 'ZSFBJ'   '是否报检' sy-tabix.
   fieldcatset 'ZPHYQ'   '批号要求' sy-tabix.
   fieldcatset 'ZZZTL'   '最早投料日期' sy-tabix.
@@ -1713,46 +2701,63 @@ FORM catalog.
   fieldcatset 'ZZZBZ'   '最早包装时间' sy-tabix.
   fieldcatset 'ZZWBZ'   '最晚包装时间' sy-tabix.
   fieldcatset 'ZBHCL'   '备货策略' sy-tabix.
+  fieldcatset 'ZBLDLX'   '备料单类型' sy-tabix.                  "S4DK905471
   fieldcatset 'ZBOMQQ'   'BOM欠缺物料' sy-tabix.
   fieldcatset 'ZBLXY'   '是否有备料协议' sy-tabix.
-  fieldcatset 'ZSFXKH'   '新客户 New Customer?' sy-tabix.
+  fieldcatset 'ZSFXKH'   '新客户 NEW CUSTOMER?' sy-tabix.
   fieldcatset 'NOTE'   '生产行项目备注' sy-tabix.
   fieldcatset 'SALENOT'   '销售文本' sy-tabix.
   fieldcatset 'VOICENOT'   '发货文本' sy-tabix.
   fieldcatset 'INVOICENOTE' '开票文本' sy-tabix.
-  fieldcatset 'ZYFKQK' '预付款Prepayment' sy-tabix.
-  fieldcatset 'ERNAM'   '制单人Prepared by' sy-tabix.
+  fieldcatset 'ZYFKQK' '预付款PREPAYMENT' sy-tabix.
+  fieldcatset 'ERNAM'   '制单人PREPARED BY' sy-tabix.
   fieldcatset 'ZCKGJ'   '出口国家简称' sy-tabix.
-  fieldcatset 'ZCKGJ2'   '出口国家Country' sy-tabix.
-  fieldcatset 'KVGR1'   '销售渠道/客户类型Sales Channel' sy-tabix.
+  fieldcatset 'ZCKGJ2'   '出口国家COUNTRY' sy-tabix.
+  fieldcatset 'KVGR1'   '销售渠道/客户类型SALES CHANNEL' sy-tabix.
   fieldcatset 'BU_SORT1'      '实际客户的检索项'    sy-tabix.
-  fieldcatset 'CUSTNAME'   '实际客户名称Actual Customer' sy-tabix.
+  fieldcatset 'CUSTNAME'   '实际客户名称ACTUAL CUSTOMER' sy-tabix.
   fieldcatset 'CUSTNAME2'   '实际客户编号' sy-tabix.
-  fieldcatset 'KUKLA'   '实际客户等级Classification' sy-tabix.
+  fieldcatset 'KUKLA'   '实际客户等级CLASSIFICATION' sy-tabix.
   fieldcatset 'PARTNER'      '实际客户的业务员编号'    sy-tabix.
   fieldcatset 'KUNN2'      '实际客户的业务员'    sy-tabix.
   fieldcatset 'BSTKD_E'   '客户PO PO' sy-tabix.
   fieldcatset 'POSEX_E'   '客户合同分录' sy-tabix.
-  fieldcatset 'ZKHWL'   '客户产品编码Customer Product Code' sy-tabix.
-  fieldcatset 'ZKHWLMS'   '客户产品名称Customer Product Name' sy-tabix.
+  fieldcatset 'ZKHWL'   '客户产品编码CUSTOMER PRODUCT CODE' sy-tabix.
+  fieldcatset 'ZKHWLMS'   '客户产品名称CUSTOMER PRODUCT NAME' sy-tabix.
   fieldcatset 'ZSTDNAME'   '标准名称' sy-tabix.
   fieldcatset 'PMATN'   '定价参考物料编码' sy-tabix.
   fieldcatset 'MAKTX'   '品名' sy-tabix.
   fieldcatset 'ZPRO'   '是否益生菌' sy-tabix.
   fieldcatset 'MATKL'   '物料中类编码' sy-tabix.
   fieldcatset 'MAKTXS'   '物料中类名称' sy-tabix.
-  fieldcatset 'ZCPGG'   '规格型号Filling Weight' sy-tabix.
+  fieldcatset 'ZCPGG'   '规格型号FILLING WEIGHT' sy-tabix.
   fieldcatset 'ZPROTYPE'   '产品类型' sy-tabix.
   fieldcatset 'ZAPPSOU'   '批文来源' sy-tabix.
   fieldcatset 'ZCOTYPE'   '合作类型' sy-tabix.
   fieldcatset 'BUDAT'   '最晚入库日期' sy-tabix.
-*  fieldcatset 'LGORT'   '库存地点' sy-tabix.
-*  fieldcatset 'werks'   '公司名称' sy-tabix.
-*  fieldcatset 'ZPWSX'   '批文属性' sy-tabix.
-*  fieldcatset 'INVOICED'   '开票日期Invoice Date' sy-tabix.
-*  fieldcatset 'BSTKD_E2'   '客户合同单号' sy-tabix.
-*  fieldcatset 'ZKHWL' '客户物料编码' sy-tabix.
-*  fieldcatset 'ZKHWLMS' '客户物料描述' sy-tabix.
+  fieldcatset 'RATE' '销售转换率' sy-tabix.
+  fieldcatset 'ZYSDJ' '原始单据' sy-tabix.
+  fieldcatset 'ZYSDH' '原始单据行' sy-tabix.
+  fieldcatset 'VBEZZ' '最终单据' sy-tabix.
+  fieldcatset 'POSZZ' '最终单据行' sy-tabix.
+  fieldcatset 'ZATZZ' '最终ATP答复日期' sy-tabix.
+  fieldcatset 'ZAPZZ' '最终APS状态' sy-tabix.
+  fieldcatset 'ETTZZ' '最终计划行状态' sy-tabix.
+  fieldcatset 'ZLEIX' '多方交易类型' sy-tabix.
+  fieldcatset 'ZLEIT' '多方交易描述' sy-tabix.
+  fieldcatset 'FIRDAT' '最早入库日期' sy-tabix.
+  fieldcatset 'INCO1' '国际贸易条款' sy-tabix.
+
+  fieldcatset 'WERKS2' '制造工厂' sy-tabix.
+  fieldcatset 'BSTDK_E' '采购日期' sy-tabix.
+
+*  FIELDCATSET 'LGORT'   '库存地点' SY-TABIX.
+*  FIELDCATSET 'WERKS'   '公司名称' SY-TABIX.
+*  FIELDCATSET 'ZPWSX'   '批文属性' SY-TABIX.
+*  FIELDCATSET 'INVOICED'   '开票日期INVOICE DATE' SY-TABIX.
+*  FIELDCATSET 'BSTKD_E2'   '客户合同单号' SY-TABIX.
+*  FIELDCATSET 'ZKHWL' '客户物料编码' SY-TABIX.
+*  FIELDCATSET 'ZKHWLMS' '客户物料描述' SY-TABIX.
   IF flag_b = 'X'.
     fieldcatset   'ZSON'      '子件'    sy-tabix.
     fieldcatset   'ZSONDETAIL'      '子件描述'    sy-tabix.
@@ -1761,10 +2766,13 @@ FORM catalog.
     fieldcatset   'ZSUM2'      '礼合装子件基本数量'    sy-tabix.
   ENDIF.
 
-  READ TABLE fieldcat INDEX 5."读取报表第三列
-  fieldcat-hotspot = 'X'."鼠标热点事件
-  fieldcat-key = 'X'."定义为主键（颜色改变）
-  MODIFY fieldcat INDEX 5."修改样式
+  AUTHORITY-CHECK OBJECT 'ZFI_ZPLP1'
+ ID 'ZSHOW' FIELD 'X'.
+  IF sy-subrc = 0.
+    fieldcatset 'ZPLP1' '计划价格1' sy-tabix.
+  ENDIF.
+
+  layout-box_fname = 'SEL'.
 
 ENDFORM.
 
@@ -1871,6 +2879,8 @@ FORM frm_authority_check.
     CLEAR ls_pvkorg.
   ENDLOOP.
 
+
+
 ENDFORM.
 
 *响应鼠标点击时间的子程序
@@ -1879,8 +2889,96 @@ FORM frm_user_command USING r_ucomm LIKE sy-ucomm
   CASE r_ucomm.
     WHEN '&IC1'."默认的值就是这个，网上查资料据说能修改~
       READ TABLE lt_out INTO ls_out INDEX rs_selfield-tabindex.
-      SET PARAMETER ID 'AUN' FIELD ls_out-vbeln.
-      CALL TRANSACTION 'VA03' AND SKIP FIRST SCREEN.
+      CASE rs_selfield-fieldname .
+        WHEN 'VBEZZ' .
+          SET PARAMETER ID 'AUN' FIELD ls_out-vbezz.
+          CALL TRANSACTION 'VA03' AND SKIP FIRST SCREEN.
+        WHEN 'ZYSDJ' .
+          SET PARAMETER ID 'AUN' FIELD ls_out-zysdj.
+          CALL TRANSACTION 'VA03' AND SKIP FIRST SCREEN.
+        WHEN 'VBELN'.
+          SET PARAMETER ID 'AUN' FIELD ls_out-vbeln.
+          CALL TRANSACTION 'VA03' AND SKIP FIRST SCREEN.
+      ENDCASE.
   ENDCASE.
 
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form SUB_GET_ZDF
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+*&      --> LT_ALL
+*&---------------------------------------------------------------------*
+FORM sub_get_zdf  TABLES   pt_all STRUCTURE gs_all .
+
+  DATA : lt_all TYPE TABLE OF ty_all .
+  DATA : lt_zsdt0025 TYPE TABLE OF zsdt0025 .
+
+  "获取原始单号
+  lt_all[] = pt_all[] .
+  SORT lt_all BY zysdh .
+  DELETE ADJACENT DUPLICATES FROM lt_all
+                   COMPARING zysdj .
+  DELETE lt_all WHERE zysdj IS INITIAL .
+
+  CHECK lt_all[] IS NOT INITIAL .
+
+  "根据原始单号获取最终单号
+  SELECT *
+    INTO TABLE gt_zsdt0025
+    FROM zsdt0025
+    FOR ALL ENTRIES IN lt_all
+    WHERE zdjlx = 'SO'
+      AND zysdj = lt_all-zysdj
+      AND zjied = '2' .
+
+  CHECK gt_zsdt0025[] IS NOT INITIAL .
+
+  "获取最终单据信息
+  lt_zsdt0025[] = gt_zsdt0025[] .
+  SORT lt_zsdt0025 BY vbeln .
+  DELETE ADJACENT DUPLICATES FROM lt_zsdt0025
+                    COMPARING vbeln .
+
+
+  SELECT
+  vbap~vbeln
+  vbap~posnr
+  vbap~zatpdfrq
+  vbap~zapszt
+  vbep~ettyp
+  vbap~ernam
+  INTO TABLE gt_vbapz
+  FROM vbap
+  LEFT JOIN vbep
+  ON vbap~vbeln = vbep~vbeln
+ AND vbap~posnr = vbep~posnr
+ AND vbep~etenr = '0001'
+   FOR ALL ENTRIES IN lt_zsdt0025
+  WHERE vbap~vbeln = lt_zsdt0025-vbeln  .
+
+ENDFORM.
+
+FORM get_vtweg.
+  "获取配置表以及客户销售办公室数据
+  CALL FUNCTION 'Z_SD_GET_TRANS_DATA'
+    TABLES
+      lt_data = lt_data
+      lt_knvv = lt_knvv.
+  "保留原始的查询条件
+  LOOP AT svtweg.
+    vtweg_n-low = svtweg-low.
+    vtweg_n-sign = svtweg-sign.
+    vtweg_n-option = svtweg-option.
+    vtweg_n-high = svtweg-high.
+    APPEND vtweg_n.
+  ENDLOOP.
+
+  LOOP AT lt_data INTO DATA(ls_data).
+    svtweg-low = ls_data-vtweg.
+    svtweg-option  = 'EQ'.
+    svtweg-sign = 'I'.
+    APPEND svtweg.
+  ENDLOOP.
 ENDFORM.

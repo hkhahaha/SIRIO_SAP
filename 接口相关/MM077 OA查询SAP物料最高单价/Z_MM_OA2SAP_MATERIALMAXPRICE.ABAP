@@ -27,7 +27,8 @@ FUNCTION z_mm_oa2sap_materialmaxprice.
           sumprice TYPE konp-kbetr,
           lifnr    TYPE a017-lifnr,
         END OF ls_price.
-
+  DATA:lv_matnr TYPE matnr,
+       lv_len   TYPE i.
   DATA:lt_head     LIKE TABLE OF ls_head.
 
 
@@ -51,37 +52,52 @@ FUNCTION z_mm_oa2sap_materialmaxprice.
 
   "循环读取数据
   LOOP AT lt_input INTO ls_input.
-    ls_input-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_input-matnr i_abap = 'MATNR').
+
+    ls_input-lifnr = zcl_bc_public=>conv_by_ddic( i_input = ls_input-lifnr i_abap = 'LIFNR').
+    "先判断是否为MPN物料，如果长度11位为MPN，否则正常
+    lv_len = cl_abap_list_utilities=>dynamic_output_length( ls_input-matnr ).
+    IF lv_len = 9.
+      lv_matnr = '%' && ls_input-matnr && '%'.
+    ELSE.
+      lv_matnr = '%' && ls_input-matnr+0(9) && '%'.
+    ENDIF.
+
     "筛选出符合条件的物料还有工厂
-    SELECT SINGLE
+    SELECT
       eina~infnr
       ekorg
       werks
       eine~loekz AS loekz_eine
       eina~loekz AS loekz_eina
       matnr
-    INTO CORRESPONDING FIELDS OF  ls_head
+    INTO CORRESPONDING FIELDS OF TABLE lt_head
     FROM eine
     INNER JOIN eina
     ON eine~infnr = eina~infnr
-    WHERE matnr = ls_input-matnr
+    WHERE matnr LIKE lv_matnr
       AND werks = ls_input-werks
       AND  eine~loekz <> 'X' AND eina~loekz <> 'X'
       AND eina~lifnr <> ls_input-lifnr.
 
-    IF ls_head IS NOT INITIAL.
-      "取出效期内的条件编号
-      SELECT
-        *
-      FROM konp
-      INNER JOIN a017
-      ON konp~knumh = a017~knumh
-      INTO TABLE @DATA(lt_a017)
-      WHERE a017~matnr = @ls_head-matnr
-        AND a017~werks = @ls_head-werks
-        AND datab <= @ls_input-date
-        AND datbi >= @ls_input-date
-        AND a017~lifnr <> @ls_input-lifnr.
+    IF lt_head IS NOT INITIAL.
+
+      LOOP AT lt_head INTO ls_head.
+        "取出效期内的条件编号
+        SELECT
+          *
+        FROM konp
+        INNER JOIN a017
+        ON konp~knumh = a017~knumh
+        APPENDING TABLE @DATA(lt_a017)
+        WHERE a017~matnr = @ls_head-matnr
+          AND a017~werks = @ls_head-werks
+          AND datab <= @ls_input-date
+          AND datbi >= @ls_input-date
+          AND a017~lifnr <> @ls_input-lifnr.
+        CLEAR ls_head.
+      ENDLOOP.
+
+      "对数据进行处理
       IF lt_a017 IS NOT INITIAL.
         "循环判断，取到最高单价、定价单位、价格
         LOOP AT  lt_a017 ASSIGNING FIELD-SYMBOL(<fs_a017>).
@@ -111,6 +127,7 @@ FUNCTION z_mm_oa2sap_materialmaxprice.
         ENDLOOP.
 
       ENDIF.
+
     ENDIF.
 
     "上面取到了最高单价之后，赋值其他字段
@@ -118,7 +135,7 @@ FUNCTION z_mm_oa2sap_materialmaxprice.
     ls_output-werks = ls_input-werks.
     APPEND ls_output TO lt_output.
     CLEAR ls_output.
-    CLEAR:ls_input,ls_head,lt_a017,ls_price.
+    CLEAR:ls_input,ls_head,lt_a017,ls_price,lv_matnr.
   ENDLOOP.
 
   output-mt_oa2sap_material_max_price_r-list_of_inforec = lt_output.

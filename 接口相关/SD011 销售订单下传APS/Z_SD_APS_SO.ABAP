@@ -1,4 +1,4 @@
-FUNCTION Z_SD_APS_SO.
+FUNCTION z_sd_aps_so.
 *"----------------------------------------------------------------------
 *"*"本地接口：
 *"  IMPORTING
@@ -7,36 +7,36 @@ FUNCTION Z_SD_APS_SO.
 *"     VALUE(E_OUTPUT) TYPE  BAPIRET2
 *"----------------------------------------------------------------------
 
-  DATA L_INTID TYPE ZE_INTF_ID VALUE 'SD011'.
+  DATA l_intid TYPE ze_intf_id VALUE 'SD011'.
 
 *----------------------------------------------------------------------
 *   业务逻辑处理
 *----------------------------------------------------------------------
   DATA:
-    LV_ERROR        TYPE C,
-    LV_STR          TYPE C,
-    LS_ZPITLOG0008  TYPE ZPITLOG0008,
-    LT_ZPITLOG0008  TYPE TABLE OF ZPITLOG0008,
-    LS_ZPITLOG0008A TYPE ZPITLOG0008A,
-    LT_ZPITLOG0008A TYPE TABLE OF ZPITLOG0008A,
-    LS_VBAK         TYPE VBAK,
-    LS_VBAP         TYPE VBAPVB,
-    LT_VBAP         TYPE TABLE OF VBAP,
-    LS_VBEP         TYPE VBEPVB,
-    LT_VBEP         TYPE TABLE OF VBEP,
-    LR_PROXY        TYPE REF TO ZCO_SI_SAP2APS_SO_OUT, "代理类
-    LR_PROTOCOL     TYPE REF TO IF_WSPROTOCOL_MESSAGE_ID,
-    LT_SO           TYPE ZSAP_ORDER_TAB,
-    LS_SO           TYPE ZSAP_ORDER,
-    LT_ITEM         TYPE ZSAP_ORDER_DETAIL_TAB,
-    LS_ITEM         TYPE ZSAP_ORDER_DETAIL,
-    LS_OUTPUT       TYPE ZSAP_TO_APS_SAP_ORDER_SOAP_IN.
+    lv_error        TYPE c,
+    lv_str          TYPE c,
+    ls_zpitlog0008  TYPE zpitlog0008,
+    lt_zpitlog0008  TYPE TABLE OF zpitlog0008,
+    ls_zpitlog0008a TYPE zpitlog0008a,
+    lt_zpitlog0008a TYPE TABLE OF zpitlog0008a,
+    ls_vbak         TYPE vbak,
+    ls_vbap         TYPE vbapvb,
+    lt_vbap         TYPE TABLE OF vbap,
+    ls_vbep         TYPE vbepvb,
+    lt_vbep         TYPE TABLE OF vbep,
+    lr_proxy        TYPE REF TO zco_si_sap2aps_so_out, "代理类
+    lr_protocol     TYPE REF TO if_wsprotocol_message_id,
+    lt_so           TYPE zsap_order_tab,
+    ls_so           TYPE zsap_order,
+    lt_item         TYPE zsap_order_detail_tab,
+    ls_item         TYPE zsap_order_detail,
+    ls_output       TYPE zsap_to_aps_sap_order_soap_in.
 
 * 异步确认的使用对象
-  DATA:GO_SYS_FAULT   TYPE REF TO CX_AI_SYSTEM_FAULT,
-       GO_ASYN_MSG    TYPE REF TO IF_WSPROTOCOL_ASYNC_MESSAGING,
-       GO_PROTOCOL    TYPE REF TO IF_WSPROTOCOL_MESSAGE_ID,
-       GV_ACK_REQUEST TYPE PRX_ACK_REQUEST_DETAILS.
+  DATA:go_sys_fault   TYPE REF TO cx_ai_system_fault,
+       go_asyn_msg    TYPE REF TO if_wsprotocol_async_messaging,
+       go_protocol    TYPE REF TO if_wsprotocol_message_id,
+       gv_ack_request TYPE prx_ack_request_details.
 
 
   WAIT UP TO 10 SECONDS."异步调用，保持数据是最新的
@@ -47,77 +47,81 @@ FUNCTION Z_SD_APS_SO.
 *----------------------------------------------------------------------
 *   日志记录-记录输入参数
 *----------------------------------------------------------------------
-  DATA(L_GUID) = ZCL_BC_PUBLIC=>GET_GUID( )."生成本次调用唯一标识
-  DATA(L_FLAG) = ZCL_BC_PUBLIC=>WRITE_LOG( IV_LOGID = L_GUID IV_INTID = L_INTID IV_PTYPE = 'I' IS_DATA = I_VBAK ). "记录输入参数
+  DATA(l_guid) = zcl_bc_public=>get_guid( )."生成本次调用唯一标识
+  DATA(l_flag) = zcl_bc_public=>write_log( iv_logid = l_guid iv_intid = l_intid iv_ptype = 'I' is_data = i_vbak ). "记录输入参数
 
 **** 开关处理
-  IF L_FLAG EQ 'A' OR   L_FLAG EQ 'E'.
+  IF l_flag EQ 'A' OR   l_flag EQ 'E'.
     RETURN.
   ENDIF.
 
   TRY.
-      CREATE OBJECT LR_PROXY.
-      CLEAR LS_OUTPUT.
+      CREATE OBJECT lr_proxy.
+      CLEAR ls_output.
 
-      LS_VBAK  = I_VBAK.
-
-
-
-      CHECK LV_ERROR IS INITIAL.
-
-      SELECT * INTO TABLE LT_VBAP FROM VBAP
-        WHERE VBELN = LS_VBAK-VBELN.
-
-      SELECT * INTO TABLE LT_VBEP FROM VBEP
-         WHERE VBELN = LS_VBAK-VBELN.
+      ls_vbak  = i_vbak.
 
 
-      CHECK LS_VBAK-AUART = '01' OR  LS_VBAK-AUART+0(2) = 'ZA'.
 
-      IF SY-SUBRC = 0.
+      CHECK lv_error IS INITIAL.
 
-        SELECT SPRAS, MSEHI, MSEHL
-          FROM T006A
-           FOR ALL ENTRIES IN @LT_VBAP[]
-         WHERE MSEHI = @LT_VBAP-VRKME
-           AND SPRAS = @SY-LANGU
+      SELECT * INTO TABLE lt_vbap FROM vbap
+        WHERE vbeln = ls_vbak-vbeln.
+
+      SELECT * INTO TABLE lt_vbep FROM vbep
+         WHERE vbeln = ls_vbak-vbeln.
+
+
+      CHECK ls_vbak-auart = '01' OR  ls_vbak-auart+0(2) = 'ZA'.
+
+      IF sy-subrc = 0.
+
+        SELECT spras, msehi, msehl
+          FROM t006a
+           FOR ALL ENTRIES IN @lt_vbap[]
+         WHERE msehi = @lt_vbap-vrkme
+           AND spras = @sy-langu
           ORDER BY PRIMARY KEY
-          INTO TABLE @DATA(LT_T006A).
+          INTO TABLE @DATA(lt_t006a).
 
-        SELECT * INTO TABLE @DATA(LT_VBKD) FROM VBKD
-          FOR ALL ENTRIES IN @LT_VBAP[]
-          WHERE VBELN = @LT_VBAP-VBELN
-            AND POSNR = @LT_VBAP-POSNR.
+        SELECT * INTO TABLE @DATA(lt_vbkd) FROM vbkd
+          FOR ALL ENTRIES IN @lt_vbap[]
+          WHERE vbeln = @lt_vbap-vbeln
+            AND posnr = @lt_vbap-posnr.
 
-        SELECT MATNR,MAKTX INTO TABLE @DATA(LT_MAKT) FROM MAKT
-          FOR ALL ENTRIES IN @LT_VBAP[]
-          WHERE MATNR =  @LT_VBAP-MATNR.
-
-
-        SELECT SINGLE * INTO @DATA(LS_T005T) FROM T005T
-          WHERE LAND1 = @LS_VBAK-ZCKGJ
-            AND SPRAS = @SY-LANGU.
-
-        SELECT SINGLE * INTO @DATA(LS_TVTWT) FROM TVTWT
-           WHERE VTWEG = @LS_VBAK-VTWEG
-             AND SPRAS = @SY-LANGU.
+        SELECT matnr,maktx INTO TABLE @DATA(lt_makt) FROM makt
+          FOR ALL ENTRIES IN @lt_vbap[]
+          WHERE matnr =  @lt_vbap-matnr.
 
 
-        SELECT SINGLE * INTO @DATA(LS_BUT)   FROM BUT000
-          WHERE PARTNER = @LS_VBAK-KUNNR.
+        SELECT SINGLE * INTO @DATA(ls_t005t) FROM t005t
+          WHERE land1 = @ls_vbak-zckgj
+            AND spras = @sy-langu.
 
-        SELECT SINGLE * INTO @DATA(LS_USER)  FROM USER_ADDR
-          WHERE BNAME = @LS_VBAK-ERNAM.
+        SELECT SINGLE * INTO @DATA(ls_tvtwt) FROM tvtwt
+           WHERE vtweg = @ls_vbak-vtweg
+             AND spras = @sy-langu.
 
-        SELECT SINGLE * INTO @DATA(LS_KNA1)  FROM KNA1
-          WHERE KUNNR = @LS_VBAK-KUNNR.
+
+        SELECT SINGLE * INTO @DATA(ls_but)   FROM but000
+          WHERE partner = @ls_vbak-kunnr.
+
+        SELECT SINGLE * INTO @DATA(ls_user)  FROM user_addr
+          WHERE bname = @ls_vbak-ernam.
+
+        "20220822 Seashell 获取客户分类描述
+        SELECT * FROM tkukt INTO TABLE @DATA(lt_tkukt) WHERE spras = '1'.
+
+
+        SELECT SINGLE * INTO @DATA(ls_kna1)  FROM kna1
+          WHERE kunnr = @ls_vbak-kunnr.
         "业务合作伙伴-业务员
-        SELECT SINGLE * INTO @DATA(LS_VBPA)  FROM VBPA
-           WHERE VBELN = @LS_VBAK-VBELN
-             AND PARVW = 'Z3'.
-        IF LS_VBPA IS NOT INITIAL.
-          SELECT SINGLE * INTO @DATA(LS_ADRC)  FROM ADRC
-             WHERE ADDRNUMBER = @LS_VBPA-ADRNR.
+        SELECT SINGLE * INTO @DATA(ls_vbpa)  FROM vbpa
+           WHERE vbeln = @ls_vbak-vbeln
+             AND parvw = 'Z3'.
+        IF ls_vbpa IS NOT INITIAL.
+          SELECT SINGLE * INTO @DATA(ls_adrc)  FROM adrc
+             WHERE addrnumber = @ls_vbpa-adrnr.
         ENDIF.
         "业务合作伙伴-实际客户名称
 *        SELECT SINGLE kna1~name1 FROM vbpa
@@ -126,215 +130,226 @@ FUNCTION Z_SD_APS_SO.
 *          AND vbpa~parvw = 'Z1'
 *          INTO @DATA(lv_z1_name1).
 
-        SELECT SINGLE * INTO @DATA(LS_KNVV)  FROM KNVV
-          WHERE KUNNR = @LS_VBAK-KUNNR
-           AND VKORG = @LS_VBAK-VKORG
-           AND VTWEG = @LS_VBAK-VTWEG
-           AND SPART = @LS_VBAK-SPART.
-        IF SY-SUBRC = 0.
-          SELECT SINGLE * INTO @DATA(LS_TVV1T)  FROM TVV1T
-              WHERE KVGR1 = @LS_KNVV-KVGR1
-                AND SPRAS = @SY-LANGU.
+        SELECT SINGLE * INTO @DATA(ls_knvv)  FROM knvv
+          WHERE kunnr = @ls_vbak-kunnr
+           AND vkorg = @ls_vbak-vkorg
+           AND vtweg = @ls_vbak-vtweg
+           AND spart = @ls_vbak-spart.
+        IF sy-subrc = 0.
+          SELECT SINGLE * INTO @DATA(ls_tvv1t)  FROM tvv1t
+              WHERE kvgr1 = @ls_knvv-kvgr1
+                AND spras = @sy-langu.
         ENDIF.
 
         "非01类型的订单，只保留 ZA/ZB计划行
-        IF LS_VBAK-AUART NE '01'.
-          LOOP AT LT_VBEP INTO LS_VBEP.
-            IF LS_VBEP-ETTYP = 'ZA' OR LS_VBEP-ETTYP = 'ZB' OR LS_VBEP-ETTYP = 'ZC' .
+        IF ls_vbak-auart NE '01'.
+          LOOP AT lt_vbep INTO ls_vbep.
+            IF ls_vbep-ettyp = 'ZA' OR ls_vbep-ettyp = 'ZB' OR ls_vbep-ettyp = 'ZC' .
             ELSE.
-              DELETE LT_VBEP[] INDEX SY-TABIX.
+              DELETE lt_vbep[] INDEX sy-tabix.
             ENDIF.
           ENDLOOP.
         ENDIF.
 
-        IF LT_VBEP[] IS INITIAL.
+        IF lt_vbep[] IS INITIAL.
           RETURN.
         ENDIF.
         "抬头赋值
-        MOVE-CORRESPONDING LS_VBAK TO LS_SO.
-        PERFORM FRM_READ_LONG_TEXT USING 'Z001' LS_VBAK-VBELN  '' 'VBBK'  CHANGING  LS_SO-ZSCWB."生产抬头备注
-        LS_SO-ERNAM = LS_USER-NAME_LAST && LS_USER-NAME_FIRST."制单人
-        LS_SO-BU_SORT1 = LS_BUT-BU_SORT1."客户简称
-        LS_SO-ZXSQD = LS_TVTWT-VTEXT && '-' && LS_TVV1T-BEZEI."渠道
-        LS_SO-ZKHJB = LS_KNA1-KUKLA."客户级别
-        LS_SO-ZYWY = LS_ADRC-NAME1."业务员
-        LS_SO-INCO2_L = LS_T005T-LANDX."出口国家
+        MOVE-CORRESPONDING ls_vbak TO ls_so.
+        PERFORM frm_read_long_text USING 'Z001' ls_vbak-vbeln  '' 'VBBK'  CHANGING  ls_so-zscwb."生产抬头备注
+        ls_so-ernam = ls_user-name_last && ls_user-name_first."制单人
+        ls_so-bu_sort1 = ls_but-bu_sort1."客户简称
+        ls_so-zxsqd = ls_tvtwt-vtext && '-' && ls_tvv1t-bezei."渠道
+        ls_so-zkhjb = ls_kna1-kukla."客户级别
+        "20220822 Seashell 客户分类取描述
+        READ TABLE lt_tkukt INTO DATA(ls_tkukt) WITH KEY kukla = ls_kna1-kukla.
+        IF sy-subrc = 0.
+          ls_so-zkhjb = ls_tkukt-vtext.
+        ENDIF.
+
+
+        ls_so-zywy = ls_adrc-name1."业务员
+        ls_so-inco2_l = ls_t005t-landx."出口国家
         "业务员名称、实际客户名称
-        SELECT SINGLE KUNNR FROM VBPA WHERE VBELN = @LS_VBAK-VBELN AND POSNR IS INITIAL AND PARVW = 'Z1' INTO @DATA(LV_KUNNR).
-        IF LV_KUNNR IS NOT INITIAL.
-          SELECT SINGLE TVK1T~VTEXT KNA1~NAME1 INTO ( LS_SO-ADDITIONAL1 ,LS_SO-ADDITIONAL2 )
-            FROM KNA1
-            LEFT JOIN TVK1T ON KNA1~KATR1 = TVK1T~KATR1 AND TVK1T~SPRAS = SY-LANGU
-            WHERE KNA1~KUNNR = LV_KUNNR.
+        SELECT SINGLE kunnr FROM vbpa WHERE vbeln = @ls_vbak-vbeln AND posnr IS INITIAL AND parvw = 'Z1' INTO @DATA(lv_kunnr).
+        IF lv_kunnr IS NOT INITIAL.
+          SELECT SINGLE tvk1t~vtext kna1~name1 INTO ( ls_so-additional1 ,ls_so-additional2 )
+            FROM kna1
+            LEFT JOIN tvk1t ON kna1~katr1 = tvk1t~katr1 AND tvk1t~spras = sy-langu
+            WHERE kna1~kunnr = lv_kunnr.
         ENDIF.
 
 *       创建日期取二审日期S4DK905628-S
-        SELECT SINGLE UDATE FROM JCDS
-        WHERE OBJNR = @LS_VBAK-OBJNR AND STAT ='E0003'
-           INTO @DATA(LV_ERDAT).
-        IF LV_ERDAT IS NOT INITIAL."S4DK905838
-          LS_SO-ERDAT = LV_ERDAT.
+        SELECT SINGLE udate FROM jcds
+        WHERE objnr = @ls_vbak-objnr AND stat ='E0003'
+           INTO @DATA(lv_erdat).
+        IF lv_erdat IS NOT INITIAL.                         "S4DK905838
+          ls_so-erdat = lv_erdat.
         ENDIF.
-        CLEAR LV_ERDAT.
+        CLEAR lv_erdat.
 *        S4DK905628-E
 *        ls_so-additional1 = ls_kna1-katr1."属性1
-        MOVE-CORRESPONDING LS_SO TO LS_ZPITLOG0008." 抬头
+        MOVE-CORRESPONDING ls_so TO ls_zpitlog0008." 抬头
 
         "项目赋值
-        LOOP AT LT_VBAP INTO LS_VBAP.
-          IF LS_VBAK-AUART <> '01' AND  LS_VBAP-ABGRU <> '' .
+        LOOP AT lt_vbap INTO ls_vbap.
+          IF ls_vbak-auart <> '01' AND  ls_vbap-abgru <> '' .
             CONTINUE.
           ENDIF.
-          READ TABLE LT_VBEP INTO LS_VBEP WITH KEY VBELN = LS_VBAP-VBELN
-                                                   POSNR = LS_VBAP-POSNR.
-          IF SY-SUBRC <>  0.
+          READ TABLE lt_vbep INTO ls_vbep WITH KEY vbeln = ls_vbap-vbeln
+                                                   posnr = ls_vbap-posnr.
+          IF sy-subrc <>  0.
             CONTINUE.
           ENDIF.
 
-          MOVE-CORRESPONDING LS_VBAP TO LS_ITEM.
-          LS_ITEM-ZSCBLDH   = LS_VBAP-ZSCBLDH."生产备料单
-          LS_ITEM-ZCPGG     = LS_VBAP-ZCPGG."规格
-          LS_ITEM-ZBZGG     = LS_VBAP-ZBZGG."包装规格
-          LS_ITEM-KWMENG    = LS_VBAP-KWMENG."数量
+          MOVE-CORRESPONDING ls_vbap TO ls_item.
+          ls_item-zscbldh   = ls_vbap-zscbldh."生产备料单
+          ls_item-zcpgg     = ls_vbap-zcpgg."规格
+          ls_item-zbzgg     = ls_vbap-zbzgg."包装规格
+          ls_item-kwmeng    = ls_vbap-kwmeng."数量
 
-          IF LS_VBAP-ZYPSL IS INITIAL.
-            LS_ITEM-ZYPSL = 'NULL'."样品数量
+          IF ls_vbap-zypsl IS INITIAL.
+            ls_item-zypsl = 'NULL'."样品数量
           ELSE.
-            LS_ITEM-ZYPSL = LS_VBAP-ZYPSL."样品数量
+            ls_item-zypsl = ls_vbap-zypsl."样品数量
           ENDIF.
 
-          LS_ITEM-ZZHXS  = LS_VBAP-UMVKZ / LS_VBAP-UMVKN."销售单位转基本单位系数
+          ls_item-zzhxs  = ls_vbap-umvkz / ls_vbap-umvkn."销售单位转基本单位系数
 ****************************20191021 短益条款转换******************************************
 *          LS_ITEM-ZDYTK  = LS_VBAP-ZDYTK."短益条款
-          PERFORM FRM_READ_DOMAIN    USING 'ZD_DYTK' LS_VBAP-ZDYTK   CHANGING  LS_ITEM-ZDYTK ."短益条款
-          LS_ITEM-WERKS  = LS_VBAP-WERKS."发货工厂
-          LS_ITEM-ZYSJHQ = LS_VBAP-ZYSJHQ." 原始交货期
-          LS_ITEM-ZNBJHQ = LS_VBAP-ZNBJHQ." 内部交货期
-          LS_ITEM-ZZZTL  = LS_VBAP-ZZZTL." 最早投料日期
-          LS_ITEM-ZZWTL  = LS_VBAP-ZZWTL." 最晚投料日期
-          LS_ITEM-ZZZBZ  = LS_VBAP-ZZZBZ." 最早包装时间
-          LS_ITEM-ZZWBZ  = LS_VBAP-ZZWBZ." 最晚包装时间
-          LS_ITEM-ZBOMQQ = LS_VBAP-ZBOMQQ." BOM欠缺物料
-          READ TABLE LT_VBKD INTO DATA(LS_VBKD) WITH KEY VBELN = LS_VBAP-VBELN
-                                                         POSNR = LS_VBAP-POSNR.
-          IF SY-SUBRC = 0.
-            LS_ITEM-BSTKD_E = LS_VBKD-BSTKD_E." 客户合同单号
-            LS_ITEM-POSEX_E = LS_VBKD-POSEX_E." 客户合同分录
+          PERFORM frm_read_domain    USING 'ZD_DYTK' ls_vbap-zdytk   CHANGING  ls_item-zdytk ."短益条款
+          ls_item-werks  = ls_vbap-werks."发货工厂
+          ls_item-zysjhq = ls_vbap-zysjhq." 原始交货期
+          ls_item-znbjhq = ls_vbap-znbjhq." 内部交货期
+          ls_item-zzztl  = ls_vbap-zzztl." 最早投料日期
+          ls_item-zzwtl  = ls_vbap-zzwtl." 最晚投料日期
+          ls_item-zzzbz  = ls_vbap-zzzbz." 最早包装时间
+          ls_item-zzwbz  = ls_vbap-zzwbz." 最晚包装时间
+          ls_item-zbomqq = ls_vbap-zbomqq." BOM欠缺物料
+          READ TABLE lt_vbkd INTO DATA(ls_vbkd) WITH KEY vbeln = ls_vbap-vbeln
+                                                         posnr = ls_vbap-posnr.
+          IF sy-subrc = 0.
+            ls_item-bstkd_e = ls_vbkd-bstkd_e." 客户合同单号
+            ls_item-posex_e = ls_vbkd-posex_e." 客户合同分录
           ENDIF.
 
-          READ TABLE LT_MAKT INTO DATA(LS_MAKT) WITH KEY MATNR = LS_VBAP-MATNR BINARY SEARCH.
-          IF SY-SUBRC EQ 0.
-            LS_ITEM-ZCPMS = LS_MAKT-MAKTX.
+          READ TABLE lt_makt INTO DATA(ls_makt) WITH KEY matnr = ls_vbap-matnr BINARY SEARCH.
+          IF sy-subrc EQ 0.
+            ls_item-zcpms = ls_makt-maktx.
           ENDIF.
 
-          READ TABLE LT_T006A INTO DATA(LS_T006A) WITH KEY  MSEHI = LS_VBAP-VRKME.
-          IF SY-SUBRC IS INITIAL.
-            LS_ITEM-ZVRKME = LS_T006A-MSEHL."销售单位
+          READ TABLE lt_t006a INTO DATA(ls_t006a) WITH KEY  msehi = ls_vbap-vrkme.
+          IF sy-subrc IS INITIAL.
+            ls_item-zvrkme = ls_t006a-msehl."销售单位
           ENDIF.
 
-          PERFORM FRM_READ_LONG_TEXT USING 'Z001'  LS_VBAK-VBELN LS_VBAP-POSNR 'VBBP'  CHANGING  LS_ITEM-ZSCHXMBZ."生产行项目备注
-          PERFORM FRM_READ_DOMAIN    USING 'ZD_SFXBZ' LS_VBAP-ZSFXBZ   CHANGING  LS_ITEM-ZSFXBZ."是否新包装
-          PERFORM FRM_READ_DOMAIN    USING 'ZD_XFLAG' LS_VBAP-ZSFXCP   CHANGING  LS_ITEM-ZSFXCP."是否新产品
-          PERFORM FRM_READ_DOMAIN    USING 'ZD_XFLAG' LS_VBAP-ZSFBJ    CHANGING  LS_ITEM-ZSFBJ."是否报检
-          PERFORM FRM_READ_DOMAIN    USING 'ZD_ZDSCQY' LS_VBAP-ZZDSCQY CHANGING  LS_ITEM-ZZDSCQY."指定生产区域
-          PERFORM FRM_READ_DOMAIN    USING 'ZD_PHYQ' LS_VBAP-ZPHYQ     CHANGING  LS_ITEM-ZPHYQ."批号要求
-          PERFORM FRM_READ_DOMAIN    USING 'ZD_BHCL' LS_VBAP-ZBHCL     CHANGING  LS_ITEM-ZBHCL."备货策略
+          PERFORM frm_read_long_text USING 'Z001'  ls_vbak-vbeln ls_vbap-posnr 'VBBP'  CHANGING  ls_item-zschxmbz."生产行项目备注
+          PERFORM frm_read_domain    USING 'ZD_SFXBZ' ls_vbap-zsfxbz   CHANGING  ls_item-zsfxbz."是否新包装
+          PERFORM frm_read_domain    USING 'ZD_XFLAG' ls_vbap-zsfxcp   CHANGING  ls_item-zsfxcp."是否新产品
+          PERFORM frm_read_domain    USING 'ZD_XFLAG' ls_vbap-zsfbj    CHANGING  ls_item-zsfbj."是否报检
+          PERFORM frm_read_domain    USING 'ZD_ZDSCQY' ls_vbap-zzdscqy CHANGING  ls_item-zzdscqy."指定生产区域
+          PERFORM frm_read_domain    USING 'ZD_PHYQ' ls_vbap-zphyq     CHANGING  ls_item-zphyq."批号要求
+          PERFORM frm_read_domain    USING 'ZD_BHCL' ls_vbap-zbhcl     CHANGING  ls_item-zbhcl."备货策略
 
           "需求计划新增字段 20191014
-          PERFORM FRM_READ_LONG_TEXT USING  '0002'  LS_VBAK-VBELN LS_VBAP-POSNR 'VBBP'  CHANGING  LS_ITEM-ADDITIONAL2."项目注释文本
-          PERFORM FRM_READ_LONG_TEXT USING  '0003'  LS_VBAK-VBELN LS_VBAP-POSNR 'VBBP'  CHANGING  LS_ITEM-ADDITIONAL3."包装注释文本
-          PERFORM FRM_READ_LONG_TEXT USING  '0004'  LS_VBAK-VBELN LS_VBAP-POSNR 'VBBP'  CHANGING  LS_ITEM-ADDITIONAL4."交货注释文本
+          PERFORM frm_read_long_text USING  '0002'  ls_vbak-vbeln ls_vbap-posnr 'VBBP'  CHANGING  ls_item-additional2."项目注释文本
+          PERFORM frm_read_long_text USING  '0003'  ls_vbak-vbeln ls_vbap-posnr 'VBBP'  CHANGING  ls_item-additional3."包装注释文本
+          PERFORM frm_read_long_text USING  '0004'  ls_vbak-vbeln ls_vbap-posnr 'VBBP'  CHANGING  ls_item-additional4."交货注释文本
 
 
-          READ TABLE LT_VBEP INTO LS_VBEP WITH KEY VBELN = LS_VBAP-VBELN POSNR = LS_VBAP-POSNR.
-          IF SY-SUBRC = 0.
-            IF LS_VBAK-AUART = '01'.  "备用字段1  计划行类别
-              LS_ITEM-ADDITIONAL1 = LS_VBAP-ABGRU.
-              LS_ITEM-ZYSJHQ = LS_VBEP-EDATU." 原始交货期
+          READ TABLE lt_vbep INTO ls_vbep WITH KEY vbeln = ls_vbap-vbeln posnr = ls_vbap-posnr.
+          IF sy-subrc = 0.
+            IF ls_vbak-auart = '01'.  "备用字段1  计划行类别
+              ls_item-additional1 = ls_vbap-abgru.
+              ls_item-zysjhq = ls_vbep-edatu." 原始交货期
             ELSE.
-              LS_ITEM-ADDITIONAL1 = LS_VBEP-ETTYP.
+              ls_item-additional1 = ls_vbep-ettyp.
             ENDIF.
           ENDIF.
 *          获取物料分类ZQUICK S4DK905628-S
-          SELECT SINGLE A~ATWRT
-            INTO LS_ITEM-ADDITIONAL5
-            FROM AUSP AS A
-            INNER JOIN CABN AS B ON A~ATINN = B~ATINN
-          WHERE OBJEK = LS_VBAP-MATNR AND B~ATNAM = 'ZQUICK'." 快速放行
+          SELECT SINGLE a~atwrt
+            INTO ls_item-additional5
+            FROM ausp AS a
+            INNER JOIN cabn AS b ON a~atinn = b~atinn
+          WHERE objek = ls_vbap-matnr AND b~atnam = 'ZQUICK'." 快速放行
 *        S4DK905628-E
+          "20220822 Seashell 启用备用字段
+          ls_item-additional5 = ls_vbap-zzqlx."周期类型
+          ls_item-additional4 = ls_vbap-zkhfwdj."客户服务等级
+          "20220822 end
 
-          MOVE-CORRESPONDING LS_VBAP TO LS_ZPITLOG0008A.
-          LS_ZPITLOG0008A-ZVRKME = LS_VBAP-VRKME.
-          LS_ZPITLOG0008A-ZCPMS  = LS_MAKT-MAKTX.
-          APPEND LS_ITEM TO LT_ITEM.
+          MOVE-CORRESPONDING ls_vbap TO ls_zpitlog0008a.
+          ls_zpitlog0008a-zvrkme = ls_vbap-vrkme.
+          ls_zpitlog0008a-zcpms  = ls_makt-maktx.
+          APPEND ls_item TO lt_item.
         ENDLOOP.
 
-        LS_SO-SAP_ORDER_DETAIL_LIST-SAP_ORDER_DETAIL = LT_ITEM.
-        APPEND LS_SO TO LT_SO.
-        LS_OUTPUT-SAP_ORDER_LIST-SAP_ORDER =  LT_SO.
+        ls_so-sap_order_detail_list-sap_order_detail = lt_item.
+        APPEND ls_so TO lt_so.
+        ls_output-sap_order_list-sap_order =  lt_so.
 
 *** 设置确认状态
-        GO_ASYN_MSG ?= LR_PROXY->GET_PROTOCOL(
-                          IF_WSPROTOCOL=>ASYNC_MESSAGING ).
-        GV_ACK_REQUEST =
-          IF_WSPROTOCOL_ASYNC_MESSAGING=>CO_TRANSPORT_ACKNOWLEDGMENT.
-        GO_ASYN_MSG->SET_ACKNOWLEDGMENT_REQUESTED( GV_ACK_REQUEST ).
+        go_asyn_msg ?= lr_proxy->get_protocol(
+                          if_wsprotocol=>async_messaging ).
+        gv_ack_request =
+          if_wsprotocol_async_messaging=>co_transport_acknowledgment.
+        go_asyn_msg->set_acknowledgment_requested( gv_ack_request ).
 
 *** 接口数据下发
-        LR_PROXY->SI_SAP2APS_SO_OUT( LS_OUTPUT )."调用pi接口
+        lr_proxy->si_sap2aps_so_out( ls_output )."调用pi接口
 
       ENDIF.
 
-      LR_PROTOCOL ?= LR_PROXY->GET_PROTOCOL( IF_WSPROTOCOL=>MESSAGE_ID ). "获取message_id
-      DATA(L_MESSAGEID) = LR_PROTOCOL->GET_MESSAGE_ID( ).
-      LS_ZPITLOG0008-MESSAGE_ID = L_MESSAGEID.
-      LS_ZPITLOG0008A-MESSAGE_ID = L_MESSAGEID.
-      LS_ZPITLOG0008-ERDAT = SY-DATUM.
-      LS_ZPITLOG0008-ERNAM = SY-UNAME.
-      LS_ZPITLOG0008-ERZET = SY-UZEIT.
-      LS_ZPITLOG0008-TYPE  = 'S'.
-      LS_ZPITLOG0008-MESSAGE  = '下发成功'.
-      E_OUTPUT-TYPE    = LS_ZPITLOG0008-TYPE .
-      E_OUTPUT-MESSAGE = LS_ZPITLOG0008-MESSAGE.
-    CATCH CX_ROOT INTO DATA(LR_ROOT).
-      LS_ZPITLOG0008-TYPE  = 'E'.
-      LS_ZPITLOG0008-MESSAGE  = '下发失败'.
-      LS_ZPITLOG0008-ERDAT = SY-DATUM.
-      LS_ZPITLOG0008-ERNAM = SY-UNAME.
-      LS_ZPITLOG0008-ERZET = SY-UZEIT.
-      E_OUTPUT-TYPE    = LS_ZPITLOG0008-TYPE .
-      E_OUTPUT-MESSAGE = LS_ZPITLOG0008-MESSAGE.
+      lr_protocol ?= lr_proxy->get_protocol( if_wsprotocol=>message_id ). "获取message_id
+      DATA(l_messageid) = lr_protocol->get_message_id( ).
+      ls_zpitlog0008-message_id = l_messageid.
+      ls_zpitlog0008a-message_id = l_messageid.
+      ls_zpitlog0008-erdat = sy-datum.
+      ls_zpitlog0008-ernam = sy-uname.
+      ls_zpitlog0008-erzet = sy-uzeit.
+      ls_zpitlog0008-type  = 'S'.
+      ls_zpitlog0008-message  = '下发成功'.
+      e_output-type    = ls_zpitlog0008-type .
+      e_output-message = ls_zpitlog0008-message.
+    CATCH cx_root INTO DATA(lr_root).
+      ls_zpitlog0008-type  = 'E'.
+      ls_zpitlog0008-message  = '下发失败'.
+      ls_zpitlog0008-erdat = sy-datum.
+      ls_zpitlog0008-ernam = sy-uname.
+      ls_zpitlog0008-erzet = sy-uzeit.
+      e_output-type    = ls_zpitlog0008-type .
+      e_output-message = ls_zpitlog0008-message.
   ENDTRY.
 
-  APPEND LS_ZPITLOG0008 TO LT_ZPITLOG0008.
-  APPEND LS_ZPITLOG0008A TO LT_ZPITLOG0008A.
-  CLEAR:LS_ZPITLOG0008,LS_ZPITLOG0008A.
+  APPEND ls_zpitlog0008 TO lt_zpitlog0008.
+  APPEND ls_zpitlog0008a TO lt_zpitlog0008a.
+  CLEAR:ls_zpitlog0008,ls_zpitlog0008a.
 
 
 *----------------------------------------------------------------------
 *   日志记录-记录返回参数
 *----------------------------------------------------------------------
-  IF L_MESSAGEID IS INITIAL. L_MESSAGEID = L_GUID. ENDIF.
-  ZCL_BC_PUBLIC=>WRITE_LOG( IV_LOGID = CONV #( L_MESSAGEID ) IV_INTID = L_INTID IV_PTYPE = 'E' IS_DATA = E_OUTPUT ). "记录输出参数
+  IF l_messageid IS INITIAL. l_messageid = l_guid. ENDIF.
+  zcl_bc_public=>write_log( iv_logid = CONV #( l_messageid ) iv_intid = l_intid iv_ptype = 'E' is_data = e_output ). "记录输出参数
 
-  IF LT_ZPITLOG0008 IS NOT  INITIAL.
-    MODIFY ZPITLOG0008 FROM TABLE LT_ZPITLOG0008.
-    IF SY-SUBRC = 0.
-      LV_ERROR = ''.
+  IF lt_zpitlog0008 IS NOT  INITIAL.
+    MODIFY zpitlog0008 FROM TABLE lt_zpitlog0008.
+    IF sy-subrc = 0.
+      lv_error = ''.
     ELSE.
-      LV_ERROR = 'X'.
+      lv_error = 'X'.
     ENDIF.
   ENDIF.
-  IF LT_ZPITLOG0008A IS NOT  INITIAL.
-    MODIFY ZPITLOG0008A FROM TABLE LT_ZPITLOG0008A.
-    IF SY-SUBRC = 0.
-      LV_ERROR = ''.
+  IF lt_zpitlog0008a IS NOT  INITIAL.
+    MODIFY zpitlog0008a FROM TABLE lt_zpitlog0008a.
+    IF sy-subrc = 0.
+      lv_error = ''.
     ELSE.
-      LV_ERROR = 'X'.
+      lv_error = 'X'.
     ENDIF.
   ENDIF.
 
-  IF LV_ERROR = ''.
+  IF lv_error = ''.
     COMMIT WORK.
   ELSE.
     ROLLBACK WORK.
@@ -342,64 +357,64 @@ FUNCTION Z_SD_APS_SO.
 
 ENDFUNCTION.
 
-FORM FRM_READ_LONG_TEXT USING P_ID P_VBELN P_POSNR  P_OBJECT
-                      CHANGING P_LTEXT.
-  DATA TDLINES TYPE TABLE OF TLINE.
+FORM frm_read_long_text USING p_id p_vbeln p_posnr  p_object
+                      CHANGING p_ltext.
+  DATA tdlines TYPE TABLE OF tline.
 
   CALL FUNCTION 'READ_TEXT'
     EXPORTING
-      ID                      = P_ID
-      LANGUAGE                = SY-LANGU
-      NAME                    = CONV TDOBNAME( P_VBELN && P_POSNR )
-      OBJECT                  = P_OBJECT
+      id                      = p_id
+      language                = sy-langu
+      name                    = CONV tdobname( p_vbeln && p_posnr )
+      object                  = p_object
     TABLES
-      LINES                   = TDLINES
+      lines                   = tdlines
     EXCEPTIONS
-      ID                      = 1
-      LANGUAGE                = 2
-      NAME                    = 3
-      NOT_FOUND               = 4
-      OBJECT                  = 5
-      REFERENCE_CHECK         = 6
-      WRONG_ACCESS_TO_ARCHIVE = 7
+      id                      = 1
+      language                = 2
+      name                    = 3
+      not_found               = 4
+      object                  = 5
+      reference_check         = 6
+      wrong_access_to_archive = 7
       OTHERS                  = 8.
 
-  CLEAR P_LTEXT.
-  LOOP AT TDLINES ASSIGNING FIELD-SYMBOL(<FS_LINE>).
-    P_LTEXT = P_LTEXT && <FS_LINE>-TDLINE.
+  CLEAR p_ltext.
+  LOOP AT tdlines ASSIGNING FIELD-SYMBOL(<fs_line>).
+    p_ltext = p_ltext && <fs_line>-tdline.
   ENDLOOP.
 
 ENDFORM.
 
-FORM FRM_READ_DOMAIN USING U_DOMAN U_NAME
-                     CHANGING C_TEXT.
+FORM frm_read_domain USING u_doman u_name
+                     CHANGING c_text.
   DATA:
 
-    LV_RETURN TYPE SY-SUBRC,
-    LT_DOMTAB TYPE STANDARD TABLE OF DD07V,
-    LS_DOMTAB TYPE DD07V.
+    lv_return TYPE sy-subrc,
+    lt_domtab TYPE STANDARD TABLE OF dd07v,
+    ls_domtab TYPE dd07v.
 
 
   CALL FUNCTION 'DD_DOMVALUES_GET'
     EXPORTING
-      DOMNAME        = U_DOMAN
-      TEXT           = 'X'
-      LANGU          = SY-LANGU
+      domname        = u_doman
+      text           = 'X'
+      langu          = sy-langu
     IMPORTING
-      RC             = LV_RETURN
+      rc             = lv_return
     TABLES
-      DD07V_TAB      = LT_DOMTAB
+      dd07v_tab      = lt_domtab
     EXCEPTIONS
-      WRONG_TEXTFLAG = 1
+      wrong_textflag = 1
       OTHERS         = 2.
-  IF SY-SUBRC <> 0.
-    MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
-          WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+          WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
   ENDIF.
 
-  READ TABLE LT_DOMTAB INTO LS_DOMTAB WITH KEY DOMVALUE_L = U_NAME.
-  IF SY-SUBRC = 0.
-    C_TEXT = LS_DOMTAB-DDTEXT.
+  READ TABLE lt_domtab INTO ls_domtab WITH KEY domvalue_l = u_name.
+  IF sy-subrc = 0.
+    c_text = ls_domtab-ddtext.
   ENDIF.
 
 

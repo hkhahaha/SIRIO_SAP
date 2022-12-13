@@ -18,7 +18,7 @@ TYPES:BEGIN OF ty_alv,
         number2       TYPE p DECIMALS 3, "  当前库存数量（销售单位）
         number3       TYPE p DECIMALS 3, "  已入库数量：
         wempf         TYPE mseg-wempf,   "  收货方
-        zieme         TYPE vbap-zieme  , "  销售单位
+        zieme(4)      TYPE c  , "  销售单位
         sel           TYPE c, " 用来标识选择的字段
         ettyp         TYPE vbep-ettyp, "计划行类别
         umziz         TYPE  vbap-umziz, "转换率的分子
@@ -29,32 +29,34 @@ TYPES:BEGIN OF ty_alv,
         name_text     TYPE adrp-name_text, "用户名
         status2       TYPE string, "操作的详细信息
         storage       TYPE p DECIMALS 3, "其他库存
+        zatpdfrq      TYPE vbap-zatpdfrq, "ATP答复日期
       END OF ty_alv.
 
 "定义用于存储VBAP、VBAK、VBEP字段的结构
 TYPES:BEGIN OF ty_vbapk,
-        kunnr  TYPE  vbak-kunnr,
-        ernam  TYPE  vbak-ernam,
-        vbeln  TYPE  vbak-vbeln,
-        posnr  TYPE  vbap-posnr,
-        vkorg  TYPE  vbak-vkorg,
-        vtweg  TYPE  vbak-vtweg,
-        auart  TYPE  vbak-auart,
-        matnr  TYPE  vbap-matnr,
-        arktx  TYPE  vbap-arktx,
-        kwmeng TYPE  vbap-kwmeng,
-        zieme  TYPE  vbap-zieme,
-        budat  TYPE  aufm-budat,
-        bwart  TYPE  aufm-bwart,
-        werks  TYPE  aufm-werks,
-        kdauf  TYPE  aufm-kdauf,
-        mblnr  TYPE  aufm-mblnr,
-        zeile  TYPE  aufm-zeile,
-        kdpos  TYPE  aufm-kdpos,
-        umziz  TYPE  vbap-umziz, "转换率的分子
-        umzin  TYPE  vbap-umzin, "转换率的分母
-        rate   TYPE  vbap-umziz, "转换率
-        etenr  TYPE  vbep-etenr, "计划行
+        kunnr    TYPE  vbak-kunnr,
+        ernam    TYPE  vbak-ernam,
+        vbeln    TYPE  vbak-vbeln,
+        posnr    TYPE  vbap-posnr,
+        vkorg    TYPE  vbak-vkorg,
+        vtweg    TYPE  vbak-vtweg,
+        auart    TYPE  vbak-auart,
+        matnr    TYPE  vbap-matnr,
+        arktx    TYPE  vbap-arktx,
+        kwmeng   TYPE  vbap-kwmeng,
+        zieme(4) TYPE  c,
+        budat    TYPE  aufm-budat,
+        bwart    TYPE  aufm-bwart,
+        werks    TYPE  aufm-werks,
+        kdauf    TYPE  aufm-kdauf,
+        mblnr    TYPE  aufm-mblnr,
+        zeile    TYPE  aufm-zeile,
+        kdpos    TYPE  aufm-kdpos,
+        umziz    TYPE  vbap-umziz, "转换率的分子
+        umzin    TYPE  vbap-umzin, "转换率的分母
+        rate     TYPE  vbap-umziz, "转换率
+        etenr    TYPE  vbep-etenr, "计划行
+        zatpdfrq TYPE vbap-zatpdfrq, "ATP答复日期
       END OF ty_vbapk.
 
 "获取用户名

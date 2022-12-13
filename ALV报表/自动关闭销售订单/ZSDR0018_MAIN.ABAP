@@ -1,6 +1,7 @@
 *&---------------------------------------------------------------------*
 *& 包含               ZSDR0018_MAIN
 *&---------------------------------------------------------------------*
+TABLES:mska.
 DATA:lt_aufm     TYPE TABLE OF aufm WITH HEADER LINE,
      ls_aufm     TYPE aufm,
      lt_mseg     TYPE TABLE OF mseg,
@@ -22,8 +23,8 @@ DATA:lt_aufm     TYPE TABLE OF aufm WITH HEADER LINE,
      ls_tvakt    TYPE tvakt,
      lt_but000   TYPE TABLE OF but000,
      ls_but000   TYPE but000,
-     lt_mssa     TYPE TABLE OF mssa,
-     ls_mssa     TYPE mssa,
+*     lt_mssa     TYPE TABLE OF mssa,
+*     ls_mssa     TYPE mssa,
      lt_name     TYPE TABLE OF ty_name,
      ls_name     TYPE ty_name,
      lt_zsdr0018 TYPE TABLE OF zsdr0018,
@@ -31,6 +32,11 @@ DATA:lt_aufm     TYPE TABLE OF aufm WITH HEADER LINE,
      lt_vbfa     TYPE TABLE OF vbfa,
      lt_vbfa2    TYPE TABLE OF vbfa,
      ls_vbfa     TYPE vbfa.
+
+DATA: lt_mska  TYPE TABLE OF mska,
+      ls_mska  TYPE mska,
+      lt_mska2 TYPE TABLE OF mska,
+      ls_mska2 TYPE mska.
 
 START-OF-SELECTION.
 *调用子程序
@@ -73,6 +79,7 @@ FORM getdata.
     c~auart
     b~umziz
     b~umzin
+    b~zatpdfrq " ZZD
     INTO CORRESPONDING FIELDS OF TABLE lt_vbapk2
     FROM aufm AS a
     INNER JOIN vbap AS b
@@ -90,7 +97,9 @@ FORM getdata.
     AND c~kunnr IN s_kunnr
     AND c~ernam IN s_ernam
     AND c~vkorg IN s_vkorg
-    AND c~vtweg IN s_vtweg.
+    AND c~vtweg IN s_vtweg
+      AND c~auart LIKE 'ZA%'
+    AND b~abgru = ''.
 
   "获取MSEG表里面的数据，此单结束的订单号和行项
   SELECT
@@ -102,7 +111,7 @@ FORM getdata.
     FOR ALL ENTRIES IN lt_vbapk2
     WHERE mseg~mblnr = lt_vbapk2-mblnr
     AND mseg~zeile = lt_vbapk2-zeile
-    AND mseg~wempf NOT LIKE '此单结束'.
+    AND mseg~wempf NOT LIKE '%单结%'.
 
   "获取MSEG表里面的数据，剔除行
   SELECT
@@ -138,6 +147,7 @@ FORM getdata.
     zieme
     vbap~umziz
     vbap~umzin
+    vbap~zatpdfrq " ZZD
     INTO CORRESPONDING FIELDS OF TABLE lt_vbapk
     FROM vbap
     INNER JOIN vbak
@@ -145,8 +155,9 @@ FORM getdata.
 *    INNER JOIN aufm
 *    ON aufm~kdauf = vbap~vbeln
 *    AND aufm~kdpos = vbap~posnr
-    WHERE vbap~kwmeng <= '0.01'
-    AND vbap~kwmeng > '0'
+    WHERE
+*    vbap~kwmeng <= '0.01' and    *****************20200312 ZZD
+     vbap~kwmeng > '0'
     AND vbak~auart LIKE 'ZA%'
     AND vbap~posnr IN s_posnr
     AND vbak~kunnr IN s_kunnr
@@ -154,7 +165,15 @@ FORM getdata.
     AND vbak~vbeln IN s_vbeln
     AND vbak~vkorg IN s_vkorg
     AND vbak~vtweg IN s_vtweg
-    AND vbap~abgru <> ''.
+
+    AND vbap~abgru = ''.
+
+*剔除非ZA10 数量不为0的订单；
+  DELETE lt_vbapk WHERE auart <> 'ZA10' AND kwmeng > '0.01' .
+*剔除ZA10 数量不为0.01 且 ATP为空的记录
+  DELETE lt_vbapk WHERE auart = 'ZA10' AND kwmeng > '0.01' AND zatpdfrq IS INITIAL .
+
+
 *    AND aufm~budat IN s_budat
 *    AND aufm~werks IN s_werks.
   LOOP AT lt_vbapk INTO ls_vbapk.
@@ -162,10 +181,11 @@ FORM getdata.
                                              posnr = ls_vbapk-posnr.
     "如果有找到的话，需要关闭订单
     IF sy-subrc = 0.
-      DELETE lt_vbapk WHERE vbeln = ls_vbapk-vbeln.
+      DELETE lt_vbapk WHERE vbeln = ls_vbapk-vbeln AND posnr = ls_vbapk-posnr.
       CLEAR ls_vbep.
       CONTINUE.
     ENDIF.
+    CLEAR ls_vbapk.
   ENDLOOP.
   CLEAR ls_vbapk.
   SORT lt_mseg2 BY smbln smblp.
@@ -241,7 +261,7 @@ FORM getdata.
     AND vbep~posnr = lt_alv-posnr.
 
   SORT lt_vbep BY vbeln posnr edatu.
-  MOVE-CORRESPONDING lt_alv TO lt_alv2.
+*  MOVE-CORRESPONDING lt_alv TO lt_alv2.
 
   "取出全部的凭证类型描述
   SELECT
@@ -265,22 +285,44 @@ FORM getdata.
     WHERE but000~partner = lt_alv-kunnr.
   SORT lt_but000 BY partner.
 
+*  SELECT
+*    salab
+*    vbeln
+*    posnr
+*    matnr
+*    sains
+*    saspe
+*    saein
+*
+*    INTO CORRESPONDING FIELDS OF TABLE lt_mssa
+*    FROM mssa
+*    FOR ALL ENTRIES IN lt_alv
+*    WHERE mssa~matnr = lt_alv-matnr
+*    AND mssa~vbeln = lt_alv-vbeln
+*    AND mssa~posnr = lt_alv-posnr.
+*  SORT lt_mssa BY vbeln posnr matnr.
+
   SELECT
-    salab
     vbeln
     posnr
-    matnr
-    sains
-    saspe
-    saein
+    kaspr
+    kalab
+    kains
+    kaspe
+    kavla
+    FROM mska
+     INTO CORRESPONDING FIELDS OF TABLE lt_mska
+       FOR ALL ENTRIES IN lt_alv
+    WHERE mska~vbeln = lt_alv-vbeln AND mska~posnr = lt_alv-posnr AND mska~matnr = lt_alv-matnr AND mska~lgort IN ('1040','2040','3040','1070','2070','3070').
+  LOOP AT lt_mska INTO ls_mska.
+    COLLECT ls_mska INTO lt_mska2.
+  ENDLOOP.
+  SORT lt_mska2 BY vbeln posnr.
 
-    INTO CORRESPONDING FIELDS OF TABLE lt_mssa
-    FROM mssa
-    FOR ALL ENTRIES IN lt_alv
-    WHERE mssa~matnr = lt_alv-matnr
-    AND mssa~vbeln = lt_alv-vbeln
-    AND mssa~posnr = lt_alv-posnr.
-  SORT lt_mssa BY vbeln posnr matnr.
+
+
+
+
 
   SELECT
     bname
@@ -361,15 +403,24 @@ FORM getdata.
     ENDIF.
 
     "匹配非限制库存
-    READ TABLE lt_mssa INTO ls_mssa WITH KEY vbeln = ls_alv-vbeln
-                                             posnr = ls_alv-posnr
-                                             matnr = ls_alv-matnr
-                                             BINARY SEARCH.
+*    READ TABLE lt_mssa INTO ls_mssa WITH KEY vbeln = ls_alv-vbeln
+*                                             posnr = ls_alv-posnr
+**                                             matnr = ls_alv-matnr
+*                                             BINARY SEARCH.
+    SORT lt_mska2 BY vbeln posnr.
+    READ TABLE lt_mska2 INTO ls_mska2 WITH KEY vbeln = ls_alv-vbeln
+                                              posnr = ls_alv-posnr
+    BINARY SEARCH.
     IF sy-subrc = 0.
-      ls_alv-number2 = ls_mssa-salab / ls_alv-rate.
-      ls_alv-storage = ( ls_mssa-sains + ls_mssa-saspe + ls_mssa-saein ) / ls_alv-rate.
-      CLEAR ls_mssa.
+      ls_alv-number2 = ls_mska2-kalab / ls_alv-rate.
+      ls_alv-storage = ( ls_mska2-kaspr + ls_mska2-kains + ls_mska2-kavin + ls_mska2-kaspe ) / ls_alv-rate.
     ENDIF.
+
+*    IF sy-subrc = 0.
+*      ls_alv-number2 = ls_mssa-salab / ls_alv-rate.
+*      ls_alv-storage = ( ls_mssa-sains + ls_mssa-saspe + ls_mssa-saein ) / ls_alv-rate.
+*      CLEAR ls_mssa.
+*    ENDIF.
 
     "匹配用户名
     READ TABLE lt_name INTO ls_name WITH KEY bname = ls_alv-ernam BINARY SEARCH.
@@ -396,7 +447,8 @@ FORM getdata.
     ls_alv-number3 = ls_alv-number1 + ls_alv-number2 + ls_alv-storage.
     ls_alv-matnr = zcl_bc_public=>conv_by_ddic( i_input = ls_alv-matnr i_out = 'X' ).
     ls_alv-status = ''.
-    MODIFY lt_alv2 FROM ls_alv INDEX l_index.
+    APPEND ls_alv TO lt_alv2.
+*    MODIFY lt_alv2 FROM ls_alv INDEX l_index.
   ENDLOOP.
 ENDFORM.
 
@@ -427,11 +479,13 @@ FORM catalog.
   fieldcatset 'POSNR' '行项目'.
   fieldcatset 'MATNR' '物料'.
   fieldcatset 'ARKTX' '物料描述'.
+  fieldcatset 'ZATPDFRQ' 'ATP答复日期'.
   fieldcatset 'KWMENG' '数量'.
   fieldcatset 'NUMBER1' '已过账数量（销售单位）'.
   fieldcatset 'NUMBER2' '当前库存数量（销售单位）'.
   fieldcatset 'STORAGE' '其他库存（销售单位）'.
   fieldcatset 'NUMBER3' '已入库数量（销售单位）'.
+
 *  fieldcatset 'WEMPF' '收货方'.
   fieldcatset 'ZIEME' '销售单位'.
   fieldcatset 'STATUS' '关闭状态'.
